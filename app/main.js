@@ -201,9 +201,10 @@ function medidasVidro(w) {
   const f = screen.getDisplayMatching(w.getBounds()).scaleFactor;
   return `${hwnd} ${Math.round(l * f)} ${Math.round(a * f)} ${Math.round(RAIO_IOS * f)}`;
 }
+// devolve uma promessa que termina quando o vidro já está aplicado
 function aplicarVidro(w) {
-  if (w.isDestroyed()) return;
-  pedirServidorPS('vidro ' + medidasVidro(w))
+  if (w.isDestroyed()) return Promise.resolve();
+  return pedirServidorPS('vidro ' + medidasVidro(w))
     .then((r) => { if (r !== 'true') console.error('Vidro não aplicado:', r); });
 }
 let cantosTimer = null;
@@ -243,9 +244,9 @@ function criarJanela(posicao) {
     // outras janelas, então aparece na barra de tarefas (senão não teria como achar)
     alwaysOnTop: cfg.fixado,
     skipTaskbar: cfg.fixado,
-    // aparece na hora: o fundo já é o preto da tela de carregamento (sem piscar branco).
-    // Na troca de estilo, só aparece pronta (a antiga fica na tela até lá).
-    show: !posicao,
+    // CMD: aparece na hora (o fundo já é o preto da tela de carregamento, sem piscar branco).
+    // iOS e troca de estilo: só aparece pronta (vidro aplicado; a antiga fica na tela até lá).
+    show: !ios && !posicao,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -265,8 +266,18 @@ function criarJanela(posicao) {
   janela.loadFile(path.join(__dirname, 'index.html'), { query });
   const esta = janela;
   janela.on('closed', () => { if (janela === esta) janela = null; });
+  esta.vidroPronto = Promise.resolve();
   if (ios) {
-    janela.webContents.once('did-finish-load', () => aplicarVidro(esta));
+    // A janela só aparece com o desfoque e os cantos já aplicados: antes disso ela é
+    // transparente "crua" e deixaria ver o desktop (e o que está sendo montado).
+    esta.vidroPronto = new Promise((ok) => {
+      esta.webContents.once('did-finish-load', () => aplicarVidro(esta).then(ok, ok));
+    });
+    if (!posicao) {
+      const mostrar = () => { if (!esta.isDestroyed() && !esta.isVisible()) esta.show(); };
+      esta.vidroPronto.then(mostrar);
+      setTimeout(mostrar, 6000); // garantia: nunca fica escondida
+    }
     janela.on('resize', () => agendarCantos(esta)); // a região redonda acompanha o tamanho
   }
 
@@ -919,7 +930,7 @@ ipcMain.handle('janela:estilo', (e, estilo) => {
       if (!nova.isDestroyed()) nova.show();
       if (!antiga.isDestroyed()) antiga.destroy();
     };
-    nova.once('ready-to-show', trocar);
+    Promise.all([new Promise((ok) => nova.once('ready-to-show', ok)), nova.vidroPronto]).then(trocar);
     setTimeout(trocar, 4000); // garantia: nunca ficam as duas
   }, 60);
   return true;

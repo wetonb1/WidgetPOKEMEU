@@ -1090,7 +1090,16 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
 [data-estilo="ios"] .dialogo-caixa h2 { font: 600 14px var(--font); color: #ffffff; }
 
 /* ----- tela de carregamento e modo mini ----- */
-[data-estilo="ios"] .carregando { border-radius: 22px; background: rgba(18, 18, 26, 0.88); }
+/* Enquanto a tela de carregamento está ativa, o resto fica escondido: ela é translúcida
+   e, sem isso, daria para ver a interface por baixo (o "spoiler"). Ao sair, o conteúdo
+   aparece por baixo dela enquanto some. */
+[data-estilo="ios"] #cartao:has(.carregando:not(.saindo)) > :not(.carregando) { visibility: hidden; }
+[data-estilo="ios"] .carregando {
+  border-radius: 22px;
+  background:
+    radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--cor) 24%, transparent), transparent 62%),
+    rgba(18, 18, 26, 0.55);
+}
 [data-estilo="ios"] .carregando-barra { background: rgba(255, 255, 255, 0.1); }
 [data-estilo="ios"] #cartao.mini { grid-template-rows: 38px 1fr; padding-bottom: 8px; }
 [data-estilo="ios"] .mini .lado-poke { padding: 2px; }
