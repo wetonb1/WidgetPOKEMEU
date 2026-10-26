@@ -4,10 +4,11 @@
   <meta charset="UTF-8">
   <!-- CSP: scripts só locais (inclusive o xterm, de node_modules). Estilos inline liberados
        porque o xterm cria <style> dinâmicos (fonte/tema); scripts inline seguem bloqueados.
-       Sem 'unsafe-eval'. Rede só para a PokéAPI (dados), sprites e gritos (GitHub)
-       e favicons do Google: origens específicas, mais restritas que "https:". -->
+       Sem 'unsafe-eval'. Rede só para a PokéAPI (dados), sprites e gritos (GitHub),
+       favicons do Google e as franquias de anime (Jikan/AniList e as CDNs das imagens):
+       origens específicas, mais restritas que "https:". -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com https://raw.githubusercontent.com; connect-src https://pokeapi.co; media-src https://raw.githubusercontent.com">
+        content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com https://raw.githubusercontent.com https://cdn.myanimelist.net https://s4.anilist.co; connect-src https://pokeapi.co https://api.jikan.moe https://graphql.anilist.co; media-src https://raw.githubusercontent.com">
   <title>Meu Widget</title>
   <script src="estilo.js"></script>
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
@@ -67,10 +68,13 @@
         <pre class="invasao">[!] sinal desconhecido detectado no terminal...
 [!] uma criatura está tentando assumir o controle.
 [?] quem vai mandar aqui?</pre>
+        <!-- de onde vem o dono: Pokémon ou anime (o renderer.js preenche) -->
+        <div class="fonte-escolha" data-fontes role="radiogroup" aria-label="Fonte"></div>
         <form id="bloq-form" class="linha-busca" autocomplete="off">
           <label for="bloq-busca">pokémon&gt;</label>
           <input id="bloq-busca" type="text" maxlength="30" spellcheck="false" placeholder="nome ou número + Enter">
         </form>
+        <div class="sugestoes oculto" id="bloq-resultados"></div>
         <div class="sugestoes" id="bloq-sugestoes">
           <button type="button" data-poke="pikachu">pikachu</button>
           <button type="button" data-poke="charmander">charmander</button>
@@ -171,12 +175,15 @@
 
       <!-- 5: pokédex e ajustes -->
       <section id="aba-poke" class="painel" data-painel="poke">
+        <div class="fonte-escolha" data-fontes role="radiogroup" aria-label="Fonte"></div>
         <form id="poke-form" class="linha-busca" autocomplete="off">
           <label for="poke-busca">trocar&gt;</label>
           <input id="poke-busca" type="text" maxlength="30" spellcheck="false" placeholder="nome ou número + Enter">
           <button type="button" id="poke-fav" class="icone-btn" title="Favoritar">☆</button>
           <button type="button" id="poke-shiny" class="icone-btn" title="Alternar brilhante (shiny)">✦</button>
         </form>
+        <!-- resultados da busca de anime: clique escolhe (sem nova requisição) -->
+        <div class="sugestoes oculto" id="poke-resultados"></div>
         <div class="sub">favoritos <span class="dica">(clique troca · botão direito remove)</span></div>
         <div id="poke-favs" class="poke-favs"></div>
         <div class="sub">ajustes</div>
@@ -236,6 +243,7 @@
   <script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
   <script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
   <script src="temas.js"></script>
+  <script src="franquias.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>

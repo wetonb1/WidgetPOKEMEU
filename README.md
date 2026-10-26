@@ -36,11 +36,12 @@ widget/
 │  ├─ style.css          o visual (CMD e iOS)
 │  ├─ estilo.js          escolhe o visual antes de desenhar a tela
 │  ├─ renderer.js        a lógica da tela (abas, Pokémon, narração...)
-│  ├─ temas.js           cor, animação e bordão de cada tipo de Pokémon
+│  ├─ temas.js           cor, animação e bordão de cada tipo de Pokémon (e de cada fonte de anime)
+│  ├─ franquias.js       personagens de anime (Jikan e AniList)
 │  ├─ media.ps1          música, volume, processos, vidro e lista de apps (PowerShell)
 │  └─ config.json        modelo da config (a sua fica em %APPDATA%\meu-widget)
 ├─ assets/               ícone (a pokébola cúbica vermelha)
-├─ docs/                 OTIMIZACAO.md (medições de consumo)
+├─ docs/                 OTIMIZACAO.md (medições de consumo) e FRANQUIAS.md (fontes de anime)
 ├─ tools/                medidor de consumo e gerador do ícone
 ├─ Meu Widget.exe        o executável (gerado por npm run dist)
 ├─ abrir-config.bat      abre a sua config no Bloco de Notas
@@ -82,6 +83,7 @@ Um terminal horizontal no canto superior direito que um Pokémon "invadiu":
 Fica em `%APPDATA%\meu-widget\config.json`, criada na primeira execução a partir do
 modelo `app/config.json`. Feche o widget, abra com `abrir-config.bat`, edite e abra o widget de novo.
 
+- **Anime (franquias):** na aba `poke`, troque a fonte para **Anime · Jikan** ou **Anime · AniList** e busque um personagem (Enter). Clique em outro resultado para trocar. A ☆ funciona igual; o ✦ só vale para Pokémon. Detalhes em [docs/FRANQUIAS.md](docs/FRANQUIAS.md). Na config: `"fonte"`, `"personagem"`, `"ultimaBusca"` e `"favoritosFranquias"`.
 - **Pokémon:** na aba `poke`, digite o nome ou o número e dê Enter. A ★ guarda nos favoritos (botão direito no favorito remove) e o ✦ alterna a versão brilhante. Na config: `"pokemon"`, `"shiny"`, `"favoritos"` e `"pokemonEscolhido"` (com `false`, volta a tela da primeira escolha).
 - **Janela:** `"fixado"` (sempre no topo), `"aba"` (a aba que abre; a `term` nunca abre sozinha) e `"janela"` (o tamanho salvo).
 - **Apps (1 clique):** na aba `apps`, clique em **[+ adicionar]**: aparecem os programas abertos agora, sites populares e tudo o que está no Menu Iniciar (inclusive apps da Microsoft Store). Clique num item para adicionar (✓) e clique de novo para tirar. Digite no campo para buscar e Enter adiciona o primeiro. Também dá para **colar um link ou caminho** e dar Enter (ou Ctrl+V direto na aba) e **arrastar** um programa, atalho, pasta ou link para a aba. Cada app aparece com a sua foto (o mesmo ícone que o Windows mostra, inclusive para apps da Microsoft Store; sites usam o favicon), e atalhos de programas já desinstalados não entram na lista. Botão direito num app remove. Na config: `"apps"`.

@@ -12,6 +12,10 @@
   "fixado": true,
   "aba": "sys",
   "estilo": "cmd",
+  "fonte": "pokemon",
+  "ultimaBusca": null,
+  "personagem": null,
+  "favoritosFranquias": [],
   "favoritos": [],
   "iniciarComWindows": true,
   "boasVindas": {

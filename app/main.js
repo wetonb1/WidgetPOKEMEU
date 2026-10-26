@@ -82,6 +82,31 @@ function sanitizarApp(a) {
   return null;
 }
 
+// ----- Franquias -----
+const FONTES = new Set(['pokemon', 'jikan', 'anilist']);
+const FONTES_ANIME = new Set(['jikan', 'anilist']);
+// imagens de personagem só das CDNs das duas fontes (as mesmas liberadas na CSP)
+const HOSTS_IMAGEM = new Set(['cdn.myanimelist.net', 's4.anilist.co']);
+
+function sanitizarBusca(b) {
+  if (!b || typeof b !== 'object' || !FONTES.has(b.fonte)) return null;
+  const termo = texto(b.termo, 60).trim();
+  return termo ? { fonte: b.fonte, termo } : null;
+}
+
+// { fonte, id, nome, imagem }: id numérico das APIs, imagem só https das CDNs conhecidas
+function sanitizarPersonagem(p) {
+  if (!p || typeof p !== 'object' || !FONTES_ANIME.has(p.fonte)) return null;
+  const id = Number.isInteger(p.id) && p.id > 0 ? p.id : null;
+  const nome = texto(p.nome, 60).trim();
+  let imagem = '';
+  try {
+    const u = new URL(texto(p.imagem, 500));
+    if (u.protocol === 'https:' && HOSTS_IMAGEM.has(u.hostname)) imagem = u.href;
+  } catch { /* sem imagem */ }
+  return id && nome ? { fonte: p.fonte, id, nome, imagem } : null;
+}
+
 // Tamanho da janela salvo: inteiros dentro do mínimo e do máximo
 function tamanhoValidoJanela(t) {
   const n = (v, min, max, padrao) => (Number.isInteger(v) ? Math.min(max, Math.max(min, v)) : padrao);
@@ -118,8 +143,14 @@ function sanitizarConfig(cfg, modelo) {
     fixado: bool(cfg.fixado, modelo.fixado), // sempre no topo
     aba: ABAS.has(cfg.aba) ? cfg.aba : 'sys', // última aba aberta
     janela: tamanhoValidoJanela(cfg.janela), // tamanho escolhido por você
-    // cor da pokébola da tela de carregamento (a do último Pokémon; vermelha de início)
     estilo: cfg.estilo === 'ios' ? 'ios' : 'cmd', // visual: CMD ou iOS (vidro)
+    // Franquias: de onde vem o "dono" do widget (Pokémon, ou anime via Jikan/AniList)
+    fonte: FONTES.has(cfg.fonte) ? cfg.fonte : 'pokemon',
+    ultimaBusca: sanitizarBusca(cfg.ultimaBusca),
+    personagem: sanitizarPersonagem(cfg.personagem), // último personagem de anime escolhido
+    favoritosFranquias: Array.isArray(cfg.favoritosFranquias)
+      ? cfg.favoritosFranquias.map(sanitizarPersonagem).filter(Boolean).slice(0, 50) : [],
+    // cor da pokébola da tela de carregamento (a do último Pokémon; vermelha de início)
     corPokebola: typeof cfg.corPokebola === 'string' && /^#[0-9a-f]{6}$/i.test(cfg.corPokebola) ? cfg.corPokebola : '#e3350d',
     apps: Array.isArray(cfg.apps) ? cfg.apps.map(sanitizarApp).filter(Boolean).slice(0, 64) : [],
   };

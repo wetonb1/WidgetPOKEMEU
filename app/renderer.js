@@ -787,11 +787,15 @@ const pokemon = (() => {
     bloqForm: document.getElementById('bloq-form'),
     bloqBusca: document.getElementById('bloq-busca'),
     sugestoes: document.getElementById('bloq-sugestoes'),
+    resultados: document.getElementById('poke-resultados'),
+    bloqResultados: document.getElementById('bloq-resultados'),
   };
   const API = 'https://pokeapi.co/api/v2/pokemon/';
   const CPU_ALTA = 85; // % a partir do qual o Pokémon "sua"
 
-  let atual = null;      // { id, slug, nome, tipos, sprites, grito }
+  // atual: Pokémon { fonte: 'pokemon', id, slug, nome, tipos, sprites, grito }
+  //        anime   { fonte: 'jikan'|'anilist', id, slug, nome, tipos: [], sprites: null, grito: null, imagem }
+  let atual = null;
   let escolhido = false; // já escolheu um Pokémon alguma vez?
   let usarShiny = false;
   let gifSempre = false; // config.gifAnimado
@@ -799,9 +803,20 @@ const pokemon = (() => {
   let cpuAlta = false;
   let pedido = 0;        // descarta respostas antigas se buscar de novo
   let ultimaCocega = 0;
+  let fonteBusca = 'pokemon'; // onde o Enter procura (seletor de fonte)
+  let favFranquias = [];      // [{ fonte, id, nome, imagem }]
+
+  const ehAnime = () => !!atual && atual.fonte !== 'pokemon';
+  const temaDaFonte = () => FONTE_TEMA[atual.fonte] || FONTE_TEMA.jikan;
+  const mesmoPersonagem = (a, b) => a.fonte === b.fonte && a.id === b.id;
+  // nome de anime -> "usuário" do prompt e da narração ("Naruto Uzumaki" -> "naruto")
+  const slugDe = (nome) => normalizar(String(nome).split(/[\s,]+/)[0]) || 'anime';
 
   const capitalizar = (s) => s.split('-').map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(' ');
-  const bordao = () => (atual ? (TYPE_THEME[atual.tipos[0]] || TYPE_THEME.normal).bordao : '');
+  const bordao = () => {
+    if (!atual) return '';
+    return ehAnime() ? temaDaFonte().bordao : (TYPE_THEME[atual.tipos[0]] || TYPE_THEME.normal).bordao;
+  };
 
   // "Mr. Mime" -> "mr-mime"; "Flabébé" -> "flabebe"; "25" -> "25". null se inválido.
   function normalizar(texto) {
@@ -813,13 +828,18 @@ const pokemon = (() => {
   }
 
   // Grava só as chaves do Pokémon (relê a config para não pisar nas outras)
+  // (o personagem de anime vai inteiro em "personagem": reabrir não precisa de internet)
   function salvar() {
     mudarConfig((cfg) => {
-      if (atual) cfg.pokemon = atual.slug;
+      if (atual && !ehAnime()) cfg.pokemon = atual.slug;
+      if (atual && ehAnime()) cfg.personagem = { fonte: atual.fonte, id: atual.id, nome: atual.nome, imagem: atual.imagem };
+      if (atual) cfg.fonte = atual.fonte; // o widget reabre com a última escolha
       cfg.pokemonEscolhido = escolhido;
       cfg.shiny = usarShiny;
       cfg.favoritos = favoritos;
-      if (atual) cfg.corPokebola = (TYPE_THEME[atual.tipos[0]] || TYPE_THEME.normal).accent; // a tela de carregamento abre nesta cor
+      cfg.favoritosFranquias = favFranquias;
+      // a tela de carregamento abre nesta cor
+      if (atual) cfg.corPokebola = ehAnime() ? temaDaFonte().accent : (TYPE_THEME[atual.tipos[0]] || TYPE_THEME.normal).accent;
     }).catch((erro) => console.error('Erro ao salvar Pokémon:', erro));
   }
 
@@ -920,14 +940,16 @@ const pokemon = (() => {
   }
   async function desenharImagem(avisar) {
     const animando = gifSempre && !economico && preferencias.animacoes;
-    const escolha = atual && escolherImagem(atual.sprites, animando);
+    const escolha = !atual ? null
+      : atual.sprites ? escolherImagem(atual.sprites, animando)
+        : atual.imagem ? { url: atual.imagem, sprite: false, pixel: false } : null;
     el.vazio.classList.toggle('oculto', !!escolha);
     const meu = ++pedidoImagem;
     if (!escolha) {
       tamanhoSprite = null;
       el.img.classList.add('oculto');
       el.img.removeAttribute('src');
-      if (atual && avisar) dizer(`Eita, não tenho foto${usarShiny ? ' brilhante' : ''}. Vou ficar invisível mesmo.`);
+      if (atual && avisar) dizer(`Eita, não tenho foto${usarShiny && !ehAnime() ? ' brilhante' : ''}. Vou ficar invisível mesmo.`);
       return;
     }
     el.img.classList.toggle('pixel', escolha.pixel);
@@ -948,22 +970,41 @@ const pokemon = (() => {
   }
 
   function desenharBotoes() {
-    const favorito = atual && favoritos.includes(atual.slug);
+    const favorito = atual && (ehAnime() ? favFranquias.some((f) => mesmoPersonagem(f, atual)) : favoritos.includes(atual.slug));
     el.fav.textContent = favorito ? '★' : '☆';
     el.fav.classList.toggle('ativo', !!favorito);
     el.fav.title = favorito ? 'Remover dos favoritos' : 'Favoritar';
-    el.shiny.classList.toggle('ativo', usarShiny);
+    el.shiny.classList.toggle('ativo', usarShiny && !ehAnime());
+    el.shiny.disabled = ehAnime();
+    el.shiny.title = ehAnime() ? 'Brilho (shiny) só existe para Pokémon' : 'Alternar brilhante (shiny)';
   }
 
   function desenharFavoritos() {
-    if (favoritos.length === 0) {
+    if (favoritos.length === 0 && favFranquias.length === 0) {
       const vazio = document.createElement('span');
       vazio.className = 'sub';
       vazio.textContent = '(nenhum ainda: use a ☆)';
       el.favs.replaceChildren(vazio);
       return;
     }
-    el.favs.replaceChildren(...favoritos.map((slug) => {
+    const deAnime = favFranquias.map((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fav-btn' + (atual && mesmoPersonagem(p, atual) ? ' atual' : '');
+      b.textContent = p.nome;
+      b.title = FONTE_TEMA[p.fonte].rotulo + ' • clique troca • botão direito remove';
+      b.addEventListener('click', () => escolherPersonagem(p, { usuario: true }));
+      b.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        favFranquias = favFranquias.filter((f) => !mesmoPersonagem(f, p));
+        dizer(`Tirei ${p.nome} dos favoritos.`);
+        desenharBotoes();
+        desenharFavoritos();
+        salvar();
+      });
+      return b;
+    });
+    el.favs.replaceChildren(...deAnime, ...favoritos.map((slug) => {
       const b = document.createElement('button');
       b.type = 'button';
       b.className = 'fav-btn' + (atual && atual.slug === slug ? ' atual' : '');
@@ -984,12 +1025,19 @@ const pokemon = (() => {
 
   function desenhar() {
     if (!atual) return;
-    // o tipo PRINCIPAL (primeiro) vira o esquema de cores do terminal inteiro
-    aplicarTema(atual.tipos[0]);
+    // Pokémon: o tipo PRINCIPAL (primeiro) vira o esquema de cores do terminal inteiro.
+    // Anime: a paleta fixa da fonte (temas.js).
+    aplicarTema(ehAnime() ? 'fonte:' + atual.fonte : atual.tipos[0]);
     atualizarAccent();
     el.nome.textContent = atual.nome;
-    el.num.textContent = '#' + String(atual.id).padStart(3, '0');
-    el.tipos.replaceChildren(...atual.tipos.map((t) => {
+    el.num.textContent = ehAnime() ? '' : '#' + String(atual.id).padStart(3, '0');
+    if (ehAnime()) {
+      const chip = document.createElement('span');
+      chip.className = 'tipo-chip';
+      chip.textContent = temaDaFonte().rotulo.toUpperCase();
+      chip.style.color = temaDaFonte().accent;
+      el.tipos.replaceChildren(chip);
+    } else el.tipos.replaceChildren(...atual.tipos.map((t) => {
       const chip = document.createElement('span');
       chip.className = 'tipo-chip';
       chip.textContent = (TIPO_PT[t] || t).toUpperCase(); // os [colchetes] do CMD vêm do CSS
@@ -1024,6 +1072,7 @@ const pokemon = (() => {
       const d = await resp.json();
       if (meu !== pedido) return false;
       atual = {
+        fonte: 'pokemon',
         id: d.id,
         slug: d.name,
         nome: capitalizar(d.name),
@@ -1056,6 +1105,129 @@ const pokemon = (() => {
     }
   }
 
+  // Personagem de anime escolhido (de uma busca, de um favorito ou da config).
+  // Não faz requisição: o personagem já traz nome e imagem.
+  function escolherPersonagem(p, { usuario = false, primeiraVez = false } = {}) {
+    pedido++; // uma busca de Pokémon em andamento não pisa nesta escolha
+    const anterior = atual;
+    atual = { fonte: p.fonte, id: p.id, slug: slugDe(p.nome), nome: p.nome, tipos: [], sprites: null, grito: null, imagem: p.imagem || '' };
+    desenhar();
+    marcarResultados();
+    if (primeiraVez) {
+      escolhido = true;
+      dizer(`${bordao()} ${atual.nome} está pronto para ajudar!`);
+      dizer('A partir de agora quem manda aqui sou eu. Mas pode me pedir as coisas pelas abas.');
+      abas.desbloquear();
+    } else if (usuario && !(anterior && anterior.fonte === atual.fonte && anterior.id === atual.id)) {
+      dizer(`${bordao()} ${atual.nome} está pronto para ajudar!`);
+    }
+    salvar();
+  }
+
+  // Resultados da busca de anime: até 5 botões; clicar escolhe (sem nova requisição)
+  let ultimosResultados = [];
+  function mostrarResultados(caixa, lista, primeiraVez) {
+    ultimosResultados = lista;
+    for (const c of [el.resultados, el.bloqResultados]) { c.classList.add('oculto'); c.replaceChildren(); }
+    if (lista.length < 2) return; // um só: já foi escolhido, não precisa de lista
+    caixa.replaceChildren(...lista.map((p) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = p.nome; // texto das APIs: sempre textContent
+      b.addEventListener('click', () => escolherPersonagem(p, { usuario: true, primeiraVez: primeiraVez && !escolhido }));
+      b.dataId = p.fonte + '|' + p.id;
+      return b;
+    }));
+    caixa.classList.remove('oculto');
+    marcarResultados();
+  }
+  function marcarResultados() {
+    const chave = atual ? atual.fonte + '|' + atual.id : '';
+    for (const c of [el.resultados, el.bloqResultados]) {
+      for (const b of c.children) b.classList.toggle('atual', b.dataId === chave);
+    }
+  }
+
+  // Busca de anime (Enter ou clique numa sugestão). Escolhe o primeiro resultado e
+  // mostra os outros para trocar com um clique. Erros viram fala.
+  async function buscarAnime(texto, { primeiraVez = false, caixa = el.resultados } = {}) {
+    const termo = String(texto || '').trim().slice(0, 60);
+    if (!termo) return false;
+    const fonte = fonteBusca;
+    const rotulo = FONTE_TEMA[fonte].rotulo;
+    const meu = ++pedido;
+    dizer(`Procurando "${termo}" no ${rotulo}...`);
+    mudarConfig((cfg) => { cfg.ultimaBusca = { fonte, termo }; }).catch((erro) => console.error('Erro ao salvar a busca:', erro));
+    let lista;
+    try {
+      lista = await franquias.buscar(fonte, termo, (s) => {
+        if (meu === pedido) dizer(`O ${rotulo} pediu calma (limite de requisições). Espero ${s} s e tento de novo...`);
+      });
+    } catch (erro) {
+      if (meu !== pedido) return false;
+      console.error('Erro no ' + rotulo + ':', erro);
+      dizer(erro.tipo === 'offline' ? `Não consegui falar com o ${rotulo}. Estamos sem internet (ou ele está fora do ar)?`
+        : erro.tipo === 'tempo' ? `O ${rotulo} não respondeu a tempo (pode estar fora do ar). Tenta de novo daqui a pouco?`
+          : erro.tipo === 'limite' ? `O ${rotulo} continua no limite de requisições. Espera um minutinho e tenta de novo.`
+            : `O ${rotulo} respondeu com erro (${erro.message}). Tenta de novo daqui a pouco.`);
+      return false;
+    }
+    if (meu !== pedido) return false; // chegou outra busca depois desta
+    if (lista.length === 0) {
+      dizer(`Não achei ninguém chamado "${termo}" no ${rotulo}.`);
+      mostrarResultados(caixa, [], primeiraVez);
+      return false;
+    }
+    mostrarResultados(caixa, lista, primeiraVez);
+    escolherPersonagem(lista[0], { usuario: true, primeiraVez: primeiraVez && !escolhido });
+    return true;
+  }
+
+  // ----- seletor de fonte (aba poke e tela da primeira escolha) -----
+  const SUGESTOES = {
+    pokemon: ['pikachu', 'charmander', 'bulbasaur', 'squirtle', 'eevee', 'gengar'],
+    jikan: ['Naruto', 'Goku', 'Luffy', 'Gojo', 'Mikasa', 'Tanjiro'],
+    anilist: ['Naruto', 'Goku', 'Luffy', 'Gojo', 'Mikasa', 'Tanjiro'],
+  };
+  const NOMES_FONTE = { pokemon: 'Pokémon', jikan: 'Anime · Jikan', anilist: 'Anime · AniList' };
+  const seletores = [...document.querySelectorAll('[data-fontes]')];
+  function desenharFonte() {
+    for (const s of seletores) {
+      for (const b of s.children) {
+        b.classList.toggle('ativo', b.dataset.fonte === fonteBusca);
+        b.setAttribute('aria-checked', b.dataset.fonte === fonteBusca);
+      }
+    }
+    const dica = fonteBusca === 'pokemon' ? 'nome ou número + Enter' : 'personagem de anime + Enter';
+    el.busca.placeholder = dica;
+    el.bloqBusca.placeholder = dica;
+    el.sugestoes.replaceChildren(...SUGESTOES[fonteBusca].map((n) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.poke = n;
+      b.textContent = n;
+      return b;
+    }));
+  }
+  for (const s of seletores) {
+    s.replaceChildren(...Object.keys(NOMES_FONTE).map((f) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fonte-op';
+      b.dataset.fonte = f;
+      b.setAttribute('role', 'radio');
+      b.textContent = NOMES_FONTE[f];
+      b.addEventListener('click', () => {
+        if (fonteBusca === f) return;
+        fonteBusca = f;
+        desenharFonte();
+        for (const c of [el.resultados, el.bloqResultados]) { c.classList.add('oculto'); c.replaceChildren(); }
+        dizer(f === 'pokemon' ? 'Voltando para a Pokédex. Quem eu chamo?' : `Agora eu procuro no ${FONTE_TEMA[f].rotulo}. Digite um personagem e dê Enter.`);
+      });
+      return b;
+    }));
+  }
+
   function tocarGrito(vol) {
     if (!atual || !atual.grito) return;
     const audio = new Audio(atual.grito);
@@ -1069,7 +1241,8 @@ const pokemon = (() => {
     const texto = el.busca.value;
     if (!texto.trim()) return;
     el.busca.value = '';
-    loadPokemon(texto, { usuario: true });
+    if (fonteBusca === 'pokemon') loadPokemon(texto, { usuario: true });
+    else buscarAnime(texto, { caixa: el.resultados });
   });
 
   // primeira vez: busca ou sugestões
@@ -1078,15 +1251,28 @@ const pokemon = (() => {
     const texto = el.bloqBusca.value;
     if (!texto.trim()) return;
     el.bloqBusca.value = '';
-    loadPokemon(texto, { usuario: true, primeiraVez: true });
+    if (fonteBusca === 'pokemon') loadPokemon(texto, { usuario: true, primeiraVez: true });
+    else buscarAnime(texto, { primeiraVez: true, caixa: el.bloqResultados });
   });
   el.sugestoes.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-poke]');
-    if (b) loadPokemon(b.dataset.poke, { usuario: true, primeiraVez: true });
+    if (!b) return;
+    if (fonteBusca === 'pokemon') loadPokemon(b.dataset.poke, { usuario: true, primeiraVez: true });
+    else buscarAnime(b.dataset.poke, { primeiraVez: true, caixa: el.bloqResultados });
   });
 
   el.fav.addEventListener('click', () => {
     if (!atual) return;
+    if (ehAnime()) {
+      const jaAnime = favFranquias.some((f) => mesmoPersonagem(f, atual));
+      favFranquias = jaAnime ? favFranquias.filter((f) => !mesmoPersonagem(f, atual))
+        : [...favFranquias, { fonte: atual.fonte, id: atual.id, nome: atual.nome, imagem: atual.imagem }];
+      dizer(jaAnime ? 'Saí dos favoritos? Tudo bem... 😢' : 'Me favoritou? Que honra!');
+      desenharBotoes();
+      desenharFavoritos();
+      salvar();
+      return;
+    }
     const ja = favoritos.includes(atual.slug);
     favoritos = ja ? favoritos.filter((f) => f !== atual.slug) : [...favoritos, atual.slug];
     dizer(ja ? 'Saí dos favoritos? Tudo bem... 😢' : 'Me favoritou? Que honra!');
@@ -1096,7 +1282,7 @@ const pokemon = (() => {
   });
 
   el.shiny.addEventListener('click', () => {
-    if (!atual) return;
+    if (!atual || ehAnime()) return; // brilho só existe para Pokémon
     usarShiny = !usarShiny;
     dizer(usarShiny ? 'Olha esse brilho! ✦' : 'Voltei às cores de sempre.');
     desenharBotoes();
@@ -1177,6 +1363,9 @@ const pokemon = (() => {
       gifSempre = cfg.gifAnimado === true;
       favoritos = Array.isArray(cfg.favoritos) ? cfg.favoritos.filter((f) => typeof f === 'string') : [];
       escolhido = cfg.pokemonEscolhido === true;
+      favFranquias = Array.isArray(cfg.favoritosFranquias) ? cfg.favoritosFranquias.filter((p) => p && FONTE_TEMA[p.fonte]) : [];
+      fonteBusca = franquias.existe(cfg.fonte) ? cfg.fonte : 'pokemon';
+      desenharFonte();
       desenharBotoes();
       desenharFavoritos();
 
@@ -1190,6 +1379,19 @@ const pokemon = (() => {
         dizer('Escolha quem vai mandar aqui para liberar tudo.');
         carregamento.terminar();
         el.bloqBusca.focus();
+        return;
+      }
+
+      // última escolha foi um personagem de anime: volta direto, sem requisição
+      if (fonteBusca !== 'pokemon' && cfg.personagem && cfg.personagem.fonte === fonteBusca) {
+        carregamento.etapa(55, `C:\\> chamando ${cfg.personagem.nome}...`);
+        escolherPersonagem(cfg.personagem);
+        carregamento.etapa(85, `C:\\> ${cfg.personagem.nome} chegou!`);
+        await esperarImagem();
+        carregamento.terminar();
+        const bvA = cfg.boasVindas || {};
+        if (bvA.ativo !== false) setTimeout(() => boasVindas(bvA), 1500);
+        else dizer(`${bordao()} De volta ao comando!`);
         return;
       }
 
