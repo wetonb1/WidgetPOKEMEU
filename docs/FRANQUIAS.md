@@ -27,6 +27,16 @@ O Pokémon segue o fluxo dele (tipo → tema em `TYPE_THEME`, sprite recortado, 
 Na tela, os dois usam o mesmo rosto, o mesmo nome, a mesma ☆ e as mesmas falas. O ✦ (brilho)
 fica desligado fora do Pokémon.
 
+## Falas
+
+O que o dono diz fica em `app/falas.js`, por situação (chegou, cócegas, CPU alta, favoritou, abrir app, música...), com **várias frases por situação**, sorteadas sem repetir a anterior:
+
+- **Pokémon:** frases próprias, com o bordão do tipo (`{b}`: "Bzzt!", "Fuuu!"...).
+- **Personagens de anime conhecidos** (Goku, Naruto, Luffy, Gojo, Mikasa, Rem, Levi, Tanjiro, Eren, Light, L, Zoro, Sanji, Vegeta, Saitama, Guts, Edward, Itachi, Kakashi, Sasuke, Deku, Bakugou): frases no jeito de cada um, reconhecidos pelo nome que o AniList devolve. De vez em quando entra uma frase geral de anime, para não repetir sempre a mesma.
+- **Qualquer outro personagem:** frases gerais de aventura, diferentes das do Pokémon.
+
+Para incluir um personagem: acrescente um item em `PERSONAGENS` (`re` casa com o nome em minúsculas e sem acento; o resto são listas de frases por situação). As marcas `{nome} {cpu} {app} {faixa} {de} {sauda} {chamar} {anterior}` são trocadas na hora.
+
 ## Cor do personagem
 
 No anime, o destaque do widget (botões, nome, prompt, barras, visualizador) usa **a cor do próprio personagem**,

@@ -38,6 +38,7 @@ widget/
 │  ├─ renderer.js        a lógica da tela (abas, Pokémon, narração...)
 │  ├─ temas.js           cor, animação e bordão de cada tipo de Pokémon (e de cada fonte de anime)
 │  ├─ franquias.js       personagens de anime (AniList) e a cor de cada um
+│  ├─ falas.js           as frases de cada dono (Pokémon, anime e personagens conhecidos)
 │  ├─ media.ps1          música, volume, processos, vidro e lista de apps (PowerShell)
 │  └─ config.json        modelo da config (a sua fica em %APPDATA%\meu-widget)
 ├─ assets/               ícone (a pokébola cúbica vermelha)

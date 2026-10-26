@@ -161,6 +161,8 @@ const narrador = (() => {
   };
 })();
 const dizer = (texto) => narrador.dizer(texto);
+// fala por situação, no jeito de quem é o dono (falas.js): várias frases por evento
+const falar = (evento, vars) => dizer(falas.texto(evento, vars));
 
 // ---------- Cores ----------
 // Mistura duas cores "#rrggbb" (t = 0 fica a primeira, t = 1 a segunda)
@@ -529,7 +531,7 @@ const volume = (() => {
     ultimoToque = Date.now();
     desenhar();
     mostrarBolha();
-    dizer(mudo ? 'Mudo! Agora é só a gente e o silêncio.' : 'Som de volta!');
+    falar(mudo ? 'mudoOn' : 'mudoOff');
     try {
       const r = await window.widget.setMudo(mudo);
       if (r) { valor = r.v; mudo = r.m; desenhar(); }
@@ -608,7 +610,7 @@ const musica = (() => {
           el.capa.classList.add('oculto');
         }
         if (!primeira && info.status === 'Playing') {
-          dizer(`♪ Agora toca "${info.title}"${info.artist ? ', de ' + info.artist : ''}. Gostei!`);
+          falar('musica', { faixa: info.title, de: info.artist ? ', de ' + info.artist : '' });
         }
         primeira = false;
         atual = chave;
@@ -626,19 +628,19 @@ const musica = (() => {
   const comando = (acao) => window.widget.mediaCmd(acao).catch((erro) => console.error('Comando de mídia:', erro));
   document.getElementById('mus-prev').addEventListener('click', () => {
     if (!atual) { dizer('Não tem nada tocando para voltar.'); return; }
-    dizer('Voltando uma faixa...');
+    falar('anterior');
     comando('prev');
   });
   document.getElementById('mus-next').addEventListener('click', () => {
     if (!atual) { dizer('Não tem nada tocando para pular.'); return; }
-    dizer('Próxima!');
+    falar('proxima');
     comando('next');
   });
   document.getElementById('mus-play').addEventListener('click', () => {
     if (!atual) { dizer('Abre o Spotify (ou um vídeo) que eu controlo daqui.'); return; }
     const estavaPausado = !el.icoPlay.classList.contains('oculto');
     desenharPlayPause(estavaPausado);
-    dizer(estavaPausado ? 'Solta o som!' : 'Pausei pra você.');
+    falar(estavaPausado ? 'tocar' : 'pausar');
     comando('playpause');
   });
 
@@ -1000,7 +1002,7 @@ const pokemon = (() => {
       b.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         favFranquias = favFranquias.filter((f) => !mesmoPersonagem(f, p));
-        dizer(`Tirei ${p.nome} dos favoritos.`);
+        falar('desfavoritou');
         desenharBotoes();
         desenharFavoritos();
         salvar();
@@ -1017,7 +1019,7 @@ const pokemon = (() => {
       b.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         favoritos = favoritos.filter((f) => f !== slug);
-        dizer(`Tirei ${capitalizar(slug)} dos favoritos.`);
+        falar('desfavoritou');
         desenharBotoes();
         desenharFavoritos();
         salvar();
@@ -1049,6 +1051,7 @@ const pokemon = (() => {
       return chip;
     }));
     narrador.falante(atual.slug);
+    falas.contexto({ fonte: atual.fonte, nome: atual.nome, bordao: bordao() });
     abas.dono(atual.slug);
     ultimaImagem = desenharImagem(true);
     varredura();
@@ -1087,12 +1090,12 @@ const pokemon = (() => {
       desenhar();
       if (primeiraVez) {
         escolhido = true;
-        dizer(`${bordao()} ${atual.nome} invadiu o terminal!`);
-        dizer('A partir de agora quem manda aqui sou eu. Mas pode me pedir as coisas pelas abas.');
+        falar('chegou');
+        falar('chegou2');
         tocarGrito(0.4);
         abas.desbloquear();
       } else if (usuario && anterior && anterior.slug !== atual.slug) {
-        dizer(`${bordao()} ${anterior.nome} saiu de fininho. Agora o terminal é do ${atual.nome}!`);
+        falar('trocou', { anterior: anterior.nome });
         tocarGrito(0.35);
       }
       salvar();
@@ -1134,11 +1137,11 @@ const pokemon = (() => {
     marcarResultados();
     if (primeiraVez) {
       escolhido = true;
-      dizer(`${bordao()} ${atual.nome} está pronto para ajudar!`);
-      dizer('A partir de agora quem manda aqui sou eu. Mas pode me pedir as coisas pelas abas.');
+      falar('chegou');
+      falar('chegou2');
       abas.desbloquear();
     } else if (usuario && !(anterior && anterior.fonte === atual.fonte && anterior.id === atual.id)) {
-      dizer(`${bordao()} ${atual.nome} está pronto para ajudar!`);
+      falar('trocou', { anterior: anterior ? anterior.nome : '' });
     }
     salvar();
   }
@@ -1285,7 +1288,7 @@ const pokemon = (() => {
       const jaAnime = favFranquias.some((f) => mesmoPersonagem(f, atual));
       favFranquias = jaAnime ? favFranquias.filter((f) => !mesmoPersonagem(f, atual))
         : [...favFranquias, { fonte: atual.fonte, id: atual.id, nome: atual.nome, imagem: atual.imagem, cor: atual.cor || '' }];
-      dizer(jaAnime ? 'Saí dos favoritos? Tudo bem... 😢' : 'Me favoritou? Que honra!');
+      falar(jaAnime ? 'desfavoritou' : 'favoritou');
       desenharBotoes();
       desenharFavoritos();
       salvar();
@@ -1293,7 +1296,7 @@ const pokemon = (() => {
     }
     const ja = favoritos.includes(atual.slug);
     favoritos = ja ? favoritos.filter((f) => f !== atual.slug) : [...favoritos, atual.slug];
-    dizer(ja ? 'Saí dos favoritos? Tudo bem... 😢' : 'Me favoritou? Que honra!');
+    falar(ja ? 'desfavoritou' : 'favoritou');
     desenharBotoes();
     desenharFavoritos();
     salvar();
@@ -1302,7 +1305,7 @@ const pokemon = (() => {
   el.shiny.addEventListener('click', () => {
     if (!atual || ehAnime()) return; // brilho só existe para Pokémon
     usarShiny = !usarShiny;
-    dizer(usarShiny ? 'Olha esse brilho! ✦' : 'Voltei às cores de sempre.');
+    falar(usarShiny ? 'shinyOn' : 'shinyOff');
     desenharBotoes();
     desenharImagem(true); // usa os dados já baixados: sem nova consulta
     varredura();
@@ -1325,7 +1328,7 @@ const pokemon = (() => {
     animar();
     if (atual && Date.now() - ultimaCocega > 30000) {
       ultimaCocega = Date.now();
-      dizer(`${bordao()} Ei, isso faz cócegas!`);
+      falar('cocegas');
     }
   });
   // clique no rosto abre a Pokédex
@@ -1356,7 +1359,7 @@ const pokemon = (() => {
     // Passo 1: rosto pula 3 vezes + saudação na narração
     el.anim.classList.remove('anima');
     if (preferencias.animacoes) el.anim.classList.add('hello');
-    dizer(`${sauda}, ${chamar}! ${atual.nome} está pronto para ajudar.`);
+    falar('boasVindas', { sauda, chamar });
     // Passo 2: grito a 50%
     if (bv.grito !== false) tocarGrito(0.5);
     // Passo 3: voz, 1,2 s depois
@@ -1409,7 +1412,7 @@ const pokemon = (() => {
         carregamento.terminar();
         const bvA = cfg.boasVindas || {};
         if (bvA.ativo !== false) setTimeout(() => boasVindas(bvA), 1500);
-        else dizer(`${bordao()} De volta ao comando!`);
+        else falar('volta');
         return;
       }
 
@@ -1433,7 +1436,7 @@ const pokemon = (() => {
 
       const bv = cfg.boasVindas || {};
       if (bv.ativo !== false) setTimeout(() => boasVindas(bv), 1500);
-      else dizer(`${bordao()} De volta ao comando!`);
+      else falar('volta');
     },
     // chamado a cada leitura de CPU; só fala quando o estado muda
     cpu(pct) {
@@ -1441,7 +1444,7 @@ const pokemon = (() => {
       if (alta === cpuAlta) return;
       cpuAlta = alta;
       if (!atual) return;
-      dizer(alta ? `${bordao()} Tô suando! CPU em ${Math.round(pct)}%.` : 'Ufa, a CPU acalmou.');
+      falar(alta ? 'cpuAlta' : 'cpuOk', { cpu: Math.round(pct) });
     },
     escolhido: () => escolhido,
     nome: () => (atual ? atual.nome : null),
@@ -1527,11 +1530,11 @@ const apps = (() => {
   }
 
   async function adicionar(item) {
-    if (posicao(item) >= 0) { dizer(item.name + ' já está nos apps.'); return; }
+    if (posicao(item) >= 0) { dizer(item.name + ' já está nos apps.'); return; } // (aviso, não reação)
     if (lista.length >= LIMITE) { dizer('Não cabe mais nada! Tire algum app antes.'); return; }
     try {
       await gravar([...lista, { name: item.name.slice(0, 30), type: item.type, target: item.target }]);
-      dizer('Anotado: ' + item.name + ' agora está nos apps.');
+      falar('appAdd', { app: item.name });
     } catch (erro) {
       dizer('Não consegui salvar ' + item.name + '.');
       console.error('Erro ao salvar atalho:', erro);
@@ -1542,7 +1545,7 @@ const apps = (() => {
     const nome = lista[i].name;
     try {
       await gravar(lista.filter((_, j) => j !== i));
-      dizer(nome + ' saiu da lista.');
+      falar('appRemove', { app: nome });
     } catch (erro) {
       console.error('Erro ao remover atalho:', erro);
     }
@@ -1597,7 +1600,7 @@ const apps = (() => {
       b.append(icone, nome);
       if (icone.carregar) icone.carregar();
       b.addEventListener('click', () => {
-        dizer('Abrindo ' + a.name + '! Vai lá.');
+        falar('appAbrir', { app: a.name });
         window.widget.abrirApp(i)
           .then((erro) => { if (erro) { dizer('Não consegui abrir ' + a.name + ': ' + erro); console.error('Não abriu', a.name + ':', erro); } })
           .catch((erro) => console.error('Erro ao abrir', a.name + ':', erro));
@@ -2010,7 +2013,7 @@ const abas = (() => {
     } catch (erro) {
       console.error('Erro ao mudar a janela:', erro);
     }
-    if (!mini) dizer('Voltei! Sentiu minha falta?');
+    if (!mini) falar('miniVolta');
     else pokemon.redesenhar();
   }
   btnMini.addEventListener('click', alternarMini);
