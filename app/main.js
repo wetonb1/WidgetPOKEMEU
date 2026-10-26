@@ -498,6 +498,20 @@ function lerApp(indice) {
 // Ícone de um .exe/.lnk (em cache): vira dataURL para a tela
 async function iconeDe(caminho) {
   if (iconesCache.has(caminho)) return iconesCache.get(caminho);
+  if (/\.lnk$/i.test(caminho)) {
+    // Atalho com ícone próprio quebrado (arquivo .ico que sumiu): vale o ícone do programa de destino
+    let info = null;
+    try { info = shell.readShortcutLink(caminho); } catch { /* atalho ilegível: segue o caminho normal */ }
+    if (info && info.icon && !/%/.test(info.icon) && !fs.existsSync(info.icon) && info.target && fs.existsSync(info.target) && !/\.lnk$/i.test(info.target)) {
+      const url = await iconeDe(info.target);
+      iconesCache.set(caminho, url);
+      return url;
+    }
+    if (!/["<>|*?\r\n]/.test(caminho) && caminho.length <= 300) {
+      const url = pngParaUrl(await pedirServidorPS('iconearq ' + caminho));
+      if (url) { iconesCache.set(caminho, url); return url; }
+    }
+  }
   try {
     const img = await app.getFileIcon(caminho, { size: 'large' });
     const url = img.isEmpty() ? null : img.toDataURL();
@@ -507,6 +521,19 @@ async function iconeDe(caminho) {
     return null; // a tela mostra a inicial do nome
   }
 }
+
+// Ícone de um app do Menu Iniciar / Microsoft Store pelo AppID (em cache). Quem
+// desenha é o PowerShell persistente (comando "iconeapp"): o Windows entrega a
+// mesma imagem que o Explorer mostra, inclusive para apps sem .exe acessível.
+async function iconeDeAppId(id) {
+  if (typeof id !== 'string' || !APP_ID.test(id)) return null;
+  const chave = 'app:' + id;
+  if (iconesCache.has(chave)) return iconesCache.get(chave);
+  const url = pngParaUrl(await pedirServidorPS('iconeapp ' + id));
+  if (url) iconesCache.set(chave, url); // falha não fica no cache: tenta de novo depois
+  return url;
+}
+const pngParaUrl = (png) => (/^[A-Za-z0-9+/=]{20,}$/.test(png.trim()) ? 'data:image/png;base64,' + png.trim() : null);
 
 // shell.openPath e getFileIcon exigem caminho completo. Um nome solto como
 // "notepad.exe" é procurado no System32, no Windows e nas pastas do PATH.
@@ -553,16 +580,21 @@ ipcMain.handle('apps:abrir', async (e, indice) => {
 ipcMain.handle('apps:icone', async (e, indice) => {
   if (!daJanela(e)) return null;
   const a = lerApp(indice);
-  if (!a || a.type !== 'exe') return null;
+  if (!a) return null;
+  if (a.type === 'app') return iconeDeAppId(a.target);
+  if (a.type !== 'exe') return null;
   const caminho = caminhoCompleto(a.target);
   if (!fs.existsSync(caminho)) return null;
   return iconeDe(caminho);
 });
 
+// Ícone de um app do catálogo (ainda não adicionado) pelo AppID
+ipcMain.handle('apps:icone-appid', (e, id) => (daJanela(e) ? iconeDeAppId(id) : null));
+
 // Ícone de um programa/atalho pelo caminho (catálogo e arrastar-e-soltar)
 ipcMain.handle('apps:icone-arquivo', async (e, caminho) => {
   if (!daJanela(e) || typeof caminho !== 'string' || caminho.length > 400) return null;
-  if (!path.isAbsolute(caminho) || !/\.(exe|lnk|url|bat|cmd)$/i.test(caminho) || !fs.existsSync(caminho)) return null;
+  if (!path.isAbsolute(caminho) || !/\.(exe|lnk|url|bat|cmd|msc)$/i.test(caminho) || !fs.existsSync(caminho)) return null;
   return iconeDe(caminho);
 });
 
@@ -581,7 +613,10 @@ const PASTAS_CONHECIDAS = {
   '{F38BF404-1D43-42F2-9305-67DE0B28FC23}': process.env.SystemRoot || 'C:\\Windows',
   '{6D809377-6AF0-444B-8957-A3773F02200E}': process.env.ProgramW6432 || process.env.ProgramFiles || 'C:\\Program Files',
   '{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}': process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)',
+  '{D65231B0-B2F1-4857-A4CE-A8E7C6EA7D27}': path.join(process.env.SystemRoot || 'C:\\Windows', 'SysWOW64'),
 };
+// documentação e pastas que o Menu Iniciar às vezes lista: não são apps
+const NAO_E_APP = /\.(pdf|txt|chm|html?|rtf|url|md|log)$|\\[^\\.]*$/i;
 // entradas do Menu Iniciar que não são apps de verdade
 const RUIDO_MENU = /desinstal|uninstall|ajuda|help|manual|readme|leia-me|documenta|licen[cç]a|license|website|release notes|notas de vers/i;
 const NAO_LISTAR_ABERTOS = /\\(textinputhost|applicationframehost|explorer|systemsettings|shellexperiencehost|searchapp|lockapp|meu widget|electron)\.exe$/i;
@@ -607,13 +642,26 @@ function atalhosDoMenu() {
   return mapa;
 }
 
-function exeDoAppId(id) {
+// AppID no formato "{pasta conhecida}\caminho": devolve o arquivo real (se existir)
+function arquivoDoAppId(id) {
   const m = /^(\{[0-9A-F-]{36}\})\\(.+)$/i.exec(id);
   if (!m) return null;
   const base = PASTAS_CONHECIDAS[m[1].toUpperCase()];
   if (!base) return null;
   const p = path.join(base, m[2]);
-  return /\.exe$/i.test(p) && fs.existsSync(p) ? p : null;
+  return fs.existsSync(p) ? p : null;
+}
+
+// Atalho (.lnk) cujo destino não existe mais (programa desinstalado). Sem destino
+// (apps da Store, atalhos especiais) ou com variável de ambiente: assume que vale.
+function atalhoMorto(caminho) {
+  if (!/\.lnk$/i.test(caminho)) return false;
+  try {
+    const alvo = shell.readShortcutLink(caminho).target;
+    return !!alvo && !/%/.test(alvo) && /^[A-Za-z]:\\/.test(alvo) && !fs.existsSync(alvo);
+  } catch {
+    return false;
+  }
 }
 
 async function listarInstalados() {
@@ -628,7 +676,11 @@ async function listarInstalados() {
     const chave = a.n.toLowerCase();
     if (vistos.has(chave)) continue;
     vistos.add(chave);
-    const exe = atalhos.get(chave) || exeDoAppId(a.id);
+    const arquivo = arquivoDoAppId(a.id);
+    // PDF, pasta e afins: não são apps
+    if (!atalhos.has(chave) && /^\{/.test(a.id) && (NAO_E_APP.test(a.id) || (arquivo && fs.statSync(arquivo).isDirectory()))) continue;
+    const exe = atalhos.get(chave) || arquivo;
+    if (exe && atalhoMorto(exe)) continue; // o programa foi desinstalado: sobrou só o atalho
     if (exe) itens.push({ nome: a.n, type: 'exe', target: exe });
     else if (APP_ID.test(a.id)) itens.push({ nome: a.n, type: 'app', target: a.id });
   }

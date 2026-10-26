@@ -13,6 +13,7 @@ contextBridge.exposeInMainWorld('widget', {
   abrirApp: (indice) => ipcRenderer.invoke('apps:abrir', indice),
   iconeApp: (indice) => ipcRenderer.invoke('apps:icone', indice),
   catalogoApps: () => ipcRenderer.invoke('apps:catalogo'),
+  iconeAppId: (id) => ipcRenderer.invoke('apps:icone-appid', String(id)),
   iconeArquivo: (caminho) => ipcRenderer.invoke('apps:icone-arquivo', String(caminho)),
   // caminho de um arquivo solto na janela (arrastar-e-soltar); '' se não for arquivo do disco
   caminhoArquivo: (arquivo) => { try { return webUtils.getPathForFile(arquivo) || ''; } catch { return ''; } },

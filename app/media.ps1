@@ -9,7 +9,8 @@
 #   Comandos: info | info-capa | playpause | next | prev | processos | telacheia
 #             | volume | volume-set N (0-100) | mudo-set 0|1
 #             | vidro HWND L A RAIO (desfoque + cantos) | cantos HWND L A RAIO
-#             | startapps (apps do Menu Iniciar) | janelas (programas abertos) | sair
+#             | startapps (apps do Menu Iniciar) | janelas (programas abertos)
+#             | iconeapp APPID (ícone de um app do Menu Iniciar/Store, em PNG base64) | sair
 param(
     [ValidateSet('info', 'playpause', 'next', 'prev', 'servidor')]
     [string]$Action = 'info',
@@ -326,6 +327,82 @@ public static class Vidro {
 '@
     }
 
+    # Ícone de um app do Menu Iniciar (inclusive Microsoft Store), pelo mesmo caminho que
+    # o Explorer usa (IShellItemImageFactory). Devolve um PNG em base64 ('' se falhar).
+    # O C# só é compilado na primeira vez que um ícone é pedido.
+    $script:iconeAppPronto = $false
+    function Ler-IconeApp([string]$alvo) {
+        if (-not $script:iconeAppPronto) {
+            Add-Type -ReferencedAssemblies System.Drawing -TypeDefinition @'
+using System;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
+using System.Runtime.InteropServices;
+
+public static class IconeApp {
+    [StructLayout(LayoutKind.Sequential)] struct SIZE { public int cx, cy; }
+    [StructLayout(LayoutKind.Sequential)] struct BITMAP { public int Tipo, L, A, Linha; public short Planos, Bits; public IntPtr Dados; }
+    [ComImport, Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IShellItemImageFactory { [PreserveSig] int GetImage(SIZE tamanho, int flags, out IntPtr bitmap); }
+    [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+    static extern void SHCreateItemFromParsingName(string caminho, IntPtr pbc, ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out IShellItemImageFactory item);
+    [DllImport("gdi32.dll")] static extern int GetObject(IntPtr h, int tam, ref BITMAP bm);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
+
+    public static string Png(string alvo, int lado) {
+        Guid g = new Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b");
+        IShellItemImageFactory f;
+        SHCreateItemFromParsingName(alvo, IntPtr.Zero, ref g, out f);
+        IntPtr h;
+        if (f.GetImage(new SIZE { cx = lado, cy = lado }, 0, out h) != 0 || h == IntPtr.Zero) return "";
+        try {
+            BITMAP bm = new BITMAP();
+            GetObject(h, Marshal.SizeOf(bm), ref bm);
+            if (bm.Bits != 32 || bm.Dados == IntPtr.Zero) return "";
+            using (Bitmap origem = new Bitmap(bm.L, bm.A, bm.Linha, PixelFormat.Format32bppArgb, bm.Dados))
+            using (Bitmap copia = new Bitmap(origem))
+            using (MemoryStream ms = new MemoryStream()) {
+                // Ícones da Store vêm com uma placa cinza em volta do logo (o logo fica pequeno).
+                // Se o canto é cinza e o que sobra por dentro é colorido, corta a placa e amplia o logo.
+                Color canto = copia.GetPixel(2, 2);
+                int mx = Math.Max(canto.R, Math.Max(canto.G, canto.B)), mn = Math.Min(canto.R, Math.Min(canto.G, canto.B));
+                Bitmap saida = copia;
+                if (canto.A > 200 && mx - mn < 24) {
+                    int x0 = copia.Width, y0 = copia.Height, x1 = -1, y1 = -1, n = 0;
+                    double sat = 0;
+                    for (int y = 0; y < copia.Height; y++)
+                        for (int x = 0; x < copia.Width; x++) {
+                            Color c = copia.GetPixel(x, y);
+                            int dif = Math.Max(Math.Abs(c.R - canto.R), Math.Max(Math.Abs(c.G - canto.G), Math.Abs(c.B - canto.B)));
+                            if (c.A < 200 || dif > 36) {
+                                if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y;
+                                n++;
+                                int cmax = Math.Max(c.R, Math.Max(c.G, c.B)), cmin = Math.Min(c.R, Math.Min(c.G, c.B));
+                                sat += cmax == 0 ? 0 : (double)(cmax - cmin) / cmax;
+                            }
+                        }
+                    int l = Math.Max(x1 - x0 + 1, y1 - y0 + 1);
+                    if (n > 0 && l >= 24 && sat / n > 0.45) {
+                        saida = new Bitmap(96, 96, PixelFormat.Format32bppArgb);
+                        using (Graphics gr = Graphics.FromImage(saida)) {
+                            gr.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                            gr.DrawImage(copia, new Rectangle(0, 0, 96, 96), (x0 + x1 + 1) / 2 - l / 2, (y0 + y1 + 1) / 2 - l / 2, l, l, GraphicsUnit.Pixel);
+                        }
+                    }
+                }
+                saida.Save(ms, ImageFormat.Png);
+                return Convert.ToBase64String(ms.ToArray());
+            }
+        } finally { DeleteObject(h); }
+    }
+}
+'@
+            $script:iconeAppPronto = $true
+        }
+        try { return [IconeApp]::Png($alvo, 96) } catch { return '' }
+    }
+
     # Apps do Menu Iniciar (inclusive os da Microsoft Store): [{"n":nome,"id":AppID}]
     function Listar-StartApps {
         $itens = @(Get-StartApps | Where-Object { $_.Name -and $_.AppID } | ForEach-Object { [ordered]@{ n = [string]$_.Name; id = [string]$_.AppID } })
@@ -363,6 +440,8 @@ public static class Vidro {
                     'volume'    { [VolumeSistema]::Json() }
                     'startapps' { Listar-StartApps }
                     'janelas'   { Listar-Janelas }
+                    { $_ -match '^iconeapp [A-Za-z0-9_.!{}\ ()-]{1,300}$' } { Ler-IconeApp ('shell:AppsFolder\' + $_.Substring(9)) }
+                    { $_ -match '^iconearq [A-Za-z]:\\[^"<>|*?\r\n]{1,300}\.lnk$' } { Ler-IconeApp $_.Substring(9) }
                     { $_ -match '^vidro \d+ \d+ \d+ \d+$' } {
                         $n = $_ -split ' '
                         $ok = [Vidro]::Desfoque([long]$n[1], $true) -and [Vidro]::Cantos([long]$n[1], [int]$n[2], [int]$n[3], [int]$n[4])

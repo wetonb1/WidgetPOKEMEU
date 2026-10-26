@@ -1347,7 +1347,7 @@ const apps = (() => {
       try {
         img.src = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(new URL(a.target).hostname);
       } catch { return inicial(); }
-    } else if (a.type === 'app' || !buscar) {
+    } else if (!buscar) {
       return inicial();
     } else {
       img.carregar = () => buscar().then((url) => (url ? (img.src = url) : inicial())).catch(inicial);
@@ -1402,7 +1402,7 @@ const apps = (() => {
     b.type = 'button';
     b.className = 'loja-item';
     b.title = item.type === 'url' ? item.target : item.name;
-    const icone = criarIcone(item, () => window.widget.iconeArquivo(item.target));
+    const icone = criarIcone(item, () => (item.type === 'app' ? window.widget.iconeAppId(item.target) : window.widget.iconeArquivo(item.target)));
     const nome = document.createElement('span');
     nome.className = 'loja-nome';
     nome.textContent = item.name;
