@@ -1,0 +1,88 @@
+# Meu Widget
+
+Widget pessoal para Windows 10: um Pokémon no canto da tela que mostra CPU e RAM,
+controla a música (com visualizador e volume), guarda atalhos de apps e sites e tem
+um terminal PowerShell embutido para rodar o Claude Code.
+
+## Instalar
+
+Precisa do [Node.js](https://nodejs.org) (versão 20 ou mais nova) e do Windows 10 1809 ou mais novo.
+
+```powershell
+cd "D:\programação\widget"
+npm install
+```
+
+## Atalhos do dia a dia
+
+| Quero... | Faça |
+|---|---|
+| Abrir o widget (pelo código) | `npm start` |
+| Abrir o widget (pelo `.exe`) | dois cliques em `Meu Widget.exe` (na raiz da pasta) |
+| Gerar o `.exe` | `npm run dist` (feche o widget antes). O `Meu Widget.exe` novo fica na raiz e a pasta `dist` é apagada. É portátil: não precisa instalar e dá para copiar para qualquer pasta |
+| Editar a minha config | dois cliques em `abrir-config.bat` (feche o widget antes) |
+| Abrir junto com o Windows (modo `npm start`) | atalho do `iniciar-widget.vbs` em `shell:startup` (veja abaixo) |
+| Medir o consumo de CPU e RAM | `npm run medir -- -Cenario A` (veja [docs/OTIMIZACAO.md](docs/OTIMIZACAO.md)) |
+| Refazer o ícone | `npm run icone` |
+
+## Estrutura da pasta
+
+```
+widget/
+├─ app/                  o código do widget
+│  ├─ main.js            processo principal (janela, config, terminal, música, sistema)
+│  ├─ preload.js         ponte segura entre a tela e o main.js
+│  ├─ index.html         a tela
+│  ├─ style.css          o visual (CMD)
+│  ├─ renderer.js        a lógica da tela (abas, Pokémon, narração...)
+│  ├─ temas.js           cor, animação e bordão de cada tipo de Pokémon
+│  ├─ media.ps1          música, volume e processos do Windows (PowerShell)
+│  └─ config.json        modelo da config (a sua fica em %APPDATA%\meu-widget)
+├─ assets/               ícone (a pokébola cúbica vermelha)
+├─ docs/                 OTIMIZACAO.md (medições de consumo)
+├─ tools/                medidor de consumo e gerador do ícone
+├─ Meu Widget.exe        o executável (gerado por npm run dist)
+├─ abrir-config.bat      abre a sua config no Bloco de Notas
+├─ iniciar-widget.vbs    abre o widget sem janela de console (para o shell:startup)
+├─ README.md             este arquivo
+└─ CLAUDE.md             contexto do projeto para o Claude Code
+```
+
+## Como é o widget
+
+Um terminal horizontal no canto superior direito que um Pokémon "invadiu":
+
+- **Abertura:** uma pokébola cúbica gira enquanto a barra enche (vermelha antes de escolher o Pokémon; depois, na cor dele).
+- **Primeira vez:** tudo fica bloqueado até você escolher o Pokémon (digite o nome ou clique numa sugestão). Depois ele sempre volta ao abrir, até você trocar.
+- **Visual de CMD:** fundo preto, texto cinza, Consolas. O tipo do Pokémon muda a cor de destaque.
+- **Esquerda:** o Pokémon grande (sprite em pixel art, sempre inteiro), o nome e a **narração**, com ele comentando o que você faz.
+- **Tamanho:** puxe as bordas para redimensionar (de 720x320 até 1400x900). O tamanho fica salvo, e o Pokémon cresce junto.
+- **Abas** (clique ou `Alt+1` a `Alt+5`): `sys` (CPU, RAM e processos que estão usando o PC), `music` (player, visualizador e volume), `apps` (atalhos), `term` (PowerShell e Claude Code; a janela estica para baixo) e `poke` (trocar Pokémon, favoritos, shiny e ajustes).
+- **Barra de status:** CPU, RAM, música e hora, sempre visíveis.
+- **Botões do topo:** 📌 fixa ou solta o "sempre no topo" (solto, ele aparece na barra de tarefas), `_` minimiza para o modo mini (só o Pokémon e o status) e ✕ fecha.
+- **Rosto:** clicar nele abre a aba `poke`.
+
+## Iniciar com o Windows
+
+- **Com o `.exe`:** abra o `.exe` uma vez. Com **"iniciar com o Windows"** marcado na aba `poke` (vem marcado), ele se registra para abrir no login.
+- **Sem o `.exe` (modo `npm start`):**
+  1. Aperte `Win+R`, digite `shell:startup` e dê Enter.
+  2. Na pasta do projeto, clique com o botão direito em `iniciar-widget.vbs` e escolha **Criar atalho**.
+  3. Mova esse atalho para a pasta que abriu no passo 1.
+
+  O `.vbs` roda `npm start` escondido, sem janela de console.
+
+**Desativar:**
+- `.exe`: desmarque "iniciar com o Windows" na aba `poke`, ou desative "Meu Widget" em Gerenciador de Tarefas > Inicializar.
+- `npm start`: apague o atalho da pasta `shell:startup`.
+
+## Configuração
+
+Fica em `%APPDATA%\meu-widget\config.json`, criada na primeira execução a partir do
+modelo `app/config.json`. Feche o widget, abra com `abrir-config.bat`, edite e abra o widget de novo.
+
+- **Pokémon:** na aba `poke`, digite o nome ou o número e dê Enter. A ★ guarda nos favoritos (botão direito no favorito remove) e o ✦ alterna a versão brilhante. Na config: `"pokemon"`, `"shiny"`, `"favoritos"` e `"pokemonEscolhido"` (com `false`, volta a tela da primeira escolha).
+- **Janela:** `"fixado"` (sempre no topo), `"aba"` (a aba que abre; a `term` nunca abre sozinha) e `"janela"` (o tamanho salvo).
+- **Apps:** na aba `apps`, clique em **[+ novo]**, escolha **Site** (endereço) ou **Programa** (caminho do `.exe`, `.lnk` ou pasta; dá para colar o "Copiar como caminho"). Botão direito num atalho remove. Na config: `"apps"`.
+- **Desempenho e recursos:** `"desempenho"` (`"normal"` ou `"economico"`), `"economiaAutomatica"`, `"visualizador"`, `"animacoes"`, `"gifAnimado"` e `"aceleracaoGPU"`. O custo medido de cada um está em [docs/OTIMIZACAO.md](docs/OTIMIZACAO.md).
+- **Boas-vindas:** `"boasVindas": { "ativo", "voz", "grito", "chamar" }`.

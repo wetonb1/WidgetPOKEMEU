@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <!-- CSP: scripts só locais (inclusive o xterm, de node_modules). Estilos inline liberados
+       porque o xterm cria <style> dinâmicos (fonte/tema); scripts inline seguem bloqueados.
+       Sem 'unsafe-eval'. Rede só para a PokéAPI (dados), sprites e gritos (GitHub)
+       e favicons do Google: origens específicas, mais restritas que "https:". -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com https://raw.githubusercontent.com; connect-src https://pokeapi.co; media-src https://raw.githubusercontent.com">
+  <title>Meu Widget</title>
+  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- O widget inteiro é uma janela de CMD que o Pokémon "invadiu" -->
+  <div id="cartao" class="terminal">
+
+    <!-- Barra de título (arrasta a janela), como a de um console do Windows -->
+    <header id="cabecalho">
+      <span class="icone-cmd" aria-hidden="true">C:\</span>
+      <span id="titulo" class="titulo">C:\WINDOWS\system32\cmd.exe</span>
+      <nav id="abas" class="abas" role="tablist" aria-label="Abas">
+        <button type="button" class="aba" role="tab" data-aba="sys" title="Sistema (Alt+1)">1:sys</button>
+        <button type="button" class="aba" role="tab" data-aba="music" title="Música (Alt+2)">2:music</button>
+        <button type="button" class="aba" role="tab" data-aba="apps" title="Apps (Alt+3)">3:apps</button>
+        <button type="button" class="aba" role="tab" data-aba="term" title="Terminal (Alt+4)">4:term</button>
+        <button type="button" class="aba" role="tab" data-aba="poke" title="Pokédex e ajustes (Alt+5)">5:poke</button>
+      </nav>
+      <div class="cab-botoes">
+        <button type="button" id="btn-pin" class="cab-btn" title="Fixado no topo (clique para soltar)" aria-label="Fixar no topo">
+          <svg viewBox="0 0 24 24"><path d="M14 3l7 7-2 2-1-1-4 4 .5 4.5L13 21l-4-4-5 5-1-1 5-5-4-4 1.5-1.5L10 11l4-4-1-1z"/></svg>
+        </button>
+        <button type="button" id="btn-mini" class="cab-btn" title="Minimizar" aria-label="Minimizar">
+          <svg id="ico-mini" viewBox="0 0 24 24"><path d="M5 17h14v2H5z"/></svg>
+          <svg id="ico-restaurar" class="oculto" viewBox="0 0 24 24"><path d="M5 5h14v14H5zm2 4v8h10V9z"/></svg>
+        </button>
+        <button type="button" id="btn-fechar" class="cab-btn fechar" title="Fechar" aria-label="Fechar">
+          <svg viewBox="0 0 24 24"><path d="M6.4 5L12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4L12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Coluna do Pokémon: rosto grande, nome e a narração -->
+    <aside id="lado-poke" class="lado-poke">
+      <div id="poke-tela" class="poke-tela" title="">
+        <!-- o invólucro é que se move nas animações (camada própria) -->
+        <div id="poke-anim" class="poke-anim"><img id="poke-img" class="poke-img oculto" alt="" draggable="false"></div>
+        <div id="poke-vazio" class="poke-vazio">?</div>
+      </div>
+      <div class="poke-cabecalho">
+        <span id="poke-nome" class="poke-nome">???</span>
+        <span id="poke-num" class="poke-num">#???</span>
+      </div>
+      <div id="poke-tipos" class="poke-tipos"></div>
+      <div id="narracao" class="narracao" aria-live="polite"></div>
+    </aside>
+
+    <!-- Conteúdo das abas -->
+    <main id="conteudo" class="conteudo">
+      <!-- linha de comando: o Pokémon "digita" o comando de cada aba -->
+      <div class="prompt"><span id="ps1" class="ps1">C:\&gt;</span><span id="comando" class="comando"></span><span class="cursor-fixo">_</span></div>
+
+      <!-- Primeira vez: nenhum Pokémon ainda; tudo bloqueado até escolher -->
+      <section id="aba-bloqueio" class="painel" data-painel="bloqueio">
+        <pre class="invasao">[!] sinal desconhecido detectado no terminal...
+[!] uma criatura está tentando assumir o controle.
+[?] quem vai mandar aqui?</pre>
+        <form id="bloq-form" class="linha-busca" autocomplete="off">
+          <label for="bloq-busca">pokémon&gt;</label>
+          <input id="bloq-busca" type="text" maxlength="30" spellcheck="false" placeholder="nome ou número + Enter">
+        </form>
+        <div class="sugestoes" id="bloq-sugestoes">
+          <button type="button" data-poke="pikachu">pikachu</button>
+          <button type="button" data-poke="charmander">charmander</button>
+          <button type="button" data-poke="bulbasaur">bulbasaur</button>
+          <button type="button" data-poke="squirtle">squirtle</button>
+          <button type="button" data-poke="eevee">eevee</button>
+          <button type="button" data-poke="gengar">gengar</button>
+        </div>
+      </section>
+
+      <!-- 1: sistema -->
+      <section id="aba-sys" class="painel" data-painel="sys">
+        <!-- medidores como saída de console: CPU [████████          ]  45% -->
+        <div class="medidores">
+          <div class="medidor"><span class="rot">CPU</span><span class="colchete">[</span><span class="barra"><span id="cpu-barra" class="barra-cheia"></span></span><span class="colchete">]</span><span id="cpu-valor" class="valor">--%</span></div>
+          <div class="medidor"><span class="rot">RAM</span><span class="colchete">[</span><span class="barra"><span id="ram-barra" class="barra-cheia"></span></span><span class="colchete">]</span><span id="ram-valor" class="valor">--%</span></div>
+          <div id="ram-texto" class="sub">-- / -- GB em uso</div>
+        </div>
+        <!-- processos que estão usando algo perceptível (CPU ou memória); clique na coluna para ordenar -->
+        <div class="proc-cab">
+          <span>processo <span id="proc-conta" class="sub"></span></span>
+          <button type="button" class="proc-col" data-ordem="cpu" title="Ordenar por CPU">CPU</button>
+          <button type="button" class="proc-col" data-ordem="ram" title="Ordenar por memória">MEMÓRIA</button>
+        </div>
+        <ul id="proc-lista" class="proc-lista"><li><span class="proc-nome">coletando…</span></li></ul>
+      </section>
+
+      <!-- 2: música -->
+      <section id="aba-music" class="painel" data-painel="music">
+        <div class="mus-linha">
+          <div class="mus-capa-moldura"><img id="mus-capa" class="mus-capa oculto" alt=""></div>
+          <div class="mus-info">
+            <div id="mus-titulo" class="mus-titulo">nada tocando</div>
+            <div id="mus-artista" class="mus-artista"></div>
+          </div>
+          <div class="mus-botoes">
+            <button type="button" id="mus-prev" class="mus-btn" title="Anterior" aria-label="Anterior">
+              <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+            </button>
+            <button type="button" id="mus-play" class="mus-btn grande" title="Tocar / pausar" aria-label="Tocar / pausar">
+              <svg id="ico-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg>
+              <svg id="ico-pause" class="oculto" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+            </button>
+            <button type="button" id="mus-next" class="mus-btn" title="Próxima" aria-label="Próxima">
+              <svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="mus-som">
+          <!-- Visualizador: colunas de blocos, como caracteres █ empilhados -->
+          <canvas id="visualizador" class="visualizador" width="440" height="64"></canvas>
+          <!-- Volume do Windows: barra vertical (arraste, rodinha do mouse ou setas) -->
+          <div id="vol" class="vol">
+            <button type="button" id="vol-icone" class="vol-icone" title="Mudo" aria-label="Ligar ou desligar o mudo">
+              <svg id="vol-alto" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+              <svg id="vol-mudo" class="oculto" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path class="traco" d="M15 9.5l6 6m0-6l-6 6"/></svg>
+            </button>
+            <div id="vol-trilho" class="vol-trilho" role="slider" tabindex="0" aria-label="Volume"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                 title="Volume: arraste, use a rodinha do mouse ou as setas">
+              <div class="vol-fundo"><div id="vol-cheio" class="vol-cheio"></div></div>
+              <div class="vol-alca"></div>
+            </div>
+            <div id="vol-bolha" class="vol-bolha" aria-hidden="true">0%</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3: apps -->
+      <section id="aba-apps" class="painel" data-painel="apps">
+        <div class="apps-topo">
+          <span class="sub">clique abre · botão direito remove</span>
+          <button id="apps-novo" class="botao-cmd" type="button">[+ novo]</button>
+        </div>
+        <div id="apps-grade" class="apps-grade"></div>
+      </section>
+
+      <!-- 4: terminal (PowerShell real) -->
+      <section id="aba-term" class="painel" data-painel="term">
+        <div class="term-topo">
+          <span class="sub">powershell · a sessão continua mesmo trocando de aba</span>
+          <button type="button" id="term-claude" class="botao-cmd">[iniciar claude]</button>
+        </div>
+        <div id="term-area" class="term-area"></div>
+      </section>
+
+      <!-- 5: pokédex e ajustes -->
+      <section id="aba-poke" class="painel" data-painel="poke">
+        <form id="poke-form" class="linha-busca" autocomplete="off">
+          <label for="poke-busca">trocar&gt;</label>
+          <input id="poke-busca" type="text" maxlength="30" spellcheck="false" placeholder="nome ou número + Enter">
+          <button type="button" id="poke-fav" class="icone-btn" title="Favoritar">☆</button>
+          <button type="button" id="poke-shiny" class="icone-btn" title="Alternar brilhante (shiny)">✦</button>
+        </form>
+        <div class="sub">favoritos <span class="dica">(clique troca · botão direito remove)</span></div>
+        <div id="poke-favs" class="poke-favs"></div>
+        <div class="sub">ajustes</div>
+        <div class="ajustes">
+          <label class="caixa"><input type="checkbox" id="cfg-autostart"> iniciar com o Windows</label>
+          <label class="caixa"><input type="checkbox" id="cfg-economico"> modo econômico</label>
+          <label class="caixa"><input type="checkbox" id="cfg-visualizador"> visualizador de áudio</label>
+          <label class="caixa"><input type="checkbox" id="cfg-animacoes"> animações do Pokémon</label>
+        </div>
+      </section>
+
+      <!-- Janelinha por cima das abas: formulário de novo atalho / confirmação de remoção -->
+      <div id="dialogo" class="dialogo oculto">
+        <form id="dialogo-form" class="dialogo-caixa" autocomplete="off">
+          <h2>apps /add</h2>
+          <label>nome <input id="f-nome" type="text" maxlength="30"></label>
+          <label>tipo
+            <select id="f-tipo">
+              <option value="url">site</option>
+              <option value="exe">programa</option>
+            </select>
+          </label>
+          <label><span id="f-alvo-rotulo">endereço</span> <input id="f-alvo" type="text"></label>
+          <div id="f-erro" class="dialogo-erro"></div>
+          <div class="dialogo-botoes">
+            <button type="button" id="f-cancelar">cancelar</button>
+            <button type="submit" class="principal">salvar</button>
+          </div>
+        </form>
+        <div id="dialogo-confirma" class="dialogo-caixa oculto">
+          <h2 id="c-texto">remover?</h2>
+          <div class="dialogo-botoes">
+            <button type="button" id="c-nao">cancelar</button>
+            <button type="button" id="c-sim" class="principal">remover</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Tela de carregamento: a pokébola cúbica gira enquanto a barra enche -->
+    <div id="carregando" class="carregando" aria-live="polite">
+      <div class="cubo-cena">
+        <div class="cubo">
+          <div class="miolo"><div class="face frente"></div><div class="face tras"></div><div class="face direita"></div><div class="face esquerda"></div><div class="face topo"></div><div class="face base"></div></div>
+          <div class="face frente"><i class="botao"></i></div>
+          <div class="face tras"><i class="botao"></i></div>
+          <div class="face direita"></div>
+          <div class="face esquerda"></div>
+          <div class="face topo"></div>
+          <div class="face base"></div>
+        </div>
+        <div class="cubo-sombra"></div>
+      </div>
+      <div class="carregando-barra"><div id="carregando-progresso" class="carregando-progresso"></div></div>
+      <div id="carregando-texto" class="carregando-texto">C:\&gt; iniciando...</div>
+    </div>
+
+    <!-- Linha de status (estilo tmux) -->
+    <footer id="status" class="status">
+      <span id="st-cpu" class="st">cpu --%</span>
+      <span id="st-ram" class="st">ram --</span>
+      <span id="st-musica" class="st st-musica">♪ --</span>
+      <span id="st-modo" class="st st-modo oculto">eco</span>
+      <span id="st-hora" class="st st-hora">--:--</span>
+    </footer>
+  </div>
+  <script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
+  <script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
+  <script src="temas.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

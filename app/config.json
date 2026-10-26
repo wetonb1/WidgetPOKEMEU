@@ -1,0 +1,54 @@
+{
+  "pokemon": "pikachu",
+  "pokemonEscolhido": false,
+  "corPokebola": "#e3350d",
+  "shiny": false,
+  "gifAnimado": false,
+  "aceleracaoGPU": false,
+  "desempenho": "normal",
+  "economiaAutomatica": true,
+  "visualizador": true,
+  "animacoes": true,
+  "fixado": true,
+  "aba": "sys",
+  "favoritos": [],
+  "iniciarComWindows": true,
+  "boasVindas": {
+    "ativo": true,
+    "voz": true,
+    "grito": true,
+    "chamar": "meu mestre"
+  },
+  "appsSemeados": false,
+  "apps": [
+    {
+      "name": "YouTube",
+      "type": "url",
+      "target": "https://www.youtube.com"
+    },
+    {
+      "name": "WhatsApp",
+      "type": "url",
+      "target": "https://web.whatsapp.com"
+    },
+    {
+      "name": "GitHub",
+      "type": "url",
+      "target": "https://github.com"
+    },
+    {
+      "name": "Calculadora",
+      "type": "exe",
+      "target": "calc.exe"
+    },
+    {
+      "name": "Bloco de Notas",
+      "type": "exe",
+      "target": "notepad.exe"
+    }
+  ],
+  "janela": {
+    "largura": 900,
+    "altura": 400
+  }
+}

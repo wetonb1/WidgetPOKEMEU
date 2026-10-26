@@ -1,0 +1,51 @@
+{
+  "name": "meu-widget",
+  "version": "1.0.0",
+  "description": "Widget pessoal para Windows 10",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable && node tools/finalizar-exe.js",
+    "icone": "electron tools/gerar-icone.js",
+    "medir": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/medir.ps1"
+  },
+  "keywords": [],
+  "author": "weto",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@lydell/node-pty": "^1.2.0-beta.18",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "systeminformation": "^5.33.16"
+  },
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.meu.widget",
+    "productName": "Meu Widget",
+    "win": {
+      "target": "portable",
+      "icon": "assets/icone.ico"
+    },
+    "asarUnpack": [
+      "app/media.ps1",
+      "node_modules/@lydell/**"
+    ],
+    "npmRebuild": false,
+    "files": [
+      "**/*",
+      "!tools/**",
+      "!dist/**",
+      "!docs/**",
+      "!*.md",
+      "!*.vbs",
+      "!*.bat",
+      "!*.exe",
+      "!assets/icone.png"
+    ],
+    "artifactName": "Meu Widget.${ext}"
+  }
+}
