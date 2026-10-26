@@ -1458,6 +1458,8 @@ const pokemon = (() => {
 // apps da Microsoft Store): clique adiciona, clique de novo tira. Também dá para
 // colar um link/caminho no campo e dar Enter, colar (Ctrl+V) direto na aba ou
 // arrastar um programa, atalho ou link para cá.
+// Para reorganizar: segure um app por ~0,6 s, ele "levanta" e é só arrastar para
+// onde quiser (os outros abrem espaço); soltar grava a nova ordem. Esc cancela.
 // Custo: a lista só é pedida ao abrir a loja; ícones só dos itens que aparecem.
 const apps = (() => {
   const aba = document.getElementById('aba-apps');
@@ -1592,7 +1594,8 @@ const apps = (() => {
       const b = document.createElement('button');
       b.className = 'app';
       b.type = 'button';
-      b.title = a.name + ' (botão direito remove)';
+      b.title = a.name + ' (segure para mover · botão direito remove)';
+      b.dataset.i = i; // posição na lista (a ordem na tela muda enquanto você arrasta)
       const nome = document.createElement('span');
       nome.className = 'app-nome';
       nome.textContent = a.name;
@@ -1600,6 +1603,7 @@ const apps = (() => {
       b.append(icone, nome);
       if (icone.carregar) icone.carregar();
       b.addEventListener('click', () => {
+        if (ignorarClique) { ignorarClique = false; return; } // o clique que termina um arrastar não abre o app
         falar('appAbrir', { app: a.name });
         window.widget.abrirApp(i)
           .then((erro) => { if (erro) { dizer('Não consegui abrir ' + a.name + ': ' + erro); console.error('Não abriu', a.name + ':', erro); } })
@@ -1609,6 +1613,113 @@ const apps = (() => {
       return b;
     }));
   }
+
+  // ----- mover: segurar e arrastar -----
+  const SEGURAR_MS = 600;   // quanto tempo segurar até o app "levantar"
+  const TOLERANCIA = 8;     // px que o mouse pode tremer enquanto segura
+  let seguro = null;        // esperando completar o "segurar": { b, x, y, timer }
+  let movendo = null;       // app levantado: { b, fantasma, ox, oy, id, y, nome }
+  let ignorarClique = false;
+  let rolagem = 0;          // px por quadro (auto-rolagem perto da borda)
+
+  // anima a troca de lugar dos vizinhos (FLIP: mede antes, muda, desliza do lugar antigo)
+  function deslizar(mudar) {
+    const itens = [...grade.children];
+    const antes = new Map(itens.map((x) => [x, x.getBoundingClientRect()]));
+    mudar();
+    if (economico) return;
+    for (const x of itens) {
+      const a = antes.get(x), d = x.getBoundingClientRect();
+      const dx = a.left - d.left, dy = a.top - d.top;
+      if (dx || dy) x.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }], { duration: 170, easing: 'ease-out' });
+    }
+  }
+
+  function levantar() {
+    if (!seguro) return;
+    const { b, x, y, id } = seguro;
+    seguro = null;
+    if (!b.isConnected) return;
+    const r = b.getBoundingClientRect();
+    const fantasma = b.cloneNode(true);
+    fantasma.removeAttribute('title');
+    fantasma.classList.add('app-fantasma');
+    fantasma.style.width = r.width + 'px';
+    fantasma.style.height = r.height + 'px';
+    document.body.append(fantasma);
+    movendo = { b, fantasma, ox: x - r.left, oy: y - r.top, id, y, nome: lista[Number(b.dataset.i)].name };
+    try { b.setPointerCapture(id); } catch { /* sem captura: os eventos seguem pelo document */ }
+    b.classList.add('pegado');
+    grade.classList.add('pegando');
+    ignorarClique = true;
+    acompanhar(x, y);
+    (function rolar() { // auto-rolagem enquanto o app está perto da borda de cima/baixo
+      if (!movendo) return;
+      if (rolagem) grade.scrollTop += rolagem;
+      requestAnimationFrame(rolar);
+    })();
+  }
+
+  // o app levantado segue o mouse; os outros abrem espaço
+  function acompanhar(x, y) {
+    const { b, fantasma, ox, oy } = movendo;
+    movendo.y = y;
+    fantasma.style.left = x - ox + 'px';
+    fantasma.style.top = y - oy + 'px';
+    const g = grade.getBoundingClientRect();
+    rolagem = y < g.top + 28 ? -10 : y > g.bottom - 28 ? 10 : 0;
+    const sob = document.elementFromPoint(x, y); // o fantasma não recebe o mouse (pointer-events: none)
+    const alvo = sob && sob.closest('.app');
+    if (alvo && alvo !== b && alvo.parentNode === grade) {
+      const a = alvo.getBoundingClientRect();
+      const ref = x < a.left + a.width / 2 ? alvo : alvo.nextSibling; // metade esquerda: antes; direita: depois
+      if (ref !== b && b.nextSibling !== ref) deslizar(() => grade.insertBefore(b, ref));
+    } else if (sob === grade) {
+      const ultimo = grade.lastElementChild;
+      if (ultimo !== b && y > ultimo.getBoundingClientRect().bottom) deslizar(() => grade.append(b)); // abaixo de tudo: vai para o fim
+    }
+  }
+
+  function largar(confirmar) {
+    const { b, fantasma, nome, id } = movendo;
+    movendo = null;
+    rolagem = 0;
+    fantasma.remove();
+    b.classList.remove('pegado');
+    grade.classList.remove('pegando');
+    try { b.releasePointerCapture(id); } catch { /* já solto */ }
+    setTimeout(() => { ignorarClique = false; }, 150); // se nenhum clique vier, não fica "ligado"
+    const ordem = [...grade.querySelectorAll('.app')].map((x) => Number(x.dataset.i));
+    const mudou = ordem.some((v, k) => v !== k);
+    if (confirmar && mudou) {
+      gravar(ordem.map((i) => lista[i]))
+        .then(() => falar('appMover', { app: nome }))
+        .catch((erro) => { console.error('Erro ao salvar a ordem:', erro); desenhar(); });
+    } else if (mudou) {
+      desenhar(); // cancelou (Esc): volta como estava
+    }
+  }
+
+  grade.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || movendo) return;
+    const b = e.target.closest('.app');
+    if (!b) return;
+    clearTimeout(seguro && seguro.timer);
+    seguro = { b, x: e.clientX, y: e.clientY, id: e.pointerId, timer: setTimeout(levantar, SEGURAR_MS) };
+  });
+  document.addEventListener('pointermove', (e) => {
+    if (seguro && Math.hypot(e.clientX - seguro.x, e.clientY - seguro.y) > TOLERANCIA) {
+      clearTimeout(seguro.timer); // mexeu antes da hora: era só um arrastar/rolar, não um "segurar"
+      seguro = null;
+    }
+    if (movendo) acompanhar(e.clientX, e.clientY);
+  });
+  const terminarGesto = (confirmar) => (e) => {
+    if (seguro) { clearTimeout(seguro.timer); seguro = null; }
+    if (movendo) { e.preventDefault(); largar(confirmar); }
+  };
+  document.addEventListener('pointerup', terminarGesto(true));
+  document.addEventListener('pointercancel', terminarGesto(false));
 
   // ----- loja: tudo o que dá para adicionar -----
   // ícones da loja só carregam quando o item aparece na rolagem
@@ -1788,6 +1899,7 @@ const apps = (() => {
   // Esc fecha o diálogo ou a loja
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape') return;
+    if (movendo) { largar(false); return; }
     if (!dialogo.classList.contains('oculto')) fecharDialogo();
     else if (lojaAberta) fecharLoja();
   });
@@ -1797,7 +1909,7 @@ const apps = (() => {
     visivel(v) {
       visivel = v;
       if (v && !desenhado) desenhar(); // ícones só carregam quando você abre a aba
-      if (!v) fecharLoja();
+      if (!v) { fecharLoja(); if (movendo) largar(false); }
     },
   };
 })();

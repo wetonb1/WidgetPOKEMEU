@@ -495,6 +495,23 @@ button { font-family: var(--font); }
   color: var(--accent);
 }
 .app-nome { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* mover (segurar e arrastar): o app levantado vira um "fantasma" que segue o mouse;
+   o lugar dele na grade fica apagado e mostra onde vai cair */
+.app-fantasma {
+  position: fixed;
+  z-index: 60;
+  margin: 0;
+  pointer-events: none;
+  background: var(--text);
+  color: var(--bg);
+  opacity: 0.95;
+  transform: scale(1.12);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+}
+.app.pegado { opacity: 0.3; }
+.apps-grade.pegando, .apps-grade.pegando .app { cursor: grabbing; }
+.apps-grade.pegando .app:hover:not(.pegado) { background: transparent; color: var(--text); } /* só o fantasma fica em destaque */
 .app-icone.inicial { background: var(--accent-fraco); }
 .apps-vazio { grid-column: 1 / -1; padding: 16px 4px; color: var(--apagado); }
 
@@ -1012,6 +1029,14 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
 }
 [data-estilo="ios"] .app:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
 [data-estilo="ios"] .app:active { transform: scale(0.93); }
+[data-estilo="ios"] .app-fantasma {
+  background: rgba(255, 255, 255, 0.2);
+  color: var(--text);
+  border-radius: 14px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: none;
+}
+[data-estilo="ios"] .apps-grade.pegando .app:hover:not(.pegado) { background: transparent; }
 [data-estilo="ios"] .app .app-icone { width: 42px; height: 42px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0, 0, 0, 0.3); }
 [data-estilo="ios"] img.app-icone { padding: 5px; background: rgba(255, 255, 255, 0.12); }
 [data-estilo="ios"] .app-icone.inicial {
