@@ -9,10 +9,23 @@
 //      D = "tocou música e depois pausou": aba music, captura de áudio criada.
 // Obs.: o widget precisa ter um Pokémon escolhido ("pokemonEscolhido": true),
 // senão ele fica na tela de bloqueio.
+// WIDGET_ESTILO=ios (ou cmd) mede com aquele visual: usa uma CÓPIA da sua config
+// numa pasta temporária (a sua não muda).
 const { app } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 app.requestSingleInstanceLock = () => true;
+if (process.env.WIDGET_ESTILO) {
+  const pasta = path.join(app.getPath('temp'), 'meu-widget-medicao-appdata');
+  const original = path.join(app.getPath('appData'), 'meu-widget', 'config.json');
+  const cfg = fs.existsSync(original) ? JSON.parse(fs.readFileSync(original, 'utf8')) : {};
+  cfg.estilo = process.env.WIDGET_ESTILO;
+  fs.mkdirSync(path.join(pasta, 'meu-widget'), { recursive: true });
+  fs.writeFileSync(path.join(pasta, 'meu-widget', 'config.json'), JSON.stringify(cfg, null, 2));
+  const getPathOriginal = app.getPath.bind(app);
+  app.getPath = (nome) => (nome === 'appData' ? pasta : getPathOriginal(nome));
+}
 const setPathOriginal = app.setPath.bind(app);
 app.setPath = (nome, valor) =>
   setPathOriginal(nome, nome === 'userData' ? path.join(app.getPath('temp'), 'meu-widget-medicao') : valor);

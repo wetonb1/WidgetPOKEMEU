@@ -4,6 +4,9 @@
 // CMD), a animação do rosto e o bordão que ele solta na narração.
 
 const CMD = { bg: '#0c0c0c', text: '#cccccc', fonte: 'Consolas, "Cascadia Mono", "Lucida Console", monospace' };
+// Visual iOS: mesmo destaque por tipo, mas texto claro e fonte do sistema.
+// (--bg aqui é só a cor "escura" usada em contrastes; o fundo de verdade é o vidro.)
+const IOS = { bg: '#15151d', text: '#f2f2f7', fonte: '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif' };
 
 const TYPE_THEME = {
   normal:   { accent: '#d6cdb2', anim: 'float',  bordao: 'Hm!' },
@@ -42,10 +45,11 @@ const TIPO_PT = {
 function aplicarTema(tipo) {
   const t = tipo === null ? TEMA_INICIAL : (TYPE_THEME[tipo] || TYPE_THEME.normal);
   const raiz = document.documentElement;
+  const base = raiz.dataset.estilo === 'ios' ? IOS : CMD;
   raiz.style.setProperty('--accent', t.accent);
-  raiz.style.setProperty('--bg', CMD.bg);
-  raiz.style.setProperty('--text', CMD.text);
-  raiz.style.setProperty('--font', CMD.fonte);
+  raiz.style.setProperty('--bg', base.bg);
+  raiz.style.setProperty('--text', base.text);
+  raiz.style.setProperty('--font', base.fonte);
   raiz.dataset.anim = t.anim; // o CSS escolhe a animação do rosto por este atributo
   return t;
 }

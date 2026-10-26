@@ -115,6 +115,20 @@ Medido só o Electron, janela fora da tela, aba `music` aberta e música tocando
 - **30 quadros/s:** custa praticamente o mesmo que 24, então ficou o mais fluido.
 - **Custo final:** ~2,5 pontos acima do visualizador antigo, e só com a aba `music` aberta e música tocando. Em outra aba, ou com a música pausada (depois de as barras caírem), ele para de desenhar.
 
+## Visual iOS (vidro) e loja de apps
+
+Cenário A (ocioso), árvore inteira no Job Object, 3 rodadas de 45 s cada, mediana.
+Mesma config, só muda `estilo` (`WIDGET_ESTILO=ios` no `tools/cenario.js` usa uma cópia da config):
+
+| Visual | CPU (1 núcleo) | RAM WS | Privada |
+|---|---|---|---|
+| CMD (janela opaca) | 0,6% | 402 MB | 192 MB |
+| iOS (janela transparente + desfoque do Windows) | 1,0% | 412 MB | 197 MB |
+
+- **Custo do iOS:** ~+0,4 ponto de CPU e ~+5 MB privados no ocioso. O desfoque é feito pelo próprio Windows (DWM), fora do widget. A janela transparente é um pouco mais cara de compor.
+- **Cenário B (música tocando) ainda não medido:** a música estava pausada na hora. Para medir: dê play e rode `$env:WIDGET_ESTILO='ios'; npm run medir -- -Cenario B -Variante estilo-ios`.
+- **Loja de apps:** custo zero parada. Ao abrir, pede a lista uma vez (~1 s na primeira vez, porque o `Get-StartApps` roda no PowerShell que já está aberto; depois fica 5 min em cache). Os ícones só carregam para os itens que aparecem na rolagem, e tudo é liberado ao fechar a loja.
+
 ## Como repetir a medição
 
 Na pasta do projeto, num PowerShell:

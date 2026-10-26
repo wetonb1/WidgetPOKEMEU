@@ -7,7 +7,9 @@
 # entrada padrão e responde uma linha de JSON por comando. Assim o PowerShell e
 # o WinRT carregam uma vez só, em vez de a cada consulta (~2 s de CPU cada).
 #   Comandos: info | info-capa | playpause | next | prev | processos | telacheia
-#             | volume | volume-set N (0-100) | mudo-set 0|1 | sair
+#             | volume | volume-set N (0-100) | mudo-set 0|1
+#             | vidro HWND L A RAIO (desfoque + cantos) | cantos HWND L A RAIO
+#             | startapps (apps do Menu Iniciar) | janelas (programas abertos) | sair
 param(
     [ValidateSet('info', 'playpause', 'next', 'prev', 'servidor')]
     [string]$Action = 'info',
@@ -292,7 +294,60 @@ public static class VolumeSistema {
         return Json();
     }
 }
+
+// Estilo "iOS": desfoque REAL do que está atrás da janela (o mesmo efeito do
+// Windows 10 que programas como o TranslucentTB usam) e cantos arredondados.
+// Funciona a partir de outro processo: o widget manda o identificador (HWND).
+public static class Vidro {
+    [StructLayout(LayoutKind.Sequential)] struct ACCENT { public int Estado, Flags, Cor, Anim; }
+    [StructLayout(LayoutKind.Sequential)] struct DADOS { public int Atributo; public IntPtr Dados; public int Tamanho; }
+    [DllImport("user32.dll")] static extern int SetWindowCompositionAttribute(IntPtr h, ref DADOS d);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateRoundRectRgn(int x1, int y1, int x2, int y2, int w, int h);
+    [DllImport("user32.dll")] static extern int SetWindowRgn(IntPtr h, IntPtr rgn, bool redesenhar);
+
+    // 3 = ACCENT_ENABLE_BLURBEHIND (desfoque); 0 = desligado
+    public static bool Desfoque(long hwnd, bool ligar) {
+        var ac = new ACCENT { Estado = ligar ? 3 : 0 };
+        int t = Marshal.SizeOf(ac);
+        IntPtr p = Marshal.AllocHGlobal(t);
+        try {
+            Marshal.StructureToPtr(ac, p, false);
+            var d = new DADOS { Atributo = 19, Dados = p, Tamanho = t }; // 19 = WCA_ACCENT_POLICY
+            return SetWindowCompositionAttribute(new IntPtr(hwnd), ref d) != 0;
+        } finally { Marshal.FreeHGlobal(p); }
+    }
+
+    // recorta a janela num retângulo de cantos redondos (em pixels da tela)
+    public static bool Cantos(long hwnd, int l, int a, int raio) {
+        IntPtr rgn = CreateRoundRectRgn(0, 0, l + 1, a + 1, raio * 2, raio * 2);
+        return SetWindowRgn(new IntPtr(hwnd), rgn, true) != 0; // o Windows fica dono da região
+    }
+}
 '@
+    }
+
+    # Apps do Menu Iniciar (inclusive os da Microsoft Store): [{"n":nome,"id":AppID}]
+    function Listar-StartApps {
+        $itens = @(Get-StartApps | Where-Object { $_.Name -and $_.AppID } | ForEach-Object { [ordered]@{ n = [string]$_.Name; id = [string]$_.AppID } })
+        if ($itens.Count -eq 0) { return '[]' }
+        return (ConvertTo-Json $itens -Compress)
+    }
+
+    # Programas com janela aberta: [{"n":nome,"p":caminho do .exe}]
+    function Listar-Janelas {
+        $vistos = @{}
+        $itens = foreach ($p in (Get-Process | Where-Object { $_.MainWindowHandle -ne 0 -and $_.MainWindowTitle })) {
+            $caminho = $null
+            try { $caminho = $p.Path } catch { }
+            if (-not $caminho -or $vistos.ContainsKey($caminho)) { continue }
+            $vistos[$caminho] = $true
+            $nome = $p.Description
+            if (-not $nome) { $nome = $p.ProcessName }
+            [ordered]@{ n = [string]$nome; p = [string]$caminho }
+        }
+        $itens = @($itens)
+        if ($itens.Count -eq 0) { return '[]' }
+        return (ConvertTo-Json $itens -Compress)
     }
 
     if ($Action -eq 'servidor') {
@@ -306,6 +361,17 @@ public static class VolumeSistema {
                     'processos' { Listar-Processos }
                     'telacheia' { if ([TelaCheia]::Ativa()) { 'true' } else { 'false' } }
                     'volume'    { [VolumeSistema]::Json() }
+                    'startapps' { Listar-StartApps }
+                    'janelas'   { Listar-Janelas }
+                    { $_ -match '^vidro \d+ \d+ \d+ \d+$' } {
+                        $n = $_ -split ' '
+                        $ok = [Vidro]::Desfoque([long]$n[1], $true) -and [Vidro]::Cantos([long]$n[1], [int]$n[2], [int]$n[3], [int]$n[4])
+                        if ($ok) { 'true' } else { 'false' }
+                    }
+                    { $_ -match '^cantos \d+ \d+ \d+ \d+$' } {
+                        $n = $_ -split ' '
+                        if ([Vidro]::Cantos([long]$n[1], [int]$n[2], [int]$n[3], [int]$n[4])) { 'true' } else { 'false' }
+                    }
                     { $_ -match '^volume-set \d{1,3}$' } { [VolumeSistema]::Definir([int]($_ -split ' ')[1]) }
                     { $_ -match '^mudo-set [01]$' }      { [VolumeSistema]::Mudo(($_ -split ' ')[1] -eq '1') }
                     { $_ -in 'playpause', 'next', 'prev' } { Executar $_ }

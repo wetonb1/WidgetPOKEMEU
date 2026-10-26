@@ -11,6 +11,7 @@
   "animacoes": true,
   "fixado": true,
   "aba": "sys",
+  "estilo": "cmd",
   "favoritos": [],
   "iniciarComWindows": true,
   "boasVindas": {

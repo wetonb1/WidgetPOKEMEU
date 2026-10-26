@@ -1,5 +1,5 @@
 // preload.js — única ponte entre a tela e o processo principal (canais nomeados).
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('widget', {
   loadConfig: () => ipcRenderer.invoke('config:carregar'),
@@ -12,6 +12,11 @@ contextBridge.exposeInMainWorld('widget', {
   setMudo: (mudo) => ipcRenderer.invoke('volume-mudo', mudo === true),
   abrirApp: (indice) => ipcRenderer.invoke('apps:abrir', indice),
   iconeApp: (indice) => ipcRenderer.invoke('apps:icone', indice),
+  catalogoApps: () => ipcRenderer.invoke('apps:catalogo'),
+  iconeArquivo: (caminho) => ipcRenderer.invoke('apps:icone-arquivo', String(caminho)),
+  // caminho de um arquivo solto na janela (arrastar-e-soltar); '' se não for arquivo do disco
+  caminhoArquivo: (arquivo) => { try { return webUtils.getPathForFile(arquivo) || ''; } catch { return ''; } },
+  janelaEstilo: (estilo) => ipcRenderer.invoke('janela:estilo', String(estilo)),
   fechar: () => ipcRenderer.send('janela:fechar'),
   janelaModo: (modo) => ipcRenderer.invoke('janela:modo', String(modo)),
   janelaFixar: (fixar) => ipcRenderer.invoke('janela:fixar', fixar === true),

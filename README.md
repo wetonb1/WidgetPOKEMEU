@@ -33,10 +33,11 @@ widget/
 │  ├─ main.js            processo principal (janela, config, terminal, música, sistema)
 │  ├─ preload.js         ponte segura entre a tela e o main.js
 │  ├─ index.html         a tela
-│  ├─ style.css          o visual (CMD)
+│  ├─ style.css          o visual (CMD e iOS)
+│  ├─ estilo.js          escolhe o visual antes de desenhar a tela
 │  ├─ renderer.js        a lógica da tela (abas, Pokémon, narração...)
 │  ├─ temas.js           cor, animação e bordão de cada tipo de Pokémon
-│  ├─ media.ps1          música, volume e processos do Windows (PowerShell)
+│  ├─ media.ps1          música, volume, processos, vidro e lista de apps (PowerShell)
 │  └─ config.json        modelo da config (a sua fica em %APPDATA%\meu-widget)
 ├─ assets/               ícone (a pokébola cúbica vermelha)
 ├─ docs/                 OTIMIZACAO.md (medições de consumo)
@@ -54,7 +55,7 @@ Um terminal horizontal no canto superior direito que um Pokémon "invadiu":
 
 - **Abertura:** uma pokébola cúbica gira enquanto a barra enche (vermelha antes de escolher o Pokémon; depois, na cor dele).
 - **Primeira vez:** tudo fica bloqueado até você escolher o Pokémon (digite o nome ou clique numa sugestão). Depois ele sempre volta ao abrir, até você trocar.
-- **Visual de CMD:** fundo preto, texto cinza, Consolas. O tipo do Pokémon muda a cor de destaque.
+- **Dois visuais** (aba `poke` → ajustes → **visual**): **CMD** (fundo preto, texto cinza, Consolas) ou **iOS** (vidro: o que está atrás da janela fica desfocado, fundo meio transparente, cantos bem redondos, abas em pílula, balões de conversa e chaves). A troca é na hora. Nos dois, o tipo do Pokémon muda a cor de destaque.
 - **Esquerda:** o Pokémon grande (sprite em pixel art, sempre inteiro), o nome e a **narração**, com ele comentando o que você faz.
 - **Tamanho:** puxe as bordas para redimensionar (de 720x320 até 1400x900). O tamanho fica salvo, e o Pokémon cresce junto.
 - **Abas** (clique ou `Alt+1` a `Alt+5`): `sys` (CPU, RAM e processos que estão usando o PC), `music` (player, visualizador e volume), `apps` (atalhos), `term` (PowerShell e Claude Code; a janela estica para baixo) e `poke` (trocar Pokémon, favoritos, shiny e ajustes).
@@ -83,6 +84,7 @@ modelo `app/config.json`. Feche o widget, abra com `abrir-config.bat`, edite e a
 
 - **Pokémon:** na aba `poke`, digite o nome ou o número e dê Enter. A ★ guarda nos favoritos (botão direito no favorito remove) e o ✦ alterna a versão brilhante. Na config: `"pokemon"`, `"shiny"`, `"favoritos"` e `"pokemonEscolhido"` (com `false`, volta a tela da primeira escolha).
 - **Janela:** `"fixado"` (sempre no topo), `"aba"` (a aba que abre; a `term` nunca abre sozinha) e `"janela"` (o tamanho salvo).
-- **Apps:** na aba `apps`, clique em **[+ novo]**, escolha **Site** (endereço) ou **Programa** (caminho do `.exe`, `.lnk` ou pasta; dá para colar o "Copiar como caminho"). Botão direito num atalho remove. Na config: `"apps"`.
+- **Apps (1 clique):** na aba `apps`, clique em **[+ adicionar]**: aparecem os programas abertos agora, sites populares e tudo o que está no Menu Iniciar (inclusive apps da Microsoft Store). Clique num item para adicionar (✓) e clique de novo para tirar. Digite no campo para buscar e Enter adiciona o primeiro. Também dá para **colar um link ou caminho** e dar Enter (ou Ctrl+V direto na aba) e **arrastar** um programa, atalho, pasta ou link para a aba. Botão direito num app remove. Na config: `"apps"`.
+- **Visual:** `"estilo"` (`"cmd"` ou `"ios"`).
 - **Desempenho e recursos:** `"desempenho"` (`"normal"` ou `"economico"`), `"economiaAutomatica"`, `"visualizador"`, `"animacoes"`, `"gifAnimado"` e `"aceleracaoGPU"`. O custo medido de cada um está em [docs/OTIMIZACAO.md](docs/OTIMIZACAO.md).
 - **Boas-vindas:** `"boasVindas": { "ativo", "voz", "grito", "chamar" }`.

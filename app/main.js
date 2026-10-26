@@ -66,6 +66,11 @@ function limparTexto(t) {
   return String(t || '').trim().replace(/^["']+|["']+$/g, '').trim();
 }
 
+// AppID do Menu Iniciar / Microsoft Store (ex.: "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify").
+// Vai como UM argumento para o explorer.exe (sem shell), mas mesmo assim só
+// aceita caracteres comuns.
+const APP_ID = /^[A-Za-z0-9_.!{}\\ ()\-]{1,300}$/;
+
 function sanitizarApp(a) {
   if (!a || typeof a !== 'object') return null;
   const name = texto(a.name, 30).trim();
@@ -73,6 +78,7 @@ function sanitizarApp(a) {
   if (!name || !target) return null;
   if (a.type === 'url') return urlHttpValida(target) ? { name, type: 'url', target } : null;
   if (a.type === 'exe') return { name, type: 'exe', target };
+  if (a.type === 'app') return APP_ID.test(target) ? { name, type: 'app', target } : null;
   return null;
 }
 
@@ -113,6 +119,7 @@ function sanitizarConfig(cfg, modelo) {
     aba: ABAS.has(cfg.aba) ? cfg.aba : 'sys', // última aba aberta
     janela: tamanhoValidoJanela(cfg.janela), // tamanho escolhido por você
     // cor da pokébola da tela de carregamento (a do último Pokémon; vermelha de início)
+    estilo: cfg.estilo === 'ios' ? 'ios' : 'cmd', // visual: CMD ou iOS (vidro)
     corPokebola: typeof cfg.corPokebola === 'string' && /^#[0-9a-f]{6}$/i.test(cfg.corPokebola) ? cfg.corPokebola : '#e3350d',
     apps: Array.isArray(cfg.apps) ? cfg.apps.map(sanitizarApp).filter(Boolean).slice(0, 64) : [],
   };
@@ -183,27 +190,51 @@ let modoAtual = 'normal';
 let alturaAntesDoTerminal = null; // a aba term estica; ao sair, volta a esta altura
 let tamanhoAntesDoMini = null;
 let salvarTamanhoTimer = null;
+const RAIO_IOS = 22; // px: cantos da janela no estilo iOS (o CSS usa o mesmo)
 
-function criarJanela() {
+// Estilo iOS: liga o desfoque real do que está atrás da janela e recorta os
+// cantos arredondados. Quem faz é o PowerShell persistente (media.ps1, comando
+// "vidro"), com o identificador da janela; os tamanhos vão em pixels da tela.
+function medidasVidro(w) {
+  const hwnd = w.getNativeWindowHandle().readBigUInt64LE(0).toString();
+  const [l, a] = w.getSize();
+  const f = screen.getDisplayMatching(w.getBounds()).scaleFactor;
+  return `${hwnd} ${Math.round(l * f)} ${Math.round(a * f)} ${Math.round(RAIO_IOS * f)}`;
+}
+function aplicarVidro(w) {
+  if (w.isDestroyed()) return;
+  pedirServidorPS('vidro ' + medidasVidro(w))
+    .then((r) => { if (r !== 'true') console.error('Vidro não aplicado:', r); });
+}
+let cantosTimer = null;
+function agendarCantos(w) {
+  clearTimeout(cantosTimer); // durante o arrastar da borda, só no fim
+  cantosTimer = setTimeout(() => { if (!w.isDestroyed()) pedirServidorPS('cantos ' + medidasVidro(w)); }, 40);
+}
+
+function criarJanela(posicao) {
   // canto superior direito da tela principal (respeita a barra de tarefas)
   const area = screen.getPrimaryDisplay().workArea;
   const cfg = carregarConfig();
+  const ios = cfg.estilo === 'ios';
   const width = Math.min(cfg.janela.largura, area.width - 2 * MARGEM);
   const height = Math.min(cfg.janela.altura, area.height - 2 * MARGEM);
 
   janela = new BrowserWindow({
-    x: area.x + area.width - width - MARGEM,
-    y: area.y + MARGEM,
+    // ao trocar de estilo, a janela nova nasce presa ao mesmo canto da antiga
+    x: posicao ? Math.max(area.x, Math.min(posicao.direita, area.x + area.width) - width) : area.x + area.width - width - MARGEM,
+    y: posicao ? Math.max(area.y, Math.min(posicao.topo, area.y + area.height - height)) : area.y + MARGEM,
     width,
     height,
     minWidth: MIN.largura,
     minHeight: MIN.altura,
     maxWidth: MAX.largura,
     maxHeight: MAX.altura,
-    // Opaca, como um CMD: sem frame do Windows (a barra de título é nossa), mas
-    // com as bordas de redimensionar. Janela opaca também é mais leve de desenhar.
+    // CMD: opaca (mais leve de desenhar). iOS: transparente, com o desfoque do
+    // Windows atrás (aplicarVidro). Sem frame do Windows: a barra de título é nossa.
     frame: false,
-    backgroundColor: '#0c0c0c',
+    transparent: ios,
+    backgroundColor: ios ? '#00000000' : '#0c0c0c',
     icon: path.join(__dirname, '..', 'assets', 'icone.ico'), // a pokébola cúbica vermelha (tools/gerar-icone.js)
     resizable: true,
     maximizable: false,
@@ -212,8 +243,9 @@ function criarJanela() {
     // outras janelas, então aparece na barra de tarefas (senão não teria como achar)
     alwaysOnTop: cfg.fixado,
     skipTaskbar: cfg.fixado,
-    // aparece na hora: o fundo já é o preto da tela de carregamento (sem piscar branco)
-    show: true,
+    // aparece na hora: o fundo já é o preto da tela de carregamento (sem piscar branco).
+    // Na troca de estilo, só aparece pronta (a antiga fica na tela até lá).
+    show: !posicao,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -226,8 +258,17 @@ function criarJanela() {
   });
 
   janela.setMenuBarVisibility(false);
-  janela.loadFile(path.join(__dirname, 'index.html')); // caminho absoluto: funciona de qualquer pasta
-  janela.on('closed', () => { janela = null; });
+  // caminho absoluto (funciona de qualquer pasta); o estilo vai na URL para a
+  // tela já nascer com o visual certo, sem piscar o outro
+  const query = { estilo: ios ? 'ios' : 'cmd' };
+  if (posicao) query.rapido = '1'; // troca de estilo: sem a tela de carregamento
+  janela.loadFile(path.join(__dirname, 'index.html'), { query });
+  const esta = janela;
+  janela.on('closed', () => { if (janela === esta) janela = null; });
+  if (ios) {
+    janela.webContents.once('did-finish-load', () => aplicarVidro(esta));
+    janela.on('resize', () => agendarCantos(esta)); // a região redonda acompanha o tamanho
+  }
 
   // Guarda o tamanho que você escolheu (só no modo normal; 1 s depois de soltar)
   janela.on('resized', () => {
@@ -249,6 +290,7 @@ function criarJanela() {
   // a tela nunca navega nem abre janelas novas
   janela.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   janela.webContents.on('will-navigate', (e) => e.preventDefault());
+  return janela;
 }
 
 // ---------- Módulo Sistema ----------
@@ -453,6 +495,19 @@ function lerApp(indice) {
   return carregarConfig().apps[indice] || null;
 }
 
+// Ícone de um .exe/.lnk (em cache): vira dataURL para a tela
+async function iconeDe(caminho) {
+  if (iconesCache.has(caminho)) return iconesCache.get(caminho);
+  try {
+    const img = await app.getFileIcon(caminho, { size: 'large' });
+    const url = img.isEmpty() ? null : img.toDataURL();
+    iconesCache.set(caminho, url);
+    return url;
+  } catch {
+    return null; // a tela mostra a inicial do nome
+  }
+}
+
 // shell.openPath e getFileIcon exigem caminho completo. Um nome solto como
 // "notepad.exe" é procurado no System32, no Windows e nas pastas do PATH.
 function caminhoCompleto(alvo) {
@@ -484,6 +539,12 @@ ipcMain.handle('apps:abrir', async (e, indice) => {
       return erro.message;
     }
   }
+  if (a.type === 'app') {
+    // apps da Store / Menu Iniciar: o próprio Windows abre pelo AppID
+    if (!APP_ID.test(a.target)) return 'app inválido';
+    spawn('explorer.exe', ['shell:AppsFolder\\' + a.target], { detached: true, stdio: 'ignore' }).unref();
+    return '';
+  }
   const caminho = caminhoCompleto(a.target);
   if (!fs.existsSync(caminho)) return 'caminho não existe: ' + caminho;
   return shell.openPath(caminho); // texto vazio = deu certo
@@ -495,15 +556,100 @@ ipcMain.handle('apps:icone', async (e, indice) => {
   if (!a || a.type !== 'exe') return null;
   const caminho = caminhoCompleto(a.target);
   if (!fs.existsSync(caminho)) return null;
-  if (iconesCache.has(caminho)) return iconesCache.get(caminho);
-  try {
-    const img = await app.getFileIcon(caminho, { size: 'large' });
-    const url = img.isEmpty() ? null : img.toDataURL();
-    iconesCache.set(caminho, url);
-    return url;
-  } catch {
-    return null; // a tela mostra a inicial do nome
+  return iconeDe(caminho);
+});
+
+// Ícone de um programa/atalho pelo caminho (catálogo e arrastar-e-soltar)
+ipcMain.handle('apps:icone-arquivo', async (e, caminho) => {
+  if (!daJanela(e) || typeof caminho !== 'string' || caminho.length > 400) return null;
+  if (!path.isAbsolute(caminho) || !/\.(exe|lnk|url|bat|cmd)$/i.test(caminho) || !fs.existsSync(caminho)) return null;
+  return iconeDe(caminho);
+});
+
+// ---------- Catálogo: tudo o que dá para adicionar com 1 clique ----------
+// "instalados" = apps do Menu Iniciar (inclusive da Store), via Get-StartApps.
+// Quando existe um atalho .lnk (ou o AppID aponta para um .exe conhecido),
+// o item vira "exe" (tem ícone de verdade); senão, "app" (abre pelo AppID).
+// "abertos" = programas com janela aberta agora.
+const PASTAS_MENU = [
+  path.join(process.env.ProgramData || 'C:\\ProgramData', 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+  path.join(app.getPath('appData'), 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+];
+// pastas "conhecidas" que aparecem no começo de alguns AppIDs
+const PASTAS_CONHECIDAS = {
+  '{1AC14E77-02E7-4E5D-B744-2EB1AE5198B7}': path.join(process.env.SystemRoot || 'C:\\Windows', 'System32'),
+  '{F38BF404-1D43-42F2-9305-67DE0B28FC23}': process.env.SystemRoot || 'C:\\Windows',
+  '{6D809377-6AF0-444B-8957-A3773F02200E}': process.env.ProgramW6432 || process.env.ProgramFiles || 'C:\\Program Files',
+  '{7C5A40EF-A0FB-4BFC-874A-C0F2E0B9FA8E}': process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)',
+};
+// entradas do Menu Iniciar que não são apps de verdade
+const RUIDO_MENU = /desinstal|uninstall|ajuda|help|manual|readme|leia-me|documenta|licen[cç]a|license|website|release notes|notas de vers/i;
+const NAO_LISTAR_ABERTOS = /\\(textinputhost|applicationframehost|explorer|systemsettings|shellexperiencehost|searchapp|lockapp|meu widget|electron)\.exe$/i;
+
+let instaladosCache = null;
+let instaladosHora = 0;
+
+function atalhosDoMenu() {
+  const mapa = new Map(); // nome em minúsculas -> caminho do .lnk
+  const visitar = (pasta, profundidade) => {
+    let itens = [];
+    try { itens = fs.readdirSync(pasta, { withFileTypes: true }); } catch { return; }
+    for (const it of itens) {
+      const p = path.join(pasta, it.name);
+      if (it.isDirectory() && profundidade < 4) visitar(p, profundidade + 1);
+      else if (/\.lnk$/i.test(it.name)) {
+        const nome = it.name.slice(0, -4).toLowerCase();
+        if (!mapa.has(nome)) mapa.set(nome, p);
+      }
+    }
+  };
+  PASTAS_MENU.forEach((p) => visitar(p, 0));
+  return mapa;
+}
+
+function exeDoAppId(id) {
+  const m = /^(\{[0-9A-F-]{36}\})\\(.+)$/i.exec(id);
+  if (!m) return null;
+  const base = PASTAS_CONHECIDAS[m[1].toUpperCase()];
+  if (!base) return null;
+  const p = path.join(base, m[2]);
+  return /\.exe$/i.test(p) && fs.existsSync(p) ? p : null;
+}
+
+async function listarInstalados() {
+  if (instaladosCache && Date.now() - instaladosHora < 5 * 60000) return instaladosCache;
+  let lista = [];
+  try { lista = JSON.parse(await pedirServidorPS('startapps')); } catch { lista = []; }
+  const atalhos = atalhosDoMenu();
+  const vistos = new Set();
+  const itens = [];
+  for (const a of Array.isArray(lista) ? lista : []) {
+    if (!a || typeof a.n !== 'string' || typeof a.id !== 'string' || RUIDO_MENU.test(a.n)) continue;
+    const chave = a.n.toLowerCase();
+    if (vistos.has(chave)) continue;
+    vistos.add(chave);
+    const exe = atalhos.get(chave) || exeDoAppId(a.id);
+    if (exe) itens.push({ nome: a.n, type: 'exe', target: exe });
+    else if (APP_ID.test(a.id)) itens.push({ nome: a.n, type: 'app', target: a.id });
   }
+  itens.sort((x, y) => x.nome.localeCompare(y.nome, 'pt'));
+  instaladosCache = itens.slice(0, 500);
+  instaladosHora = Date.now();
+  return instaladosCache;
+}
+
+async function listarAbertos() {
+  let lista = [];
+  try { lista = JSON.parse(await pedirServidorPS('janelas')); } catch { lista = []; }
+  return (Array.isArray(lista) ? lista : [])
+    .filter((a) => a && typeof a.n === 'string' && typeof a.p === 'string' && !NAO_LISTAR_ABERTOS.test(a.p))
+    .map((a) => ({ nome: a.n.slice(0, 30), type: 'exe', target: a.p }));
+}
+
+ipcMain.handle('apps:catalogo', async (e) => {
+  if (!daJanela(e)) return null;
+  const [instalados, abertos] = await Promise.all([listarInstalados(), listarAbertos()]);
+  return { instalados, abertos };
 });
 
 // Canais IPC (a tela só chega aqui pelo preload.js)
@@ -694,6 +840,36 @@ ipcMain.handle('janela:modo', (e, modo) => {
     }
   }
   modoAtual = modo;
+  return true;
+});
+
+// Troca de estilo (CMD <-> iOS): a transparência só pode ser escolhida ao criar
+// a janela, então nasce uma janela nova no mesmo canto e a antiga é fechada.
+// O PowerShell do terminal e o da música continuam vivos (são do main.js).
+ipcMain.handle('janela:estilo', (e, estilo) => {
+  if (!daJanela(e) || (estilo !== 'cmd' && estilo !== 'ios')) return false;
+  const cfg = carregarConfig();
+  if (cfg.estilo === estilo) return true;
+  cfg.estilo = estilo;
+  salvarConfig(cfg);
+  const antiga = janela;
+  const b = antiga.getBounds();
+  setTimeout(() => { // responde à tela antes de trocar
+    modoAtual = 'normal';
+    alturaAntesDoTerminal = null;
+    tamanhoAntesDoMini = null;
+    // nasce escondida; quando estiver desenhada, aparece e a antiga sai
+    const nova = criarJanela({ direita: b.x + b.width, topo: b.y });
+    let feito = false;
+    const trocar = () => {
+      if (feito) return;
+      feito = true;
+      if (!nova.isDestroyed()) nova.show();
+      if (!antiga.isDestroyed()) antiga.destroy();
+    };
+    nova.once('ready-to-show', trocar);
+    setTimeout(trocar, 4000); // garantia: nunca ficam as duas
+  }, 60);
   return true;
 });
 

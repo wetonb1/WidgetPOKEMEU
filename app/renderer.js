@@ -29,6 +29,8 @@ const carregamento = (() => {
   let mostrado = 0;   // quanto a barra mostra (%)
   let aoEncher = null;
   const teto = setTimeout(() => terminar(), MAXIMO);
+  // troca de visual (CMD <-> iOS): a janela nova já entra pronta, sem esta tela
+  if (new URLSearchParams(location.search).has('rapido')) { feito = true; clearTimeout(teto); raiz.remove(); }
 
   // A barra corre suave atrás do progresso real, mas nunca mais rápido que o
   // tempo mínimo: assim ela sempre "enche" de forma visível, mesmo com tudo em cache.
@@ -216,8 +218,9 @@ const visualizador = (() => {
     degradeBarra.addColorStop(0.45, accent);
     degradeBarra.addColorStop(1, escura);
     degradeReflexo = ctx.createLinearGradient(0, base, 0, altura);
-    degradeReflexo.addColorStop(0, misturarCor(accent, '#0c0c0c', 0.55));
-    degradeReflexo.addColorStop(1, '#0c0c0c');
+    // some para o transparente: fica certo no fundo preto (CMD) e no vidro (iOS)
+    degradeReflexo.addColorStop(0, accent + '70');
+    degradeReflexo.addColorStop(1, accent + '00');
     corPico = misturarCor(accent, '#ffffff', 0.7);
   }
 
@@ -989,7 +992,7 @@ const pokemon = (() => {
     el.tipos.replaceChildren(...atual.tipos.map((t) => {
       const chip = document.createElement('span');
       chip.className = 'tipo-chip';
-      chip.textContent = '[' + (TIPO_PT[t] || t).toUpperCase() + ']';
+      chip.textContent = (TIPO_PT[t] || t).toUpperCase(); // os [colchetes] do CMD vêm do CSS
       chip.style.color = (TYPE_THEME[t] || TYPE_THEME.normal).accent;
       return chip;
     }));
@@ -1227,84 +1230,156 @@ const pokemon = (() => {
 })();
 
 // ---------- Apps ----------
+// Adicionar é 1 clique. O "[+ adicionar]" abre uma lista com os programas
+// abertos agora, sites populares e tudo o que está no Menu Iniciar (inclusive
+// apps da Microsoft Store): clique adiciona, clique de novo tira. Também dá para
+// colar um link/caminho no campo e dar Enter, colar (Ctrl+V) direto na aba ou
+// arrastar um programa, atalho ou link para cá.
+// Custo: a lista só é pedida ao abrir a loja; ícones só dos itens que aparecem.
 const apps = (() => {
+  const aba = document.getElementById('aba-apps');
   const grade = document.getElementById('apps-grade');
+  const loja = document.getElementById('apps-loja');
+  const lojaLista = document.getElementById('loja-lista');
+  const lojaDica = document.getElementById('loja-dica');
+  const form = document.getElementById('apps-form');
+  const campo = document.getElementById('apps-campo');
+  const soltar = document.getElementById('apps-soltar');
   const dialogo = document.getElementById('dialogo');
-  const form = document.getElementById('dialogo-form');
-  const confirma = document.getElementById('dialogo-confirma');
-  const campo = {
-    nome: document.getElementById('f-nome'),
-    tipo: document.getElementById('f-tipo'),
-    alvo: document.getElementById('f-alvo'),
-    rotulo: document.getElementById('f-alvo-rotulo'),
-    erro: document.getElementById('f-erro'),
-  };
+  const DICA = '1 clique adiciona · clique de novo tira';
+  const LIMITE = 64; // o mesmo do main.js
+
+  // sites mais usados: aparecem prontos, com o favicon
+  const SITES = [
+    ['YouTube', 'https://www.youtube.com'], ['Google', 'https://www.google.com'],
+    ['Gmail', 'https://mail.google.com'], ['WhatsApp Web', 'https://web.whatsapp.com'],
+    ['ChatGPT', 'https://chatgpt.com'], ['Claude', 'https://claude.ai'],
+    ['Netflix', 'https://www.netflix.com'], ['Twitch', 'https://www.twitch.tv'],
+    ['Instagram', 'https://www.instagram.com'], ['X', 'https://x.com'],
+    ['Reddit', 'https://www.reddit.com'], ['GitHub', 'https://github.com'],
+    ['Google Drive', 'https://drive.google.com'], ['Spotify Web', 'https://open.spotify.com'],
+    ['Amazon', 'https://www.amazon.com.br'], ['Mercado Livre', 'https://www.mercadolivre.com.br'],
+  ].map(([name, target]) => ({ name, type: 'url', target }));
+
   let lista = [];
   let indiceParaRemover = -1;
-  let desenhado = false; // a grade só é montada na primeira vez que a aba abre
+  let desenhado = false;   // a grade só é montada na primeira vez que a aba abre
+  let visivel = false;
+  let lojaAberta = false;
+  let itensLoja = [];      // [{ el, item, busca }]
+  let pedido = 0;          // descarta respostas de catálogo antigas
 
   // Tira aspas ("Copiar como caminho") e espaços das pontas
   const limpar = (t) => String(t || '').trim().replace(/^["']+|["']+$/g, '').trim();
+  // para buscar sem ligar para acentos e maiúsculas
+  const simples = (t) => t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const chave = (a) => a.type + '|' + a.target.toLowerCase();
+  const posicao = (a) => lista.findIndex((b) => chave(b) === chave(a));
 
   // Garante http(s):// no começo; devolve null se não for um endereço válido
   function normalizarUrl(texto) {
     let u = limpar(texto);
-    if (!u) return null;
+    if (!u || /\s/.test(u)) return null;
     if (!/^https?:\/\//i.test(u)) u = 'https://' + u;
     try {
       const x = new URL(u);
-      return (x.protocol === 'http:' || x.protocol === 'https:') && x.hostname ? u : null;
+      return (x.protocol === 'http:' || x.protocol === 'https:') && x.hostname.includes('.') ? u : null;
     } catch {
       return null;
     }
+  }
+
+  // Texto colado/digitado -> atalho (caminho do disco ou site); null se não for nenhum
+  function interpretar(texto) {
+    const t = limpar(texto);
+    if (/^[a-z]:\\|^\\\\/i.test(t)) {
+      return { name: t.split('\\').filter(Boolean).pop().replace(/\.[^.]+$/, '').slice(0, 30), type: 'exe', target: t };
+    }
+    const url = normalizarUrl(t);
+    return url ? { name: new URL(url).hostname.replace(/^www\./, '').slice(0, 30), type: 'url', target: url } : null;
   }
 
   async function gravar(novaLista) {
     await mudarConfig((cfg) => { cfg.apps = novaLista; });
     lista = novaLista;
     desenhar();
+    marcarLoja();
   }
 
-  // Ícone: favicon para sites, ícone do arquivo (via main) para programas.
-  // Se não carregar, vira a inicial do nome.
-  function criarIcone(a, i) {
+  async function adicionar(item) {
+    if (posicao(item) >= 0) { dizer(item.name + ' já está nos apps.'); return; }
+    if (lista.length >= LIMITE) { dizer('Não cabe mais nada! Tire algum app antes.'); return; }
+    try {
+      await gravar([...lista, { name: item.name.slice(0, 30), type: item.type, target: item.target }]);
+      dizer('Anotado: ' + item.name + ' agora está nos apps.');
+    } catch (erro) {
+      dizer('Não consegui salvar ' + item.name + '.');
+      console.error('Erro ao salvar atalho:', erro);
+    }
+  }
+
+  async function remover(i) {
+    const nome = lista[i].name;
+    try {
+      await gravar(lista.filter((_, j) => j !== i));
+      dizer(nome + ' saiu da lista.');
+    } catch (erro) {
+      console.error('Erro ao remover atalho:', erro);
+    }
+  }
+
+  // Ícone: favicon para sites; para programas, o ícone do arquivo (via main).
+  // Apps da Store (e qualquer falha) viram a inicial do nome.
+  function criarIcone(a, buscar) {
     const img = document.createElement('img');
     img.className = 'app-icone';
     img.alt = '';
     img.draggable = false;
     const inicial = () => {
       const d = document.createElement('div');
-      d.className = 'app-icone';
+      d.className = 'app-icone inicial';
       d.textContent = (a.name || '?').charAt(0).toUpperCase();
-      img.replaceWith(d);
+      if (img.parentNode) img.replaceWith(d);
+      return d;
     };
     img.addEventListener('error', inicial);
     if (a.type === 'url') {
       try {
-        const dominio = new URL(a.target).hostname;
-        img.src = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(dominio);
-      } catch { inicial(); }
+        img.src = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(new URL(a.target).hostname);
+      } catch { return inicial(); }
+    } else if (a.type === 'app' || !buscar) {
+      return inicial();
     } else {
-      window.widget.iconeApp(i).then((url) => (url ? (img.src = url) : inicial())).catch(inicial);
+      img.carregar = () => buscar().then((url) => (url ? (img.src = url) : inicial())).catch(inicial);
     }
     return img;
   }
 
+  // ----- grade: os seus apps -----
   function desenhar() {
     desenhado = true;
+    if (lista.length === 0) {
+      const vazio = document.createElement('div');
+      vazio.className = 'apps-vazio';
+      vazio.textContent = 'nenhum app ainda: clique em [+ adicionar] ou arraste um programa para cá';
+      grade.replaceChildren(vazio);
+      return;
+    }
     grade.replaceChildren(...lista.map((a, i) => {
       const b = document.createElement('button');
       b.className = 'app';
       b.type = 'button';
-      b.title = a.name + ' — ' + a.target;
+      b.title = a.name + ' (botão direito remove)';
       const nome = document.createElement('span');
       nome.className = 'app-nome';
       nome.textContent = a.name;
-      b.append(criarIcone(a, i), nome);
+      const icone = criarIcone(a, () => window.widget.iconeApp(i));
+      b.append(icone, nome);
+      if (icone.carregar) icone.carregar();
       b.addEventListener('click', () => {
-        dizer(`Abrindo ${a.name}! Vai lá.`);
+        dizer('Abrindo ' + a.name + '! Vai lá.');
         window.widget.abrirApp(i)
-          .then((erro) => { if (erro) { dizer(`Não consegui abrir ${a.name}: ${erro}`); console.error('Não abriu', a.name + ':', erro); } })
+          .then((erro) => { if (erro) { dizer('Não consegui abrir ' + a.name + ': ' + erro); console.error('Não abriu', a.name + ':', erro); } })
           .catch((erro) => console.error('Erro ao abrir', a.name + ':', erro));
       });
       b.addEventListener('contextmenu', (e) => { e.preventDefault(); pedirRemocao(i); });
@@ -1312,87 +1387,195 @@ const apps = (() => {
     }));
   }
 
-  // ----- diálogo: novo atalho -----
-  function atualizarRotulo() {
-    campo.rotulo.textContent = campo.tipo.value === 'url' ? 'endereço' : 'caminho do programa';
-    campo.alvo.placeholder = campo.tipo.value === 'url' ? 'youtube.com' : 'C:\\...\\programa.exe';
+  // ----- loja: tudo o que dá para adicionar -----
+  // ícones da loja só carregam quando o item aparece na rolagem
+  const aoAparecer = new IntersectionObserver((entradas) => {
+    for (const en of entradas) {
+      if (!en.isIntersecting) continue;
+      aoAparecer.unobserve(en.target);
+      if (en.target.carregar) en.target.carregar();
+    }
+  }, { root: lojaLista, rootMargin: '120px' });
+
+  function itemDaLoja(item) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'loja-item';
+    b.title = item.type === 'url' ? item.target : item.name;
+    const icone = criarIcone(item, () => window.widget.iconeArquivo(item.target));
+    const nome = document.createElement('span');
+    nome.className = 'loja-nome';
+    nome.textContent = item.name;
+    const marca = document.createElement('span');
+    marca.className = 'loja-marca';
+    b.append(icone, nome, marca);
+    if (icone.carregar) aoAparecer.observe(icone);
+    b.addEventListener('click', () => {
+      const i = posicao(item);
+      if (i >= 0) remover(i); else adicionar(item);
+    });
+    itensLoja.push({ el: b, item, busca: simples(item.name) });
+    return b;
   }
-  function abrirDialogo() {
-    form.classList.remove('oculto');
-    confirma.classList.add('oculto');
+
+  function secao(titulo, itens) {
+    const s = document.createElement('div');
+    s.className = 'loja-secao';
+    const h = document.createElement('div');
+    h.className = 'loja-titulo';
+    h.textContent = titulo;
+    const g = document.createElement('div');
+    g.className = 'loja-grade';
+    g.append(...itens.map(itemDaLoja));
+    s.append(h, g);
+    return s;
+  }
+
+  function montarLoja(catalogo) {
+    itensLoja = [];
+    aoAparecer.disconnect();
+    const secoes = [];
+    if (catalogo && catalogo.abertos.length) secoes.push(secao('abertos agora', catalogo.abertos.map((a) => ({ name: a.nome, type: a.type, target: a.target }))));
+    secoes.push(secao('sites', SITES));
+    if (catalogo) {
+      secoes.push(secao('instalados', catalogo.instalados.map((a) => ({ name: a.nome, type: a.type, target: a.target }))));
+    } else {
+      const c = document.createElement('div');
+      c.className = 'sub loja-carregando';
+      c.textContent = 'procurando os apps instalados...';
+      secoes.push(c);
+    }
+    lojaLista.replaceChildren(...secoes);
+    marcarLoja();
+    filtrar();
+  }
+
+  // ✓ nos que você já tem
+  function marcarLoja() {
+    for (const { el, item } of itensLoja) {
+      const tem = posicao(item) >= 0;
+      el.classList.toggle('tem', tem);
+      el.lastElementChild.textContent = tem ? '✓' : '+';
+    }
+  }
+
+  // filtra pelo que está no campo; esconde as seções que ficaram vazias
+  function filtrar() {
+    const q = simples(limpar(campo.value));
+    for (const { el, busca } of itensLoja) el.classList.toggle('oculto', q !== '' && !busca.includes(q));
+    for (const s of lojaLista.querySelectorAll('.loja-secao')) {
+      s.classList.toggle('oculto', !s.querySelector('.loja-item:not(.oculto)'));
+    }
+    const direto = interpretar(campo.value);
+    lojaDica.textContent = direto ? 'Enter adiciona: ' + direto.target : DICA;
+  }
+
+  async function abrirLoja() {
+    if (lojaAberta) return;
+    lojaAberta = true;
+    loja.classList.remove('oculto');
+    grade.classList.add('oculto');
+    dizer('O que eu coloco aqui? Um clique e pronto.');
+    montarLoja(null); // sites na hora; os instalados chegam em seguida
+    const meu = ++pedido;
+    try {
+      const catalogo = await window.widget.catalogoApps();
+      if (meu === pedido && lojaAberta && catalogo) montarLoja(catalogo);
+    } catch (erro) {
+      console.error('Erro ao listar os apps:', erro);
+    }
+  }
+
+  function fecharLoja() {
+    if (!lojaAberta) return;
+    lojaAberta = false;
+    pedido++;
+    loja.classList.add('oculto');
+    grade.classList.remove('oculto');
+    lojaLista.replaceChildren(); // libera os ícones da memória
+    itensLoja = [];
+    aoAparecer.disconnect();
+    campo.value = '';
+  }
+
+  document.getElementById('apps-loja-btn').addEventListener('click', () => {
+    if (lojaAberta) fecharLoja(); else { abrirLoja(); campo.focus(); }
+  });
+  document.getElementById('loja-fechar').addEventListener('click', fecharLoja);
+  campo.addEventListener('input', () => {
+    if (!lojaAberta && campo.value.trim()) abrirLoja();
+    filtrar();
+  });
+  // Enter: link/caminho vira atalho; senão, adiciona o primeiro da busca
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const direto = interpretar(campo.value);
+    if (direto) {
+      adicionar(direto);
+      campo.value = '';
+      filtrar();
+      return;
+    }
+    const primeiro = itensLoja.find(({ el }) => !el.classList.contains('oculto'));
+    if (campo.value.trim() && primeiro && posicao(primeiro.item) < 0) adicionar(primeiro.item);
+  });
+
+  // ----- colar (Ctrl+V) direto na aba -----
+  document.addEventListener('paste', (e) => {
+    if (!visivel || e.target instanceof HTMLInputElement) return;
+    const item = interpretar(e.clipboardData.getData('text'));
+    if (item) { e.preventDefault(); adicionar(item); }
+  });
+
+  // ----- arrastar e soltar (programas, atalhos, pastas, links) -----
+  // Em qualquer lugar da janela, soltar não pode "abrir" o arquivo na tela
+  document.addEventListener('dragover', (e) => e.preventDefault());
+  document.addEventListener('drop', (e) => e.preventDefault());
+  let arrastando = 0;
+  aba.addEventListener('dragenter', () => { arrastando++; soltar.classList.remove('oculto'); });
+  aba.addEventListener('dragleave', () => { if (--arrastando <= 0) { arrastando = 0; soltar.classList.add('oculto'); } });
+  aba.addEventListener('drop', (e) => {
+    arrastando = 0;
+    soltar.classList.add('oculto');
+    const itens = [];
+    for (const f of e.dataTransfer.files) {
+      const caminho = window.widget.caminhoArquivo(f);
+      if (caminho) itens.push(interpretar(caminho));
+    }
+    if (itens.length === 0) itens.push(interpretar(e.dataTransfer.getData('text/uri-list').split('\n')[0] || e.dataTransfer.getData('text')));
+    (async () => { for (const item of itens.filter(Boolean)) await adicionar(item); })();
+  });
+
+  // ----- confirmar remoção (botão direito) -----
+  function pedirRemocao(i) {
+    indiceParaRemover = i;
+    document.getElementById('c-texto').textContent = '$ apps rm "' + lista[i].name + '"?';
     dialogo.classList.remove('oculto');
   }
   function fecharDialogo() {
     dialogo.classList.add('oculto');
     indiceParaRemover = -1;
   }
-
-  document.getElementById('apps-novo').addEventListener('click', () => {
-    form.reset();
-    campo.erro.textContent = '';
-    atualizarRotulo();
-    abrirDialogo();
-    campo.nome.focus();
-    dizer('Qual atalho eu guardo?');
-  });
-  campo.tipo.addEventListener('change', atualizarRotulo);
-  document.getElementById('f-cancelar').addEventListener('click', fecharDialogo);
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const tipo = campo.tipo.value;
-    let alvo = limpar(campo.alvo.value);
-    if (tipo === 'url') alvo = normalizarUrl(alvo);
-    if (!alvo) {
-      campo.erro.textContent = tipo === 'url' ? 'endereço inválido.' : 'informe o caminho.';
-      return;
-    }
-    let nome = limpar(campo.nome.value);
-    if (!nome) {
-      // sem nome: usa o site (sem www.) ou o nome do arquivo
-      nome = tipo === 'url'
-        ? new URL(alvo).hostname.replace(/^www\./, '')
-        : alvo.split(/[\\/]/).pop().replace(/\.[^.]+$/, '');
-    }
-    try {
-      await gravar([...lista, { name: nome, type: tipo, target: alvo }]);
-      fecharDialogo();
-      dizer(`Anotado: ${nome} agora está nos apps.`);
-    } catch (erro) {
-      campo.erro.textContent = 'não foi possível salvar.';
-      console.error('Erro ao salvar atalho:', erro);
-    }
-  });
-
-  // ----- diálogo: confirmar remoção (botão direito) -----
-  function pedirRemocao(i) {
-    indiceParaRemover = i;
-    document.getElementById('c-texto').textContent = `$ apps rm "${lista[i].name}"?`;
-    form.classList.add('oculto');
-    confirma.classList.remove('oculto');
-    dialogo.classList.remove('oculto');
-  }
   document.getElementById('c-nao').addEventListener('click', fecharDialogo);
-  document.getElementById('c-sim').addEventListener('click', async () => {
+  document.getElementById('c-sim').addEventListener('click', () => {
     const i = indiceParaRemover;
     fecharDialogo();
-    if (i < 0) return;
-    const nome = lista[i].name;
-    try {
-      await gravar(lista.filter((_, j) => j !== i));
-      dizer(`${nome} saiu da lista.`);
-    } catch (erro) {
-      console.error('Erro ao remover atalho:', erro);
-    }
+    if (i >= 0) remover(i);
   });
-  // Esc fecha o diálogo
+  // Esc fecha o diálogo ou a loja
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !dialogo.classList.contains('oculto')) fecharDialogo();
+    if (e.key !== 'Escape') return;
+    if (!dialogo.classList.contains('oculto')) fecharDialogo();
+    else if (lojaAberta) fecharLoja();
   });
 
   return {
     iniciar(cfg) { lista = Array.isArray(cfg.apps) ? cfg.apps : []; },
-    visivel(v) { if (v && !desenhado) desenhar(); }, // ícones só carregam quando você abre a aba
+    visivel(v) {
+      visivel = v;
+      if (v && !desenhado) desenhar(); // ícones só carregam quando você abre a aba
+      if (!v) fecharLoja();
+    },
   };
 })();
 
@@ -1448,7 +1631,9 @@ const terminal = (() => {
 
   async function abrir() {
     if (!term) criar();
-    term.options.theme = { background: '#0c0c0c', cursor: accent };
+    // fundo do terminal: o do visual atual (--term-bg no style.css)
+    const fundo = getComputedStyle(document.documentElement).getPropertyValue('--term-bg').trim() || '#0c0c0c';
+    term.options.theme = { background: fundo, cursor: accent };
     ajustar();
     if (!shellVivo) {
       if (limparAoReiniciar) { term.reset(); limparAoReiniciar = false; }
@@ -1524,9 +1709,19 @@ const abas = (() => {
   let digitacao = 0;
   let salvarTimer = null;
 
+  // Visual iOS: abas com nomes por extenso e título com o nome do Pokémon
+  const IOS = document.documentElement.dataset.estilo === 'ios';
+  const ROTULOS_IOS = { sys: 'Sistema', music: 'Música', apps: 'Apps', term: 'Terminal', poke: 'Pokédex' };
+  if (IOS) {
+    botoes.forEach((b) => { b.textContent = ROTULOS_IOS[b.dataset.aba]; });
+    // botões de texto sem os [colchetes] do console
+    document.querySelectorAll('.botao-cmd').forEach((b) => { b.textContent = b.textContent.replace(/^\[|\]$/g, ''); });
+  }
+
   // título da janela, como o de um console: "C:\WINDOWS\system32\cmd.exe - gengar"
   function desenharTitulo() {
-    titulo.textContent = 'C:\\WINDOWS\\system32\\cmd.exe' + (dono ? ' - ' + dono : '');
+    if (IOS) titulo.textContent = dono ? dono.charAt(0).toUpperCase() + dono.slice(1) : 'Meu Widget';
+    else titulo.textContent = 'C:\\WINDOWS\\system32\\cmd.exe' + (dono ? ' - ' + dono : '');
   }
 
   // digita o comando no prompt (rápido: ~25 ms por letra)
@@ -1689,6 +1884,21 @@ const ajustes = (() => {
     mudarConfig((cfg) => { cfg.animacoes = preferencias.animacoes; })
       .then(() => dizer(preferencias.animacoes ? 'Posso me mexer de novo? Oba!' : 'Vou ficar paradinho, prometo.'))
       .catch((erro) => console.error('Erro ao salvar:', erro));
+  });
+
+  // Visual: CMD ou iOS. A janela é recriada (a transparência só vale ao nascer)
+  const opcoesEstilo = [...document.querySelectorAll('.estilo-op')];
+  const estiloAtual = document.documentElement.dataset.estilo;
+  opcoesEstilo.forEach((b) => {
+    const atual = b.dataset.estilo === estiloAtual;
+    b.classList.toggle('ativo', atual);
+    b.setAttribute('aria-checked', atual);
+    b.addEventListener('click', async () => {
+      if (atual) return;
+      dizer(b.dataset.estilo === 'ios' ? 'Visual novo chegando... vidro e cantinhos redondos!' : 'De volta ao CMD raiz!');
+      await esperar(500); // dá tempo de ler a fala
+      window.widget.janelaEstilo(b.dataset.estilo).catch((erro) => console.error('Erro ao trocar o visual:', erro));
+    });
   });
 
   return {

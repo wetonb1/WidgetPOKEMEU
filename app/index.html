@@ -9,6 +9,7 @@
   <meta http-equiv="Content-Security-Policy"
         content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com https://raw.githubusercontent.com; connect-src https://pokeapi.co; media-src https://raw.githubusercontent.com">
   <title>Meu Widget</title>
+  <script src="estilo.js"></script>
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
   <link rel="stylesheet" href="style.css">
 </head>
@@ -139,12 +140,24 @@
       </section>
 
       <!-- 3: apps -->
+      <!-- Adicionar = 1 clique: busque na lista (apps instalados, abertos agora e
+           sites), cole um link/caminho e Enter, ou arraste um programa/atalho aqui -->
       <section id="aba-apps" class="painel" data-painel="apps">
-        <div class="apps-topo">
-          <span class="sub">clique abre · botão direito remove</span>
-          <button id="apps-novo" class="botao-cmd" type="button">[+ novo]</button>
-        </div>
+        <form id="apps-form" class="linha-busca apps-busca" autocomplete="off">
+          <label for="apps-campo">add&gt;</label>
+          <input id="apps-campo" type="text" maxlength="400" spellcheck="false"
+                 placeholder="busque um app, cole um link ou arraste um arquivo aqui">
+          <button type="button" id="apps-loja-btn" class="botao-cmd" title="Ver tudo o que dá para adicionar">[+ adicionar]</button>
+        </form>
         <div id="apps-grade" class="apps-grade"></div>
+        <div id="apps-loja" class="apps-loja oculto">
+          <div class="loja-topo">
+            <span class="sub" id="loja-dica">1 clique adiciona · clique de novo tira</span>
+            <button type="button" id="loja-fechar" class="botao-cmd">[pronto]</button>
+          </div>
+          <div id="loja-lista" class="loja-lista"></div>
+        </div>
+        <div id="apps-soltar" class="apps-soltar oculto">solte aqui para adicionar</div>
       </section>
 
       <!-- 4: terminal (PowerShell real) -->
@@ -173,27 +186,17 @@
           <label class="caixa"><input type="checkbox" id="cfg-visualizador"> visualizador de áudio</label>
           <label class="caixa"><input type="checkbox" id="cfg-animacoes"> animações do Pokémon</label>
         </div>
+        <!-- visual do widget: CMD (padrão) ou iOS (vidro com desfoque) -->
+        <div class="estilo-escolha" role="radiogroup" aria-label="Visual">
+          <span>visual</span>
+          <button type="button" class="estilo-op" data-estilo="cmd" role="radio">CMD</button>
+          <button type="button" class="estilo-op" data-estilo="ios" role="radio">iOS</button>
+        </div>
       </section>
 
-      <!-- Janelinha por cima das abas: formulário de novo atalho / confirmação de remoção -->
+      <!-- Janelinha por cima das abas: confirmação de remoção de um app -->
       <div id="dialogo" class="dialogo oculto">
-        <form id="dialogo-form" class="dialogo-caixa" autocomplete="off">
-          <h2>apps /add</h2>
-          <label>nome <input id="f-nome" type="text" maxlength="30"></label>
-          <label>tipo
-            <select id="f-tipo">
-              <option value="url">site</option>
-              <option value="exe">programa</option>
-            </select>
-          </label>
-          <label><span id="f-alvo-rotulo">endereço</span> <input id="f-alvo" type="text"></label>
-          <div id="f-erro" class="dialogo-erro"></div>
-          <div class="dialogo-botoes">
-            <button type="button" id="f-cancelar">cancelar</button>
-            <button type="submit" class="principal">salvar</button>
-          </div>
-        </form>
-        <div id="dialogo-confirma" class="dialogo-caixa oculto">
+        <div id="dialogo-confirma" class="dialogo-caixa">
           <h2 id="c-texto">remover?</h2>
           <div class="dialogo-botoes">
             <button type="button" id="c-nao">cancelar</button>
