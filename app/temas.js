@@ -29,10 +29,9 @@ const TYPE_THEME = {
   fairy:    { accent: '#ff9fd8', anim: 'wiggle', bordao: 'Tee-hee!' },
 };
 
-// Franquias de anime: paleta FIXA por fonte (não dá para tirar a cor da imagem:
-// ela vem de outro domínio e o canvas bloqueia a leitura dos pixels).
+// Franquias de anime: paleta de RESERVA por fonte. Normalmente o destaque vem da
+// própria imagem do personagem (franquias.corDaImagem); esta só vale se a leitura falhar.
 const FONTE_TEMA = {
-  jikan:   { accent: '#5b8def', anim: 'float', bordao: 'Yo!',  rotulo: 'Jikan' },   // azul do MyAnimeList
   anilist: { accent: '#3dd6c3', anim: 'pulse', bordao: 'Hey!', rotulo: 'AniList' }, // turquesa
 };
 
@@ -49,7 +48,7 @@ const TIPO_PT = {
 
 // Aplica o tema de um tipo em todo o widget. Tipo desconhecido usa "normal";
 // null usa o CMD inicial (antes de escolher um Pokémon).
-// "fonte:jikan" / "fonte:anilist" usa a paleta da franquia.
+// "fonte:anilist" usa a paleta da franquia.
 function aplicarTema(tipo) {
   const fonte = typeof tipo === 'string' && tipo.startsWith('fonte:') ? FONTE_TEMA[tipo.slice(6)] : null;
   const t = fonte || (tipo === null ? TEMA_INICIAL : (TYPE_THEME[tipo] || TYPE_THEME.normal));

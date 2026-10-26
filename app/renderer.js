@@ -794,7 +794,7 @@ const pokemon = (() => {
   const CPU_ALTA = 85; // % a partir do qual o Pokémon "sua"
 
   // atual: Pokémon { fonte: 'pokemon', id, slug, nome, tipos, sprites, grito }
-  //        anime   { fonte: 'jikan'|'anilist', id, slug, nome, tipos: [], sprites: null, grito: null, imagem }
+  //        anime   { fonte: 'anilist', id, slug, nome, tipos: [], sprites: null, grito: null, imagem, cor }
   let atual = null;
   let escolhido = false; // já escolheu um Pokémon alguma vez?
   let usarShiny = false;
@@ -807,7 +807,10 @@ const pokemon = (() => {
   let favFranquias = [];      // [{ fonte, id, nome, imagem }]
 
   const ehAnime = () => !!atual && atual.fonte !== 'pokemon';
-  const temaDaFonte = () => FONTE_TEMA[atual.fonte] || FONTE_TEMA.jikan;
+  const temaDaFonte = () => FONTE_TEMA[atual.fonte] || FONTE_TEMA.anilist;
+  // destaque do personagem: a cor tirada da imagem dele (ou a paleta da fonte, de reserva)
+  const corDoPersonagem = () => atual.cor || temaDaFonte().accent;
+  const coresPorPersonagem = new Map(); // 'fonte|id' -> '#rrggbb' (não refaz ao trocar de resultado)
   const mesmoPersonagem = (a, b) => a.fonte === b.fonte && a.id === b.id;
   // nome de anime -> "usuário" do prompt e da narração ("Naruto Uzumaki" -> "naruto")
   const slugDe = (nome) => normalizar(String(nome).split(/[\s,]+/)[0]) || 'anime';
@@ -832,14 +835,14 @@ const pokemon = (() => {
   function salvar() {
     mudarConfig((cfg) => {
       if (atual && !ehAnime()) cfg.pokemon = atual.slug;
-      if (atual && ehAnime()) cfg.personagem = { fonte: atual.fonte, id: atual.id, nome: atual.nome, imagem: atual.imagem };
+      if (atual && ehAnime()) cfg.personagem = { fonte: atual.fonte, id: atual.id, nome: atual.nome, imagem: atual.imagem, cor: atual.cor || '' };
       if (atual) cfg.fonte = atual.fonte; // o widget reabre com a última escolha
       cfg.pokemonEscolhido = escolhido;
       cfg.shiny = usarShiny;
       cfg.favoritos = favoritos;
       cfg.favoritosFranquias = favFranquias;
       // a tela de carregamento abre nesta cor
-      if (atual) cfg.corPokebola = ehAnime() ? temaDaFonte().accent : (TYPE_THEME[atual.tipos[0]] || TYPE_THEME.normal).accent;
+      if (atual) cfg.corPokebola = ehAnime() ? corDoPersonagem() : (TYPE_THEME[atual.tipos[0]] || TYPE_THEME.normal).accent;
     }).catch((erro) => console.error('Erro ao salvar Pokémon:', erro));
   }
 
@@ -1028,6 +1031,7 @@ const pokemon = (() => {
     // Pokémon: o tipo PRINCIPAL (primeiro) vira o esquema de cores do terminal inteiro.
     // Anime: a paleta fixa da fonte (temas.js).
     aplicarTema(ehAnime() ? 'fonte:' + atual.fonte : atual.tipos[0]);
+    if (ehAnime()) document.documentElement.style.setProperty('--accent', corDoPersonagem());
     atualizarAccent();
     el.nome.textContent = atual.nome;
     el.num.textContent = ehAnime() ? '' : '#' + String(atual.id).padStart(3, '0');
@@ -1035,7 +1039,7 @@ const pokemon = (() => {
       const chip = document.createElement('span');
       chip.className = 'tipo-chip';
       chip.textContent = temaDaFonte().rotulo.toUpperCase();
-      chip.style.color = temaDaFonte().accent;
+      chip.style.color = corDoPersonagem();
       el.tipos.replaceChildren(chip);
     } else el.tipos.replaceChildren(...atual.tipos.map((t) => {
       const chip = document.createElement('span');
@@ -1110,8 +1114,23 @@ const pokemon = (() => {
   function escolherPersonagem(p, { usuario = false, primeiraVez = false } = {}) {
     pedido++; // uma busca de Pokémon em andamento não pisa nesta escolha
     const anterior = atual;
-    atual = { fonte: p.fonte, id: p.id, slug: slugDe(p.nome), nome: p.nome, tipos: [], sprites: null, grito: null, imagem: p.imagem || '' };
+    const chave = p.fonte + '|' + p.id;
+    const cor = p.cor || coresPorPersonagem.get(chave) || '';
+    atual = { fonte: p.fonte, id: p.id, slug: slugDe(p.nome), nome: p.nome, tipos: [], sprites: null, grito: null, imagem: p.imagem || '', cor };
     desenhar();
+    if (!cor && atual.imagem) {
+      const este = atual;
+      franquias.corDaImagem(atual.imagem).then((c) => {
+        if (!c) return; // sem cor legível: fica a paleta da fonte
+        coresPorPersonagem.set(chave, c);
+        if (atual !== este) return; // trocou de personagem enquanto lia a imagem
+        atual.cor = c;
+        document.documentElement.style.setProperty('--accent', c);
+        atualizarAccent();
+        el.tipos.firstElementChild && (el.tipos.firstElementChild.style.color = c);
+        salvar();
+      });
+    }
     marcarResultados();
     if (primeiraVez) {
       escolhido = true;
@@ -1186,10 +1205,9 @@ const pokemon = (() => {
   // ----- seletor de fonte (aba poke e tela da primeira escolha) -----
   const SUGESTOES = {
     pokemon: ['pikachu', 'charmander', 'bulbasaur', 'squirtle', 'eevee', 'gengar'],
-    jikan: ['Naruto', 'Goku', 'Luffy', 'Gojo', 'Mikasa', 'Tanjiro'],
     anilist: ['Naruto', 'Goku', 'Luffy', 'Gojo', 'Mikasa', 'Tanjiro'],
   };
-  const NOMES_FONTE = { pokemon: 'Pokémon', jikan: 'Anime · Jikan', anilist: 'Anime · AniList' };
+  const NOMES_FONTE = { pokemon: 'Pokémon', anilist: 'Anime · AniList' };
   const seletores = [...document.querySelectorAll('[data-fontes]')];
   function desenharFonte() {
     for (const s of seletores) {
@@ -1266,7 +1284,7 @@ const pokemon = (() => {
     if (ehAnime()) {
       const jaAnime = favFranquias.some((f) => mesmoPersonagem(f, atual));
       favFranquias = jaAnime ? favFranquias.filter((f) => !mesmoPersonagem(f, atual))
-        : [...favFranquias, { fonte: atual.fonte, id: atual.id, nome: atual.nome, imagem: atual.imagem }];
+        : [...favFranquias, { fonte: atual.fonte, id: atual.id, nome: atual.nome, imagem: atual.imagem, cor: atual.cor || '' }];
       dizer(jaAnime ? 'Saí dos favoritos? Tudo bem... 😢' : 'Me favoritou? Que honra!');
       desenharBotoes();
       desenharFavoritos();

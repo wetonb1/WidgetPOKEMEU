@@ -557,7 +557,7 @@ button { font-family: var(--font); }
 .estilo-op:hover { color: var(--text); }
 .estilo-op.ativo { border-color: var(--accent); background: var(--accent); color: var(--bg); }
 
-/* fonte do dono (Pokémon / Jikan / AniList): mesmo visual da escolha de estilo */
+/* fonte do dono (Pokémon / AniList): mesmo visual da escolha de estilo */
 .fonte-escolha { display: flex; flex-wrap: wrap; gap: 6px; flex-shrink: 0; }
 .fonte-op {
   padding: 1px 8px;

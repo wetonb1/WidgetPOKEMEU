@@ -83,10 +83,10 @@ function sanitizarApp(a) {
 }
 
 // ----- Franquias -----
-const FONTES = new Set(['pokemon', 'jikan', 'anilist']);
-const FONTES_ANIME = new Set(['jikan', 'anilist']);
+const FONTES = new Set(['pokemon', 'anilist']);
+const FONTES_ANIME = new Set(['anilist']);
 // imagens de personagem só das CDNs das duas fontes (as mesmas liberadas na CSP)
-const HOSTS_IMAGEM = new Set(['cdn.myanimelist.net', 's4.anilist.co']);
+const HOSTS_IMAGEM = new Set(['s4.anilist.co']);
 
 function sanitizarBusca(b) {
   if (!b || typeof b !== 'object' || !FONTES.has(b.fonte)) return null;
@@ -104,7 +104,8 @@ function sanitizarPersonagem(p) {
     const u = new URL(texto(p.imagem, 500));
     if (u.protocol === 'https:' && HOSTS_IMAGEM.has(u.hostname)) imagem = u.href;
   } catch { /* sem imagem */ }
-  return id && nome ? { fonte: p.fonte, id, nome, imagem } : null;
+  const cor = typeof p.cor === 'string' && /^#[0-9a-f]{6}$/i.test(p.cor) ? p.cor : ''; // tirada da imagem
+  return id && nome ? { fonte: p.fonte, id, nome, imagem, cor } : null;
 }
 
 // Tamanho da janela salvo: inteiros dentro do mínimo e do máximo
@@ -144,7 +145,7 @@ function sanitizarConfig(cfg, modelo) {
     aba: ABAS.has(cfg.aba) ? cfg.aba : 'sys', // última aba aberta
     janela: tamanhoValidoJanela(cfg.janela), // tamanho escolhido por você
     estilo: cfg.estilo === 'ios' ? 'ios' : 'cmd', // visual: CMD ou iOS (vidro)
-    // Franquias: de onde vem o "dono" do widget (Pokémon, ou anime via Jikan/AniList)
+    // Franquias: de onde vem o "dono" do widget (Pokémon, ou anime via AniList)
     fonte: FONTES.has(cfg.fonte) ? cfg.fonte : 'pokemon',
     ultimaBusca: sanitizarBusca(cfg.ultimaBusca),
     personagem: sanitizarPersonagem(cfg.personagem), // último personagem de anime escolhido

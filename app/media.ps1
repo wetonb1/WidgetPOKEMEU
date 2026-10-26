@@ -342,12 +342,19 @@ using System.Runtime.InteropServices;
 
 public static class IconeApp {
     [StructLayout(LayoutKind.Sequential)] struct SIZE { public int cx, cy; }
-    [StructLayout(LayoutKind.Sequential)] struct BITMAP { public int Tipo, L, A, Linha; public short Planos, Bits; public IntPtr Dados; }
+    // DIBSECTION = BITMAP + BITMAPINFOHEADER: o cabeçalho diz se as linhas vêm de cima
+    // para baixo (biHeight < 0) ou de baixo para cima (biHeight > 0, o padrão dos DIBs)
+    [StructLayout(LayoutKind.Sequential)] struct DIBSECTION {
+        public int Tipo, L, A, Linha; public short Planos, Bits; public IntPtr Dados;
+        public int biSize, biWidth, biHeight; public short biPlanes, biBitCount;
+        public int biCompression, biSizeImage, biXPels, biYPels, biClrUsed, biClrImportant;
+        public int Campo1, Campo2, Campo3; public IntPtr Secao; public int Deslocamento;
+    }
     [ComImport, Guid("bcc18b79-ba16-442f-80c4-8a59c30c463b"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     interface IShellItemImageFactory { [PreserveSig] int GetImage(SIZE tamanho, int flags, out IntPtr bitmap); }
     [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
     static extern void SHCreateItemFromParsingName(string caminho, IntPtr pbc, ref Guid riid, [MarshalAs(UnmanagedType.Interface)] out IShellItemImageFactory item);
-    [DllImport("gdi32.dll")] static extern int GetObject(IntPtr h, int tam, ref BITMAP bm);
+    [DllImport("gdi32.dll")] static extern int GetObject(IntPtr h, int tam, ref DIBSECTION ds);
     [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr h);
 
     public static string Png(string alvo, int lado) {
@@ -357,12 +364,13 @@ public static class IconeApp {
         IntPtr h;
         if (f.GetImage(new SIZE { cx = lado, cy = lado }, 0, out h) != 0 || h == IntPtr.Zero) return "";
         try {
-            BITMAP bm = new BITMAP();
-            GetObject(h, Marshal.SizeOf(bm), ref bm);
-            if (bm.Bits != 32 || bm.Dados == IntPtr.Zero) return "";
+            DIBSECTION bm = new DIBSECTION();
+            if (GetObject(h, Marshal.SizeOf(bm), ref bm) == 0 || bm.Bits != 32 || bm.Dados == IntPtr.Zero) return "";
             using (Bitmap origem = new Bitmap(bm.L, bm.A, bm.Linha, PixelFormat.Format32bppArgb, bm.Dados))
             using (Bitmap copia = new Bitmap(origem))
             using (MemoryStream ms = new MemoryStream()) {
+                // linhas de baixo para cima: desvira (senão o ícone fica de cabeça para baixo)
+                if (bm.biHeight > 0) copia.RotateFlip(RotateFlipType.RotateNoneFlipY);
                 // Ícones da Store vêm com uma placa cinza em volta do logo (o logo fica pequeno).
                 // Se o canto é cinza e o que sobra por dentro é colorido, corta a placa e amplia o logo.
                 Color canto = copia.GetPixel(2, 2);
