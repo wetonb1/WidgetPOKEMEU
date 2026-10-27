@@ -549,6 +549,10 @@ public static class Fundo {
                 papelCor = string.Format("#{0:x2}{1:x2}{2:x2}", sr / 576, sg / 576, sbl / 576);
             }
         } catch { /* sem papel de parede em arquivo (cor sólida, Wallpaper Engine...) */ }
+        // a imagem do papel de parede pode ser grande (4K): devolve a memória já (só roda quando ele muda)
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
         return papelCor;
     }
 }
