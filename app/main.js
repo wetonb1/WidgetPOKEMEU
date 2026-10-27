@@ -8,12 +8,10 @@ const os = require('os');
 // de um mínimo e um máximo que não quebram o layout; o tamanho fica salvo.
 // Ao trocar de modo, a borda direita e o topo não se mexem (preso ao canto).
 //   normal   = Pokémon à esquerda + abas à direita (tamanho livre entre MIN e MAX)
-//   terminal = aba "term": garante pelo menos ALTURA_TERMINAL de altura
 //   mini     = só o Pokémon e a linha de status (tamanho fixo)
 const TAMANHO_PADRAO = { largura: 900, altura: 400 };
 const MIN = { largura: 720, altura: 320 };
 const MAX = { largura: 1400, altura: 900 };
-const ALTURA_TERMINAL = 600;
 const MINI = { largura: 340, altura: 112 };
 const MARGEM = 12; // distância da borda da tela
 
@@ -45,7 +43,7 @@ app.on('second-instance', () => {
 // certos e com tamanho limitado. Assim nem uma config editada à mão nem a tela
 // conseguem gravar algo inesperado (ex.: um atalho com protocolo estranho).
 const SLUG = /^[a-z0-9-]{1,30}$/;
-const ABAS = new Set(['sys', 'music', 'apps', 'term', 'poke']);
+const ABAS = new Set(['sys', 'music', 'apps', 'poke']);
 const MAX_CONFIG = 1024 * 1024; // bytes (cabe um ícone próprio em cada app)
 const texto = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
 const bool = (v, padrao) => (typeof v === 'boolean' ? v : padrao);
@@ -229,7 +227,6 @@ if (!cfgInicial.aceleracaoGPU) app.disableHardwareAcceleration();
 if (cfgInicial.redeEmProcesso) app.commandLine.appendSwitch('enable-features', 'NetworkServiceInProcess2');
 
 let modoAtual = 'normal';
-let alturaAntesDoTerminal = null; // a aba term estica; ao sair, volta a esta altura
 let tamanhoAntesDoMini = null;
 let salvarTamanhoTimer = null;
 const RAIO_IOS = 22; // px: cantos da janela no estilo iOS (o CSS usa o mesmo)
@@ -1025,76 +1022,7 @@ ipcMain.handle('autostart', (e, on) => {
   return { ligado: on, aplicado: applyAutostart(on) };
 });
 
-// ---------- Terminal embutido ----------
-// PowerShell real via ConPTY (@lydell/node-pty). Tudo local: a saída do shell
-// vai por IPC direto para a janela; não há servidor nem porta aberta.
-// (o módulo nativo só é carregado na primeira vez que o terminal abre: quem nunca usa
-// a aba term não paga a memória nem o tempo de carregar)
-let pty = null;
-
-let shellPty = null;     // só um shell por vez
-
-// Tamanho do terminal: inteiros positivos dentro de um limite; senão, recusa
-function tamanhoValido(cols, rows) {
-  const ok = (n, max) => Number.isInteger(n) && n > 0 && n <= max;
-  return ok(cols, 500) && ok(rows, 300) ? { cols, rows } : null;
-}
-
-function enviarParaTela(canal, ...args) {
-  if (janela && !janela.isDestroyed()) janela.webContents.send(canal, ...args);
-}
-
-function encerrarShell() {
-  if (!shellPty) return;
-  try { shellPty.kill(); } catch { /* já tinha saído */ }
-  shellPty = null;
-}
-
-// Abre o shell (se ainda não existe) no tamanho do terminal da tela
-ipcMain.handle('term-start', (e, cols, rows) => {
-  const t = tamanhoValido(cols, rows);
-  if (!daJanela(e) || !t) return false;
-  ({ cols, rows } = t);
-  if (shellPty) {
-    shellPty.resize(cols, rows);
-    return 'existente'; // a sessão continua de onde estava
-  }
-  const env = { ...process.env };
-  delete env.ELECTRON_RUN_AS_NODE; // não vazar variáveis do Electron para o shell
-  try {
-    if (!pty) pty = require('@lydell/node-pty');
-    shellPty = pty.spawn('powershell.exe', ['-NoLogo'], {
-      name: 'xterm-256color',
-      cols,
-      rows,
-      cwd: os.homedir(),
-      env,
-    });
-  } catch (erro) {
-    console.error('Falha ao abrir o PowerShell:', erro.message);
-    return 'erro: ' + erro.message; // a tela mostra o motivo
-  }
-  const meu = shellPty;
-  meu.onData((dados) => enviarParaTela('term-data', dados));
-  meu.onExit(({ exitCode }) => {
-    if (shellPty === meu) shellPty = null;
-    enviarParaTela('term-exit', exitCode);
-  });
-  return 'novo';
-});
-
-ipcMain.on('term-input', (e, dados) => {
-  if (!daJanela(e) || !shellPty || typeof dados !== 'string' || dados.length > 1e6) return;
-  shellPty.write(dados);
-});
-
-ipcMain.on('term-resize', (e, cols, rows) => {
-  const t = tamanhoValido(cols, rows);
-  if (!daJanela(e) || !shellPty || !t) return;
-  shellPty.resize(t.cols, t.rows);
-});
-
-// ---------- Janela: modos (normal / terminal / mini) e pin ----------
+// ---------- Janela: modos (normal / mini) e pin ----------
 // Aplica um tamanho mantendo a borda direita e o topo no lugar (o widget fica
 // "preso" ao canto) e sem sair da área visível da tela.
 function aplicarTamanho(width, height) {
@@ -1108,7 +1036,7 @@ function aplicarTamanho(width, height) {
 }
 
 ipcMain.handle('janela:modo', (e, modo) => {
-  if (!daJanela(e) || !['normal', 'terminal', 'mini'].includes(modo)) return false;
+  if (!daJanela(e) || !['normal', 'mini'].includes(modo)) return false;
   if (modo === modoAtual) return true;
   const [largura, altura] = janela.getSize();
 
@@ -1127,15 +1055,6 @@ ipcMain.handle('janela:modo', (e, modo) => {
       const t = tamanhoAntesDoMini || { largura: TAMANHO_PADRAO.largura, altura: TAMANHO_PADRAO.altura, modo: 'normal' };
       aplicarTamanho(t.largura, t.altura);
     }
-    const [l, a] = janela.getSize();
-    if (modo === 'terminal' && a < ALTURA_TERMINAL) {
-      // a aba term pede altura para o Claude Code; guarda a de antes
-      alturaAntesDoTerminal = a;
-      aplicarTamanho(l, ALTURA_TERMINAL);
-    } else if (modo === 'normal' && alturaAntesDoTerminal !== null) {
-      aplicarTamanho(l, alturaAntesDoTerminal);
-      alturaAntesDoTerminal = null;
-    }
   }
   modoAtual = modo;
   return true;
@@ -1143,7 +1062,7 @@ ipcMain.handle('janela:modo', (e, modo) => {
 
 // Troca de estilo (CMD <-> iOS): a transparência só pode ser escolhida ao criar
 // a janela, então nasce uma janela nova no mesmo canto e a antiga é fechada.
-// O PowerShell do terminal e o da música continuam vivos (são do main.js).
+// O medidor (música, volume...) continua vivo: ele é do main.js.
 ipcMain.handle('janela:estilo', (e, estilo) => {
   if (!daJanela(e) || (estilo !== 'cmd' && estilo !== 'ios')) return false;
   const cfg = carregarConfig();
@@ -1154,7 +1073,6 @@ ipcMain.handle('janela:estilo', (e, estilo) => {
   const b = antiga.getBounds();
   setTimeout(() => { // responde à tela antes de trocar
     modoAtual = 'normal';
-    alturaAntesDoTerminal = null;
     tamanhoAntesDoMini = null;
     // nasce escondida; quando estiver desenhada, aparece e a antiga sai
     const nova = criarJanela({ direita: b.x + b.width, topo: b.y });
@@ -1182,9 +1100,8 @@ ipcMain.handle('janela:fixar', (e, fixar) => {
   return fixar;
 });
 
-// O shell e o servidor PowerShell morrem junto com o app
+// O medidor (ou o PowerShell de reserva) morre junto com o app
 app.on('will-quit', () => {
-  encerrarShell();
   encerrarServidorPS();
 });
 

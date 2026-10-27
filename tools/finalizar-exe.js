@@ -1,16 +1,16 @@
 // tools/finalizar-exe.js — roda sozinho no fim do "npm run dist".
-// Move o "Meu Widget.exe" para a raiz do projeto e apaga a pasta dist inteira
+// Move o "MeuWidget.exe" para a raiz do projeto e apaga a pasta dist inteira
 // (win-unpacked, builder-debug.yml etc.), para sobrar só o executável.
 const fs = require('fs');
 const path = require('path');
 
 const raiz = path.join(__dirname, '..');
 const dist = path.join(raiz, 'dist');
-const origem = path.join(dist, 'Meu Widget.exe');
-const destino = path.join(raiz, 'Meu Widget.exe');
+const origem = path.join(dist, 'MeuWidget.exe');
+const destino = path.join(raiz, 'MeuWidget.exe');
 
 if (!fs.existsSync(origem)) {
-  console.error('Não achei dist\\Meu Widget.exe: o build falhou?');
+  console.error('Não achei dist\\MeuWidget.exe: o build falhou?');
   process.exit(1);
 }
 

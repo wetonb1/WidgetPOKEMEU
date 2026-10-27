@@ -13,11 +13,6 @@
   "author": "weto",
   "license": "ISC",
   "type": "commonjs",
-  "dependencies": {
-    "@lydell/node-pty": "^1.2.0-beta.18",
-    "@xterm/addon-fit": "^0.11.0",
-    "@xterm/xterm": "^6.0.0"
-  },
   "devDependencies": {
     "electron": "^45.0.0",
     "electron-builder": "^26.18.0"
@@ -31,8 +26,7 @@
     },
     "asarUnpack": [
       "app/media.ps1",
-      "app/helper.cs",
-      "node_modules/@lydell/**"
+      "app/helper.cs"
     ],
     "npmRebuild": false,
     "files": [
@@ -46,6 +40,6 @@
       "!*.exe",
       "!assets/icone.png"
     ],
-    "artifactName": "Meu Widget.${ext}"
+    "artifactName": "MeuWidget.${ext}"
   }
 }

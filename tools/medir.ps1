@@ -10,18 +10,17 @@
 #   que passaram por ele, inclusive os PowerShell rápidos que nascem e morrem entre amostras.
 # Com -Anexar: mede o widget já aberto (achado pela linha de comando). Os processos que
 #   ele criar daqui em diante entram no job; os que já existiam são amostrados a cada 2 s.
-#   Para o .exe empacotado: -Anexar -Processo "Meu Widget.exe".
+#   Para o .exe empacotado: -Anexar -Processo "MeuWidget.exe".
 #
-# Cenários: A = ocioso (música pausada, terminal fechado)
+# Cenários: A = ocioso (música pausada)
 #           B = música tocando (com visualizador)
-#           C = terminal aberto (sem -Anexar o painel é aberto sozinho)
 #           D = ocioso depois de ter tocado música (captura de áudio já criada; música pausada)
 # Cada rodada vira uma linha em tools\resultados.csv, mais uma linha "mediana".
 param(
     [int]$Segundos = 60,
     [int]$Aquecer = 20,
     [switch]$Anexar,
-    [ValidateSet('A', 'B', 'C', 'D')]
+    [ValidateSet('A', 'B', 'D')]
     [string]$Cenario = 'A',
     [string]$Variante = 'base',
     [int]$Rodadas = 3,
@@ -100,7 +99,7 @@ public static class JobMedidor {
 
 # ---------- árvore de processos ----------
 # Todos os descendentes do processo principal (GPU, renderizador, utilitários,
-# PowerShell da música, terminal...). Confere a data de criação contra PID reciclado.
+# PowerShell da música...). Confere a data de criação contra PID reciclado.
 function Get-Arvore([int]$principal) {
     $todos = @(Get-CimInstance Win32_Process -Property ProcessId, ParentProcessId, CreationDate)
     $porPai = @{}

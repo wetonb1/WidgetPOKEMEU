@@ -5,7 +5,6 @@
 //  - prepara o cenário pedido em WIDGET_CENARIO:
 //      A = aba sys (a que abre por padrão), música pausada;
 //      B = aba music com música tocando (o visualizador roda);
-//      C = aba term aberta (PowerShell real);
 //      D = "tocou música e depois pausou": aba music, captura de áudio criada.
 // Obs.: o widget precisa ter um Pokémon escolhido ("pokemonEscolhido": true),
 // senão ele fica na tela de bloqueio.
@@ -35,7 +34,6 @@ require('../app/main.js');
 const PREPARO = {
   A: "abas.mostrar('sys', { salvar: false }); true",
   B: "abas.mostrar('music', { salvar: false }); true",
-  C: "abas.mostrar('term', { salvar: false }); true",
   D: "abas.mostrar('music', { salvar: false }); visualizador.tocando(true); true", // o ciclo da música pausa logo depois
 };
 const preparo = PREPARO[process.env.WIDGET_CENARIO];

@@ -2,8 +2,8 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <!-- CSP: scripts só locais (inclusive o xterm, de node_modules). Estilos inline liberados
-       porque o xterm cria <style> dinâmicos (fonte/tema); scripts inline seguem bloqueados.
+  <!-- CSP: scripts só locais; scripts inline bloqueados. Estilos inline liberados (a cor do
+       vidro e do tema entram por variáveis CSS no próprio <html>).
        Sem 'unsafe-eval'. Rede só para a PokéAPI (dados) e sprites (GitHub),
        favicons do Google e as franquias de anime (AniList e a CDN das imagens):
        origens específicas, mais restritas que "https:". -->
@@ -11,7 +11,6 @@
         content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com https://raw.githubusercontent.com https://s4.anilist.co; connect-src https://pokeapi.co https://graphql.anilist.co">
   <title>Meu Widget</title>
   <script src="estilo.js"></script>
-  <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -26,8 +25,7 @@
         <button type="button" class="aba" role="tab" data-aba="sys" title="Sistema (Alt+1)">1:sys</button>
         <button type="button" class="aba" role="tab" data-aba="music" title="Música (Alt+2)">2:music</button>
         <button type="button" class="aba" role="tab" data-aba="apps" title="Apps (Alt+3)">3:apps</button>
-        <button type="button" class="aba" role="tab" data-aba="term" title="Terminal (Alt+4)">4:term</button>
-        <button type="button" class="aba" role="tab" data-aba="poke" title="Pokédex e ajustes (Alt+5)">5:poke</button>
+        <button type="button" class="aba" role="tab" data-aba="poke" title="Pokédex e ajustes (Alt+4)">4:poke</button>
       </nav>
       <div class="cab-botoes">
         <button type="button" id="btn-pin" class="cab-btn" title="Fixado no topo (clique para soltar)" aria-label="Fixar no topo">
@@ -164,16 +162,7 @@
         <div id="apps-soltar" class="apps-soltar oculto">solte aqui para adicionar</div>
       </section>
 
-      <!-- 4: terminal (PowerShell real) -->
-      <section id="aba-term" class="painel" data-painel="term">
-        <div class="term-topo">
-          <span class="sub">powershell · a sessão continua mesmo trocando de aba</span>
-          <button type="button" id="term-claude" class="botao-cmd">[iniciar claude]</button>
-        </div>
-        <div id="term-area" class="term-area"></div>
-      </section>
-
-      <!-- 5: pokédex e ajustes -->
+      <!-- 4: pokédex e ajustes -->
       <section id="aba-poke" class="painel" data-painel="poke">
         <div class="fonte-escolha" data-fontes role="radiogroup" aria-label="Fonte"></div>
         <form id="poke-form" class="linha-busca" autocomplete="off">
@@ -261,8 +250,6 @@
       <span id="st-hora" class="st st-hora">--:--</span>
     </footer>
   </div>
-  <script src="../node_modules/@xterm/xterm/lib/xterm.js"></script>
-  <script src="../node_modules/@xterm/addon-fit/lib/addon-fit.js"></script>
   <script src="temas.js"></script>
   <script src="franquias.js"></script>
   <script src="falas.js"></script>

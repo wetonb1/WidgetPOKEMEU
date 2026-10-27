@@ -2004,110 +2004,9 @@ const apps = (() => {
   };
 })();
 
-// ---------- Terminal embutido ----------
-// xterm.js desenha; o PowerShell roda no main.js (node-pty). Trocar de aba NÃO
-// encerra a sessão: o Claude pode continuar trabalhando escondido.
-const terminal = (() => {
-  const area = document.getElementById('term-area');
-  let term = null, fit = null;
-  let visivel = false, shellVivo = false, limparAoReiniciar = false, primeiraVez = true;
-  let recebeuDados = false; // o shell já mandou alguma coisa?
-
-  function ajustar() {
-    try { fit.fit(); } catch { /* aba ainda sem tamanho */ } // o onResize avisa o main
-  }
-
-  function criar() {
-    term = new Terminal({
-      fontFamily: '"Cascadia Mono", Consolas, monospace',
-      fontSize: 13,
-      cursorBlink: false, // cursor piscando redesenha a janela transparente sem parar
-      scrollback: 5000,
-      theme: { background: '#0b0b0b', cursor: accent },
-    });
-    fit = new FitAddon.FitAddon();
-    term.loadAddon(fit);
-    term.open(area);
-
-    term.onData((d) => { if (shellVivo) window.widget.termInput(d); });
-    term.onResize(({ cols, rows }) => { if (shellVivo) window.widget.termResize(cols, rows); });
-
-    // Ctrl+V cola e Ctrl+C (com texto selecionado) copia, pelo próprio navegador;
-    // sem seleção, Ctrl+C segue para o shell (interrompe o comando)
-    term.attachCustomKeyEventHandler((e) => {
-      if (e.type !== 'keydown' || !e.ctrlKey || e.altKey) return true;
-      const k = e.key.toLowerCase();
-      if (k === 'v') return false;
-      if (k === 'c' && term.hasSelection()) return false;
-      return true;
-    });
-
-    window.widget.onTermData((d) => { recebeuDados = true; term.write(d); });
-    window.widget.onTermExit((codigo) => {
-      shellVivo = false;
-      limparAoReiniciar = true;
-      term.write(`\r\n\x1b[33m[O PowerShell terminou (código ${codigo}). Saia e volte para a aba term para reiniciar.]\x1b[0m\r\n`);
-      dizer('O PowerShell fechou. Quando você voltar nessa aba, eu abro outro.');
-    });
-
-    // reajusta colunas/linhas sempre que a área muda de tamanho
-    new ResizeObserver(() => { if (visivel) ajustar(); }).observe(area);
-  }
-
-  async function abrir() {
-    if (!term) criar();
-    // fundo do terminal: o do visual atual (--term-bg no style.css)
-    const fundo = getComputedStyle(document.documentElement).getPropertyValue('--term-bg').trim() || '#0c0c0c';
-    term.options.theme = { background: fundo, cursor: accent };
-    ajustar();
-    if (!shellVivo) {
-      if (limparAoReiniciar) { term.reset(); limparAoReiniciar = false; }
-      let r;
-      try {
-        r = await window.widget.termStart(term.cols, term.rows);
-      } catch (erro) {
-        r = 'erro: ' + erro.message.replace(/^Error invoking remote method '[^']+': /, '');
-      }
-      shellVivo = r === 'novo' || r === 'existente';
-      if (!shellVivo) {
-        // mostra o motivo na tela (antes ia só para o console, e parecia "não funciona")
-        term.write(`\x1b[31m[Não foi possível abrir o PowerShell: ${r}]\x1b[0m\r\n`);
-        dizer('Não consegui abrir o PowerShell. O motivo está escrito no terminal.');
-      } else if (r === 'novo') {
-        dizer(primeiraVez ? 'Abri o PowerShell. Cuidado com o que digita, hein!' : 'PowerShell novinho, pronto!');
-        primeiraVez = false;
-        // se o shell abriu mas não mandou nada em 8 s, avisa (em vez de uma tela vazia)
-        recebeuDados = false;
-        setTimeout(() => {
-          if (shellVivo && !recebeuDados) {
-            term.write('\x1b[33m[O PowerShell abriu, mas não respondeu. Tente Enter, ou saia e volte nesta aba.]\x1b[0m\r\n');
-            dizer('O PowerShell está mudo... Aperta Enter ali pra mim?');
-          }
-        }, 8000);
-      }
-    }
-    term.focus();
-  }
-
-  // "Iniciar Claude": digita claude + Enter no shell
-  document.getElementById('term-claude').addEventListener('click', () => {
-    if (!shellVivo) return;
-    window.widget.termInput('claude\r');
-    dizer('Chamei o Claude. Ele é esperto, mas quem manda aqui sou eu.');
-    term.focus();
-  });
-
-  return {
-    visivel(v) {
-      visivel = v;
-      if (v) abrir().catch((erro) => console.error('Erro ao abrir o terminal:', erro));
-    },
-  };
-})();
-
 // ---------- Abas e janela ----------
 // Uma aba por vez (nada de tudo na tela). O Pokémon "digita" o comando de cada
-// aba no prompt. A aba term estica a janela para baixo; mini encolhe tudo.
+// aba no prompt. O modo mini encolhe tudo.
 const abas = (() => {
   const cartao = document.getElementById('cartao');
   const botoes = [...document.querySelectorAll('.aba')];
@@ -2120,10 +2019,10 @@ const abas = (() => {
 
   // o "comando" que o Pokémon digita ao abrir cada aba
   const COMANDOS = {
-    bloqueio: 'whoami', sys: 'tasklist /relevantes', music: 'now-playing', apps: 'dir apps', term: 'powershell', poke: 'pokedex /config',
+    bloqueio: 'whoami', sys: 'tasklist /relevantes', music: 'now-playing', apps: 'dir apps', poke: 'pokedex /config',
   };
   const MODULOS = {
-    sys: sistema, music: musica, apps, term: terminal,
+    sys: sistema, music: musica, apps,
   };
 
   let atual = null;
@@ -2136,7 +2035,7 @@ const abas = (() => {
 
   // Visual iOS: abas com nomes por extenso e título com o nome do Pokémon
   const IOS = document.documentElement.dataset.estilo === 'ios';
-  const ROTULOS_IOS = { sys: 'Sistema', music: 'Música', apps: 'Apps', term: 'Terminal', poke: 'Pokédex' };
+  const ROTULOS_IOS = { sys: 'Sistema', music: 'Música', apps: 'Apps', poke: 'Pokédex' };
   // Vidro com a cor do que está atrás (o main.js manda a cor quando muda): uma tinta escura
   // puxada para essa cor, para o texto branco continuar legível. A troca é suave (CSS).
   if (IOS) {
@@ -2190,12 +2089,6 @@ const abas = (() => {
     // avisa os módulos (só o visível trabalha de verdade)
     for (const [nome, modulo] of Object.entries(MODULOS)) modulo.visivel(nome === aba && !mini);
 
-    // a aba term pede uma janela mais alta; as outras voltam ao normal
-    if (!mini && (aba === 'term' || anterior === 'term')) {
-      window.widget.janelaModo(aba === 'term' ? 'terminal' : 'normal')
-        .catch((erro) => console.error('Erro ao mudar a janela:', erro));
-    }
-
     if (salvar && aba !== 'bloqueio') {
       clearTimeout(salvarTimer); // grava a aba só depois de você parar de trocar
       salvarTimer = setTimeout(() => {
@@ -2205,7 +2098,7 @@ const abas = (() => {
   }
 
   botoes.forEach((b) => b.addEventListener('click', () => mostrar(b.dataset.aba)));
-  // Alt+1..5 troca de aba
+  // Alt+1..4 troca de aba
   document.addEventListener('keydown', (e) => {
     if (!e.altKey || e.ctrlKey) return;
     const i = Number(e.key) - 1;
@@ -2221,7 +2114,7 @@ const abas = (() => {
     btnMini.title = mini ? 'Restaurar' : 'Minimizar';
     for (const [nome, modulo] of Object.entries(MODULOS)) modulo.visivel(!mini && nome === atual);
     try {
-      await window.widget.janelaModo(mini ? 'mini' : (atual === 'term' ? 'terminal' : 'normal'));
+      await window.widget.janelaModo(mini ? 'mini' : 'normal');
     } catch (erro) {
       console.error('Erro ao mudar a janela:', erro);
     }
@@ -2366,8 +2259,8 @@ window.widget.loadConfig().then((cfg) => {
   ajustes.iniciar(cfg);
   apps.iniciar(cfg);
   abas.iniciar(cfg);
-  // volta na última aba (menos a term: não vale abrir um PowerShell no boot)
-  if (cfg.pokemonEscolhido) abas.desbloquear(cfg.aba && cfg.aba !== 'term' ? cfg.aba : 'sys');
+  // volta na última aba
+  if (cfg.pokemonEscolhido) abas.desbloquear(cfg.aba || 'sys');
   return pokemon.iniciar(cfg);
 }).catch((erro) => {
   console.error('Erro ao iniciar:', erro);

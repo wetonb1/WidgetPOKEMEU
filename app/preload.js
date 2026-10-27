@@ -27,17 +27,4 @@ contextBridge.exposeInMainWorld('widget', {
   janelaModo: (modo) => ipcRenderer.invoke('janela:modo', String(modo)),
   janelaFixar: (fixar) => ipcRenderer.invoke('janela:fixar', fixar === true),
   setAutostart: (ligar) => ipcRenderer.invoke('autostart', ligar === true),
-
-  // Terminal: só estes canais; a tela nunca recebe o objeto do evento IPC
-  termStart: (cols, rows) => ipcRenderer.invoke('term-start', cols, rows),
-  termInput: (dados) => ipcRenderer.send('term-input', String(dados)),
-  termResize: (cols, rows) => ipcRenderer.send('term-resize', cols, rows),
-  onTermData: (cb) => {
-    ipcRenderer.removeAllListeners('term-data');
-    ipcRenderer.on('term-data', (_e, dados) => cb(dados));
-  },
-  onTermExit: (cb) => {
-    ipcRenderer.removeAllListeners('term-exit');
-    ipcRenderer.on('term-exit', (_e, codigo) => cb(codigo));
-  },
 });

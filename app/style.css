@@ -10,7 +10,6 @@
   --barra-titulo: #1f1f1f;   /* barra de título e status, como no Windows */
   --alerta: #e74856;         /* o vermelho do console do Windows */
   --accent-fraco: color-mix(in srgb, var(--accent) 16%, transparent);
-  --term-bg: #0c0c0c;        /* fundo do terminal (o xterm lê daqui) */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -621,11 +620,6 @@ button { font-family: var(--font); }
 /* brilho (shiny) desligado fora do Pokémon */
 .icone-btn:disabled, .icone-btn:disabled:hover { opacity: 0.3; background: transparent; color: var(--accent); cursor: not-allowed; }
 
-/* ---------- Aba term ---------- */
-.term-topo { display: flex; justify-content: space-between; align-items: center; }
-.term-area { flex: 1; min-height: 0; padding: 2px 0 2px 2px; border: 1px solid var(--linha); background: var(--bg); }
-.term-area .xterm { height: 100%; }
-
 /* ---------- Aba poke ---------- */
 .icone-btn {
   width: 26px;
@@ -870,7 +864,6 @@ html[data-estilo="ios"] {
   --vidro: rgba(255, 255, 255, 0.07);        /* cartões */
   --vidro-borda: rgba(255, 255, 255, 0.09);
   --vidro-forte: rgba(255, 255, 255, 0.14);  /* hover / selecionado */
-  --term-bg: #12121a;
   --mola: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent; }
@@ -1107,9 +1100,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   background: rgba(18, 18, 26, 0.85);
   font: 600 14px var(--font);
 }
-
-/* ----- aba term ----- */
-[data-estilo="ios"] .term-area { padding: 6px; border: none; border-radius: 12px; background: var(--term-bg); overflow: hidden; }
 
 /* ----- aba poke: chaves no lugar das caixinhas ----- */
 [data-estilo="ios"] .ajustes { gap: 8px 14px; }
