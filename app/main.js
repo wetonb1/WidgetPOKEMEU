@@ -135,7 +135,6 @@ function sanitizarConfig(cfg, modelo) {
     boasVindas: {
       ativo: bool(bv.ativo, mbv.ativo),
       voz: bool(bv.voz, mbv.voz),
-      grito: bool(bv.grito, mbv.grito),
       chamar: texto(bv.chamar, 40).trim() || mbv.chamar,
     },
     appsSemeados: bool(cfg.appsSemeados, false),
@@ -291,7 +290,7 @@ function criarJanela(posicao) {
       nodeIntegration: false,
       sandbox: true,
       devTools: !app.isPackaged, // ferramentas de desenvolvedor só ao rodar com "npm start"
-      // necessário: o grito e a voz das boas-vindas tocam ao abrir, sem clique
+      // necessário: a captura de áudio do visualizador (AudioContext) começa sem clique
       autoplayPolicy: 'no-user-gesture-required',
     },
   });

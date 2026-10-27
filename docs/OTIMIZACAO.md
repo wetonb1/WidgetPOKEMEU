@@ -236,7 +236,7 @@ entre duas amostras. Só amostrar a cada 2 s perderia a maior parte desse custo.
 4. **Apps:** abrir site e programa, "+ Novo", remover com o botão direito.
 5. **Pokémon e temas:** buscar alguns (`charizard`, `gengar`, `clefairy`), favoritar, shiny, GIF com o mouse em cima, animação a cada ~9 s.
 6. **Transparência sem GPU:** os cantos arredondados do cartão e do terminal devem mostrar a área de trabalho atrás, sem quadrado preto ou branco.
-7. **Boas-vindas:** com `"ativo": true`, abrir o widget dá balão, grito, voz e resumo.
+7. **Boas-vindas:** com `"ativo": true`, abrir o widget dá balão, voz e resumo.
 8. **Terminal e Claude:** ">_" abre, "Iniciar Claude" funciona, fechar e reabrir mantém a sessão.
 9. **Chaves novas:** teste `"desempenho": "economico"`, `"visualizador": false` e `"animacoes": false` (reabra o widget a cada mudança).
 10. **Economia automática:** abra um vídeo em tela cheia; o rosto para de se mexer em até ~6 s.

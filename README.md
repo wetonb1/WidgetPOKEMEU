@@ -92,4 +92,4 @@ modelo `app/config.json`. Feche o widget, abra com `abrir-config.bat`, edite e a
 - **Visual:** `"estilo"` (`"cmd"` ou `"ios"`).
 - **Leveza:** o widget usa um programinha auxiliar (compilado sozinho na primeira abertura, em `%APPDATA%\meu-widget`) em vez de um PowerShell residente: **~125 MB de RAM** em vez de ~185 MB. Se ele não puder ser usado, o PowerShell assume, sem perder nada. `"redeEmProcesso": true` tira mais ~12 MB (a rede roda no processo principal, com menos isolamento).
 - **Desempenho e recursos:** `"desempenho"` (`"normal"` ou `"economico"`), `"economiaAutomatica"`, `"visualizador"`, `"animacoes"`, `"gifAnimado"` e `"aceleracaoGPU"`. O custo medido de cada um está em [docs/OTIMIZACAO.md](docs/OTIMIZACAO.md).
-- **Boas-vindas:** `"boasVindas": { "ativo", "voz", "grito", "chamar" }`.
+- **Boas-vindas:** `"boasVindas": { "ativo", "voz", "chamar" }` (o Pokémon não grita mais: nem ao abrir, nem ao trocar).

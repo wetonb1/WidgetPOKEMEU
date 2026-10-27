@@ -795,8 +795,8 @@ const pokemon = (() => {
   const API = 'https://pokeapi.co/api/v2/pokemon/';
   const CPU_ALTA = 85; // % a partir do qual o Pokémon "sua"
 
-  // atual: Pokémon { fonte: 'pokemon', id, slug, nome, tipos, sprites, grito }
-  //        anime   { fonte: 'anilist', id, slug, nome, tipos: [], sprites: null, grito: null, imagem, cor }
+  // atual: Pokémon { fonte: 'pokemon', id, slug, nome, tipos, sprites }
+  //        anime   { fonte: 'anilist', id, slug, nome, tipos: [], sprites: null, imagem, cor }
   let atual = null;
   let escolhido = false; // já escolheu um Pokémon alguma vez?
   let usarShiny = false;
@@ -1085,18 +1085,15 @@ const pokemon = (() => {
         nome: capitalizar(d.name),
         tipos: d.types.sort((a, b) => a.slot - b.slot).map((t) => t.type.name),
         sprites: d.sprites,
-        grito: d.cries?.latest || d.cries?.legacy || null,
       };
       desenhar();
       if (primeiraVez) {
         escolhido = true;
         falar('chegou');
         falar('chegou2');
-        tocarGrito(0.4);
         abas.desbloquear();
       } else if (usuario && anterior && anterior.slug !== atual.slug) {
         falar('trocou', { anterior: anterior.nome });
-        tocarGrito(0.35);
       }
       salvar();
       return true;
@@ -1119,7 +1116,7 @@ const pokemon = (() => {
     const anterior = atual;
     const chave = p.fonte + '|' + p.id;
     const cor = p.cor || coresPorPersonagem.get(chave) || '';
-    atual = { fonte: p.fonte, id: p.id, slug: slugDe(p.nome), nome: p.nome, tipos: [], sprites: null, grito: null, imagem: p.imagem || '', cor };
+    atual = { fonte: p.fonte, id: p.id, slug: slugDe(p.nome), nome: p.nome, tipos: [], sprites: null, imagem: p.imagem || '', cor };
     desenhar();
     if (!cor && atual.imagem) {
       const este = atual;
@@ -1249,13 +1246,6 @@ const pokemon = (() => {
     }));
   }
 
-  function tocarGrito(vol) {
-    if (!atual || !atual.grito) return;
-    const audio = new Audio(atual.grito);
-    audio.volume = vol;
-    audio.play().catch((erro) => console.error('Grito não tocou:', erro));
-  }
-
   // ----- eventos -----
   el.form.addEventListener('submit', (e) => {
     e.preventDefault();
@@ -1360,15 +1350,13 @@ const pokemon = (() => {
     el.anim.classList.remove('anima');
     if (preferencias.animacoes) el.anim.classList.add('hello');
     falar('boasVindas', { sauda, chamar });
-    // Passo 2: grito a 50%
-    if (bv.grito !== false) tocarGrito(0.5);
-    // Passo 3: voz, 1,2 s depois
+    // Passo 2: voz, 1,2 s depois
     if (bv.voz !== false && 'speechSynthesis' in window) {
       setTimeout(() => {
         try { falarEmVoz(`Olá, ${chamar}! ${sauda}.`); } catch (erro) { console.error('Voz falhou:', erro); }
       }, 1200);
     }
-    // Passo 4: resumo do PC, 6,5 s depois
+    // Passo 3: resumo do PC, 6,5 s depois
     setTimeout(() => {
       if (!ultimoStats) return;
       dizer(`Seu PC está com ${Math.round(ultimoStats.cpu)}% de CPU e ${um(ultimoStats.ramUsada / GB)} GB de RAM em uso.`);

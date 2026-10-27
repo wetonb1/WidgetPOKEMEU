@@ -22,7 +22,6 @@
   "boasVindas": {
     "ativo": true,
     "voz": true,
-    "grito": true,
     "chamar": "meu mestre"
   },
   "appsSemeados": false,

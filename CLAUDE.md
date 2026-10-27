@@ -12,7 +12,7 @@ Widget flutuante (sem borda, transparente, sempre no topo, fora da barra de tare
 4. **Pokémon**: um Pokémon escolhido pelo usuário vira o rosto do widget; o tipo dele muda cores, fonte, bordas, animação e falas.
 5. **Terminal embutido**: PowerShell real, para rodar o Claude Code dentro do widget.
 
-Quando o widget iniciar junto com o Windows, o Pokémon dá boas-vindas ("Olá, meu mestre!") com texto, grito e voz.
+Quando o widget iniciar junto com o Windows, o Pokémon dá boas-vindas ("Olá, meu mestre!") com texto e voz (sem o grito do Pokémon: foi retirado a pedido do usuário, em todos os modos).
 
 **Visual (desde a reformulação):** janela horizontal **o mais parecida possível com um CMD** (opaca, fundo #0c0c0c, texto #cccccc, Consolas, cantos retos, barra de título estilo Windows), que o Pokémon "invadiu". O Pokémon fica à esquerda, em destaque e sempre inteiro (sprite em pixel art, com a margem transparente recortada e ampliado em escala inteira quando possível): nome e narração (ele comenta tudo o que acontece). O tipo muda só a cor de destaque, a animação e o bordão. Os módulos ficam em abas (`sys`, `music`, `apps`, `term`, `poke`), uma por vez, com uma linha de status embaixo. A janela é redimensionável entre 720x320 e 1400x900 (tamanho salvo em `janela`). Há pin (sempre no topo), modo mini e, na primeira vez, tudo fica bloqueado até escolher o Pokémon. Sem efeitos retrô (pontos, LED, brilhos): o usuário pediu visual de CMD. Ao abrir, uma tela de carregamento com uma pokébola cúbica (CSS 3D) gira enquanto a barra enche; ela usa a cor do Pokémon (`corPokebola`) ou vermelha antes da escolha. O ícone (`assets/icone.ico`) é a pokébola vermelha, gerado por `npm run icone`.
 

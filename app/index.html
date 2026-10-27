@@ -4,11 +4,11 @@
   <meta charset="UTF-8">
   <!-- CSP: scripts só locais (inclusive o xterm, de node_modules). Estilos inline liberados
        porque o xterm cria <style> dinâmicos (fonte/tema); scripts inline seguem bloqueados.
-       Sem 'unsafe-eval'. Rede só para a PokéAPI (dados), sprites e gritos (GitHub),
+       Sem 'unsafe-eval'. Rede só para a PokéAPI (dados) e sprites (GitHub),
        favicons do Google e as franquias de anime (AniList e a CDN das imagens):
        origens específicas, mais restritas que "https:". -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com https://raw.githubusercontent.com https://s4.anilist.co; connect-src https://pokeapi.co https://graphql.anilist.co; media-src https://raw.githubusercontent.com">
+        content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com https://raw.githubusercontent.com https://s4.anilist.co; connect-src https://pokeapi.co https://graphql.anilist.co">
   <title>Meu Widget</title>
   <script src="estilo.js"></script>
   <link rel="stylesheet" href="../node_modules/@xterm/xterm/css/xterm.css">

@@ -23,7 +23,7 @@ A fonte de anime devolve uma lista (até 5) neste formato:
 // id:     número do personagem na API (favoritos e reabrir o widget)
 ```
 
-O Pokémon segue o fluxo dele (tipo → tema em `TYPE_THEME`, sprite recortado, grito, brilho).
+O Pokémon segue o fluxo dele (tipo → tema em `TYPE_THEME`, sprite recortado, brilho).
 Na tela, os dois usam o mesmo rosto, o mesmo nome, a mesma ☆ e as mesmas falas. O ✦ (brilho)
 fica desligado fora do Pokémon.
 
@@ -141,7 +141,7 @@ O `main.js` valida tudo: fonte conhecida, `id` inteiro positivo, nome com até 6
 ## Testes manuais
 
 1. **Pokémon continua igual:** aba `poke`, fonte **Pokémon**, digite `charizard` + Enter. Devem aparecer sprite,
-   tipos, grito, ☆ e ✦ funcionando, e as cores do tipo.
+   tipos, ☆ e ✦ funcionando, e as cores do tipo.
 2. **AniList com a cor do personagem:** fonte **Anime · AniList**, busque `goku` (o widget fica laranja) e depois
    `gojo` (fica azul). Clique em outro resultado para trocar, sem nova requisição.
 3. **Sem resultado:** `zzqxwvnadaexiste` + Enter. A fala deve dizer "Não achei ninguém chamado…".
