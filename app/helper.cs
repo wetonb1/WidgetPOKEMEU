@@ -7,7 +7,7 @@
 //   Comandos: info | info-capa | playpause | next | prev | processos | telacheia
 //             | volume | volume-set N | mudo-set 0|1 | vidro HWND L A RAIO | cantos HWND L A RAIO
 //             | janelas | iconeapp APPID | iconearq CAMINHO.lnk | gc | mem (memória do medidor, bytes)
-//             | fundo HWND (cor "#rrggbb" do que está atrás do widget) | focar-exe CAMINHO.exe | focar-app APPID
+//             | fundo HWND (cor "#rrggbb" da tela ao redor do widget) | reparar HWND L A RAIO | focar-exe CAMINHO.exe | focar-app APPID
 //             | sair
 //   (a lista de apps do Menu Iniciar, "startapps", é pedida pelo main.js a um PowerShell
 //    avulso, só quando a loja de apps abre.)
@@ -235,6 +235,31 @@ public static class Vidro {
         } finally { Marshal.FreeHGlobal(p); }
     }
 
+    [StructLayout(LayoutKind.Sequential)] struct RECTV { public int L, T, R, B; }
+    [DllImport("user32.dll")] static extern int GetWindowRgn(IntPtr h, IntPtr rgn);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateRectRgn(int a, int b, int c, int d);
+    [DllImport("gdi32.dll")] static extern int GetRgnBox(IntPtr r, out RECTV b);
+    [DllImport("gdi32.dll")] static extern bool PtInRegion(IntPtr r, int x, int y);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr obj);
+
+    // O Windows/Chromium às vezes zera a região da janela (jogo em tela cheia, mudança de
+    // resolução ou de escala, bloqueio de tela...): o vidro volta a aparecer QUADRADO, com o
+    // cartão arredondado dentro. Confere se a região ainda existe, tem o tamanho certo e
+    // deixa o canto de fora; se não, refaz o arredondado e o desfoque. true = foi preciso refazer.
+    public static bool Reparar(long hwnd, int l, int a, int raio) {
+        IntPtr rgn = CreateRectRgn(0, 0, 0, 0);
+        bool bom;
+        try {
+            int tipo = GetWindowRgn(new IntPtr(hwnd), rgn); // 0 = sem região
+            RECTV b; GetRgnBox(rgn, out b);
+            bom = tipo >= 2 && !PtInRegion(rgn, 1, 1) && Math.Abs((b.R - b.L) - l) <= 1 && Math.Abs((b.B - b.T) - a) <= 1;
+        } finally { DeleteObject(rgn); }
+        if (bom) return false;
+        Desfoque(hwnd, true);
+        Cantos(hwnd, l, a, raio);
+        return true;
+    }
+
     // recorta a janela num retângulo de cantos redondos (em pixels da tela)
     public static bool Cantos(long hwnd, int l, int a, int raio) {
         IntPtr rgn = CreateRoundRectRgn(0, 0, l + 1, a + 1, raio * 2, raio * 2);
@@ -440,23 +465,18 @@ public static class Janelas {
 
 // ---------- Laço de comandos ----------
 // ---------- Cor do que está atrás do widget (estilo iOS) ----------
-// Acha a primeira janela visível ABAIXO do widget (ordem Z) que cobre a área dele,
-// "fotografa" essa janela com PrintWindow (funciona mesmo coberta) e tira a cor média
-// só do pedaço que fica atrás do widget. Sem janela atrás: a cor do papel de parede.
-// Tudo em GDI nativo e reduzido para 32x16 pixels: barato. A mesma janela, no mesmo
-// lugar, só é fotografada de novo depois de 8 s (o conteúdo pode ter mudado).
+// Lê os pixels da TELA em faixas logo ao redor do widget (esquerda, direita, topo e base,
+// o que couber no monitor) e tira a cor média. O que está atrás do widget é, quase sempre, a
+// continuação do que aparece ao redor dele: janelas, navegador, jogo em janela, o papel de
+// parede animado (Wallpaper Engine). Não depende de "fotografar" a janela de trás (que vem
+// preta em vários programas) e reage na hora, sem cache. Custo: 4 cópias de uma faixa fina
+// da tela, reduzidas a 16x16 pixels (~1 ms).
 public static class Fundo {
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
-    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
-    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
-    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
-    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int idx);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder sb, int n);
-    [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
+    [DllImport("user32.dll")] static extern int GetSystemMetrics(int i);
     [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr h);
     [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr h, IntPtr dc);
-    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int val, int size);
     [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleDC(IntPtr dc);
     [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleBitmap(IntPtr dc, int w, int h);
     [DllImport("gdi32.dll")] static extern IntPtr SelectObject(IntPtr dc, IntPtr obj);
@@ -465,95 +485,36 @@ public static class Fundo {
     [DllImport("gdi32.dll")] static extern int SetStretchBltMode(IntPtr dc, int modo);
     [DllImport("gdi32.dll")] static extern bool StretchBlt(IntPtr d, int x, int y, int w, int h, IntPtr s, int sx, int sy, int sw, int sh, uint rop);
     [DllImport("gdi32.dll")] static extern uint GetPixel(IntPtr dc, int x, int y);
-    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool SystemParametersInfo(uint acao, uint p, StringBuilder sb, uint ini);
-
-    static string chaveAnterior = "", corAnterior = "";
-    static DateTime quando = DateTime.MinValue;
-    static int capturas = 0;
-    static string papelCaminho = null, papelCor = "";
 
     public static string Cor(long hwndWidget) {
-        IntPtr eu = new IntPtr(hwndWidget);
         RECT w;
-        if (!GetWindowRect(eu, out w)) return "";
-        IntPtr h = eu;
-        while ((h = GetWindow(h, 2)) != IntPtr.Zero) { // 2 = GW_HWNDNEXT: a próxima abaixo
-            if (!IsWindowVisible(h) || IsIconic(h)) continue;
-            int oculta;
-            if (DwmGetWindowAttribute(h, 14, out oculta, 4) == 0 && oculta != 0) continue; // "cloaked" (outra área de trabalho, suspensa)
-            int ex = GetWindowLong(h, -20);
-            if ((ex & 0x20) != 0 || (ex & 0x80) != 0) continue; // transparente ao clique (overlays) ou janela de ferramenta
-            RECT r;
-            if (!GetWindowRect(h, out r) || r.R - r.L < 8 || r.B - r.T < 8) continue;
-            if (r.R <= w.L || r.L >= w.R || r.B <= w.T || r.T >= w.B) continue; // não passa atrás do widget
-            var classe = new StringBuilder(64);
-            GetClassName(h, classe, 64);
-            string c = classe.ToString();
-            if (c == "Progman" || c == "WorkerW") return PapelDeParede(); // chegou na área de trabalho
-            string chave = h.ToInt64() + ":" + r.L + "," + r.T + "," + r.R + "," + r.B;
-            // uma janela recém-chegada pode ainda estar se desenhando: só guarda a cor (por 8 s)
-            // depois que duas fotos seguidas da mesma janela, no mesmo lugar, derem o mesmo resultado
-            if (chave == chaveAnterior && capturas >= 2 && (DateTime.Now - quando).TotalSeconds < 8) return corAnterior;
-            string cor = Media(h, r, w);
-            if (cor.Length == 0) cor = corAnterior; // a janela não deixou fotografar: mantém
-            capturas = chave == chaveAnterior && cor == corAnterior ? capturas + 1 : 1;
-            chaveAnterior = chave; corAnterior = cor; quando = DateTime.Now;
-            return cor;
-        }
-        return PapelDeParede();
-    }
-
-    // média do pedaço da janela h que fica atrás do widget (coordenadas da tela -> da janela)
-    static string Media(IntPtr h, RECT r, RECT w) {
-        int lw = r.R - r.L, aw = r.B - r.T;
-        int x0 = Math.Max(w.L, r.L) - r.L, y0 = Math.Max(w.T, r.T) - r.T;
-        int x1 = Math.Min(w.R, r.R) - r.L, y1 = Math.Min(w.B, r.B) - r.T;
-        if (x1 - x0 < 4 || y1 - y0 < 4) return "";
-        IntPtr tela = GetDC(IntPtr.Zero), dc = CreateCompatibleDC(tela), bmp = CreateCompatibleBitmap(tela, lw, aw);
-        IntPtr pdc = CreateCompatibleDC(tela), pbmp = CreateCompatibleBitmap(tela, 32, 16);
-        IntPtr velho = SelectObject(dc, bmp), pvelho = SelectObject(pdc, pbmp);
+        if (!GetWindowRect(new IntPtr(hwndWidget), out w) || w.R - w.L < 40 || w.B - w.T < 40) return "";
+        int vx = GetSystemMetrics(76), vy = GetSystemMetrics(77), vw = GetSystemMetrics(78), vh = GetSystemMetrics(79); // tela virtual (todos os monitores)
+        const int FOLGA = 6, ESPESSURA = 14;
+        var faixas = new List<int[]>(); // x, y, largura, altura
+        if (w.L - FOLGA - ESPESSURA >= vx) faixas.Add(new[] { w.L - FOLGA - ESPESSURA, w.T, ESPESSURA, w.B - w.T });
+        if (w.R + FOLGA + ESPESSURA <= vx + vw) faixas.Add(new[] { w.R + FOLGA, w.T, ESPESSURA, w.B - w.T });
+        if (w.T - FOLGA - ESPESSURA >= vy) faixas.Add(new[] { w.L, w.T - FOLGA - ESPESSURA, w.R - w.L, ESPESSURA });
+        if (w.B + FOLGA + ESPESSURA <= vy + vh) faixas.Add(new[] { w.L, w.B + FOLGA, w.R - w.L, ESPESSURA });
+        if (faixas.Count == 0) return ""; // o widget ocupa a tela toda: sem referência
+        IntPtr tela = GetDC(IntPtr.Zero), dc = CreateCompatibleDC(tela), bmp = CreateCompatibleBitmap(tela, 16, 16);
+        IntPtr velho = SelectObject(dc, bmp);
         try {
-            if (!PrintWindow(h, dc, 2)) return ""; // 2 = PW_RENDERFULLCONTENT
-            SetStretchBltMode(pdc, 4); // HALFTONE: a redução já faz a média
-            StretchBlt(pdc, 0, 0, 32, 16, dc, x0, y0, x1 - x0, y1 - y0, 0x00CC0020);
-            long sr = 0, sg = 0, sb = 0;
-            for (int y = 0; y < 16; y++) for (int x = 0; x < 32; x++) {
-                uint p = GetPixel(pdc, x, y);
-                sr += p & 0xFF; sg += (p >> 8) & 0xFF; sb += (p >> 16) & 0xFF;
-            }
-            if (sr + sg + sb == 0) return ""; // tudo preto: a janela não se deixou fotografar
-            return string.Format("#{0:x2}{1:x2}{2:x2}", sr / 512, sg / 512, sb / 512);
-        } finally {
-            SelectObject(dc, velho); SelectObject(pdc, pvelho);
-            DeleteObject(bmp); DeleteObject(pbmp); DeleteDC(dc); DeleteDC(pdc);
-            ReleaseDC(IntPtr.Zero, tela);
-        }
-    }
-
-    // cor média da imagem do papel de parede (guardada até o arquivo mudar)
-    static string PapelDeParede() {
-        var sb = new StringBuilder(520);
-        if (!SystemParametersInfo(0x73, 520, sb, 0)) return ""; // SPI_GETDESKWALLPAPER
-        string caminho = sb.ToString();
-        if (caminho == papelCaminho) return papelCor;
-        papelCaminho = caminho;
-        papelCor = "";
-        try {
-            using (var img = Image.FromFile(caminho))
-            using (var mini = new Bitmap(img, 32, 18)) {
-                long sr = 0, sg = 0, sbl = 0;
-                for (int y = 0; y < 18; y++) for (int x = 0; x < 32; x++) {
-                    Color c = mini.GetPixel(x, y);
-                    sr += c.R; sg += c.G; sbl += c.B;
+            long sr = 0, sg = 0, sb = 0; int n = 0;
+            SetStretchBltMode(dc, 4); // HALFTONE: a redução já faz a média
+            foreach (int[] f in faixas) {
+                // SRCCOPY | CAPTUREBLT: inclui janelas "em camadas" (a maioria dos apps modernos)
+                if (!StretchBlt(dc, 0, 0, 16, 16, tela, f[0], f[1], f[2], f[3], 0x40CC0020)) continue;
+                for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
+                    uint p = GetPixel(dc, x, y);
+                    sr += p & 0xFF; sg += (p >> 8) & 0xFF; sb += (p >> 16) & 0xFF; n++;
                 }
-                papelCor = string.Format("#{0:x2}{1:x2}{2:x2}", sr / 576, sg / 576, sbl / 576);
             }
-        } catch { /* sem papel de parede em arquivo (cor sólida, Wallpaper Engine...) */ }
-        // a imagem do papel de parede pode ser grande (4K): devolve a memória já (só roda quando ele muda)
-        GC.Collect();
-        GC.WaitForPendingFinalizers();
-        GC.Collect();
-        return papelCor;
+            if (n == 0) return "";
+            return string.Format("#{0:x2}{1:x2}{2:x2}", sr / n, sg / n, sb / n);
+        } finally {
+            SelectObject(dc, velho); DeleteObject(bmp); DeleteDC(dc); ReleaseDC(IntPtr.Zero, tela);
+        }
     }
 }
 
@@ -650,6 +611,7 @@ public static class Foco {
 
 public static class Programa {
     static readonly Regex ReFundo = new Regex(@"^fundo (\d+)$");
+    static readonly Regex ReReparar = new Regex(@"^reparar (\d+) (\d+) (\d+) (\d+)$");
     static readonly Regex ReFocarExe = new Regex(@"^focar-exe [A-Za-z]:\\[^""<>|*?\r\n]{1,300}\.exe$", RegexOptions.IgnoreCase);
     static readonly Regex ReFocarApp = new Regex(@"^focar-app [A-Za-z0-9_.!{}\\ ()-]{1,300}$");
     static readonly Regex ReIconeApp = new Regex(@"^iconeapp [A-Za-z0-9_.!{}\\ ()-]{1,300}$");
@@ -673,6 +635,7 @@ public static class Programa {
         }
         Match m;
         if ((m = ReFundo.Match(c)).Success) return Fundo.Cor(long.Parse(m.Groups[1].Value));
+        if ((m = ReReparar.Match(c)).Success) return Vidro.Reparar(long.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value), int.Parse(m.Groups[3].Value), int.Parse(m.Groups[4].Value)) ? "true" : "false";
         if (ReFocarExe.IsMatch(c)) return Foco.PorExe(c.Substring(10));
         if (ReFocarApp.IsMatch(c)) return Foco.PorAppId(c.Substring(10));
         if (ReIconeApp.IsMatch(c)) return IconeApp.Png("shell:AppsFolder\\" + c.Substring(9), 96);
@@ -687,8 +650,13 @@ public static class Programa {
         return "{}";
     }
 
+    // Sem isso o Windows "mente" as coordenadas das janelas dos outros programas quando a escala
+    // da tela não é 100% (125%, 150%...), e as leituras de tela cairiam no lugar errado.
+    [DllImport("user32.dll")] static extern bool SetProcessDPIAware();
+
     [STAThread]
     static int Main() {
+        try { SetProcessDPIAware(); } catch { /* Windows antigo demais: segue assim */ }
         Stream saida = Console.OpenStandardOutput();
         var entrada = new StreamReader(Console.OpenStandardInput(), new UTF8Encoding(false));
         string linha;

@@ -1,5 +1,5 @@
 // main.js — processo principal do Electron: cria a janela e cuida da config.
-const { app, BrowserWindow, ipcMain, screen, session, desktopCapturer, shell, nativeImage } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, session, desktopCapturer, shell, nativeImage, powerMonitor } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -249,11 +249,28 @@ function aplicarVidro(w) {
   return pedirServidorPS('vidro ' + medidasVidro(w))
     .then((r) => { if (r !== 'true') console.error('Vidro não aplicado:', r); });
 }
-// Estilo iOS: a tinta do vidro acompanha a cor do que está atrás do widget. A cada
-// 1,5 s (3 s no modo econômico) o medidor diz a cor média da janela de trás (ou do papel
-// de parede); a tela só é avisada quando a cor muda. Barato: a mesma janela no mesmo
-// lugar não é fotografada de novo antes de 8 s. Sem o medidor (PowerShell de reserva),
-// fica a tinta padrão.
+// Estilo iOS: a tinta do vidro acompanha a cor do que está atrás do widget. A cada 1,5 s
+// (3 s no modo econômico) o medidor lê os pixels da tela ao redor do widget (janelas,
+// navegador, papel de parede animado) e diz a cor média; a tela só é avisada quando a cor
+// muda de verdade (limiar de ruído). Sem o medidor (PowerShell de reserva), fica a tinta padrão.
+//
+// Junto vem o VIGIA do arredondado: o Windows às vezes zera a região da janela (jogo em tela
+// cheia, mudança de resolução/escala, bloqueio de tela) e o vidro volta a aparecer quadrado.
+// O medidor confere a região a cada 0,7 s, e na hora em que a janela muda de foco, aparece,
+// é movida ou a tela muda; se estiver errada, refaz o arredondado e o desfoque.
+const LIMIAR_COR = 5; // diferença mínima em algum canal (0-255) para repintar a tinta
+const distanciaCor = (a, b) => Math.max(...[1, 3, 5].map((i) => Math.abs(parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16))));
+
+function repararVidro(w) {
+  if (w.isDestroyed() || !w.isVisible()) return Promise.resolve(false);
+  return pedirServidorPS('reparar ' + medidasVidro(w)).then((r) => r === 'true', () => false);
+}
+let reparoTimer = null;
+function agendarReparo(w) {
+  clearTimeout(reparoTimer); // vários eventos seguidos viram um só
+  reparoTimer = setTimeout(() => { repararVidro(w); }, 120);
+}
+
 function acompanharFundo(w) {
   let ultima = '';
   let ocupado = false;
@@ -264,7 +281,7 @@ function acompanharFundo(w) {
       try {
         const hwnd = w.getNativeWindowHandle().readBigUInt64LE(0).toString();
         const cor = (await pedirServidorPS('fundo ' + hwnd)).trim();
-        if (/^#[0-9a-f]{6}$/i.test(cor) && cor !== ultima && !w.isDestroyed()) {
+        if (/^#[0-9a-f]{6}$/i.test(cor) && (!ultima || distanciaCor(cor, ultima) >= LIMIAR_COR) && !w.isDestroyed()) {
           ultima = cor;
           w.webContents.send('tela:fundo', cor);
         }
@@ -273,6 +290,28 @@ function acompanharFundo(w) {
     setTimeout(passo, ultimoEconomico ? 3000 : 1500);
   };
   w.webContents.once('did-finish-load', () => setTimeout(passo, 300));
+  // vigia do arredondado: uma consulta minúscula a cada 0,7 s (1,5 s no modo econômico)
+  const vigia = async () => {
+    if (w.isDestroyed()) return;
+    await repararVidro(w);
+    setTimeout(vigia, ultimoEconomico ? 1500 : 700);
+  };
+  w.webContents.once('did-finish-load', () => setTimeout(vigia, 1500));
+  // eventos que costumam zerar a região: confere logo, sem esperar a próxima volta
+  for (const ev of ['focus', 'blur', 'show', 'restore', 'moved', 'unmaximize']) w.on(ev, () => agendarReparo(w));
+  const aoMudarATela = () => { agendarCantos(w); agendarReparo(w); };
+  screen.on('display-metrics-changed', aoMudarATela);
+  screen.on('display-added', aoMudarATela);
+  screen.on('display-removed', aoMudarATela);
+  powerMonitor.on('unlock-screen', aoMudarATela);
+  powerMonitor.on('resume', aoMudarATela);
+  w.on('closed', () => {
+    screen.removeListener('display-metrics-changed', aoMudarATela);
+    screen.removeListener('display-added', aoMudarATela);
+    screen.removeListener('display-removed', aoMudarATela);
+    powerMonitor.removeListener('unlock-screen', aoMudarATela);
+    powerMonitor.removeListener('resume', aoMudarATela);
+  });
 }
 let ultimoEconomico = false;
 
