@@ -201,9 +201,29 @@
         </div>
       </section>
 
-      <!-- Janelinha por cima das abas: confirmação de remoção de um app -->
+      <!-- Janelinha por cima das abas: editar um app (nome e ícone) e confirmar a remoção -->
       <div id="dialogo" class="dialogo oculto">
-        <div id="dialogo-confirma" class="dialogo-caixa">
+        <div id="dialogo-editar" class="dialogo-caixa">
+          <h2>editar app</h2>
+          <div class="editar-linha">
+            <button type="button" id="e-icone" class="editar-icone" title="Trocar o ícone"></button>
+            <div class="editar-campos">
+              <label>nome <input id="e-nome" type="text" maxlength="30" spellcheck="false"></label>
+              <div class="editar-acoes">
+                <button type="button" id="e-trocar" class="botao-cmd">[trocar ícone]</button>
+                <button type="button" id="e-original" class="botao-cmd">[ícone original]</button>
+              </div>
+            </div>
+          </div>
+          <input id="e-arquivo" type="file" accept="image/*,.ico" class="oculto">
+          <div class="dialogo-botoes">
+            <button type="button" id="e-remover" class="perigo">remover</button>
+            <span class="dialogo-espaco"></span>
+            <button type="button" id="e-cancelar">cancelar</button>
+            <button type="button" id="e-salvar" class="principal">salvar</button>
+          </div>
+        </div>
+        <div id="dialogo-confirma" class="dialogo-caixa oculto">
           <h2 id="c-texto">remover?</h2>
           <div class="dialogo-botoes">
             <button type="button" id="c-nao">cancelar</button>
@@ -235,6 +255,7 @@
     <footer id="status" class="status">
       <span id="st-cpu" class="st">cpu --%</span>
       <span id="st-ram" class="st">ram --</span>
+      <span id="st-widget" class="st" title="RAM usada pelo próprio widget (todos os processos dele)">widget --</span>
       <span id="st-musica" class="st st-musica">♪ --</span>
       <span id="st-modo" class="st st-modo oculto">eco</span>
       <span id="st-hora" class="st st-hora">--:--</span>

@@ -1,5 +1,5 @@
 // main.js — processo principal do Electron: cria a janela e cuida da config.
-const { app, BrowserWindow, ipcMain, screen, session, desktopCapturer, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, session, desktopCapturer, shell, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -46,7 +46,7 @@ app.on('second-instance', () => {
 // conseguem gravar algo inesperado (ex.: um atalho com protocolo estranho).
 const SLUG = /^[a-z0-9-]{1,30}$/;
 const ABAS = new Set(['sys', 'music', 'apps', 'term', 'poke']);
-const MAX_CONFIG = 256 * 1024; // bytes
+const MAX_CONFIG = 1024 * 1024; // bytes (cabe um ícone próprio em cada app)
 const texto = (v, max) => (typeof v === 'string' ? v.slice(0, max) : '');
 const bool = (v, padrao) => (typeof v === 'boolean' ? v : padrao);
 const slug = (v) => typeof v === 'string' && SLUG.test(v);
@@ -70,15 +70,20 @@ function limparTexto(t) {
 // aceita caracteres comuns.
 const APP_ID = /^[A-Za-z0-9_.!{}\\ ()\-]{1,300}$/;
 
+// ícone escolhido por você para um app: só PNG em base64, até ~24 KB (a tela reduz para 64 px)
+const ICONE_PROPRIO = /^data:image\/png;base64,[A-Za-z0-9+/=]{20,32000}$/;
+
 function sanitizarApp(a) {
   if (!a || typeof a !== 'object') return null;
   const name = texto(a.name, 30).trim();
   const target = limparTexto(texto(a.target, 1024));
   if (!name || !target) return null;
-  if (a.type === 'url') return urlHttpValida(target) ? { name, type: 'url', target } : null;
-  if (a.type === 'exe') return { name, type: 'exe', target };
-  if (a.type === 'app') return APP_ID.test(target) ? { name, type: 'app', target } : null;
-  return null;
+  let app = null;
+  if (a.type === 'url') app = urlHttpValida(target) ? { name, type: 'url', target } : null;
+  else if (a.type === 'exe') app = { name, type: 'exe', target };
+  else if (a.type === 'app') app = APP_ID.test(target) ? { name, type: 'app', target } : null;
+  if (app && typeof a.icone === 'string' && ICONE_PROPRIO.test(a.icone)) app.icone = a.icone;
+  return app;
 }
 
 // ----- Franquias -----
@@ -244,6 +249,33 @@ function aplicarVidro(w) {
   return pedirServidorPS('vidro ' + medidasVidro(w))
     .then((r) => { if (r !== 'true') console.error('Vidro não aplicado:', r); });
 }
+// Estilo iOS: a tinta do vidro acompanha a cor do que está atrás do widget. A cada
+// 1,5 s (3 s no modo econômico) o medidor diz a cor média da janela de trás (ou do papel
+// de parede); a tela só é avisada quando a cor muda. Barato: a mesma janela no mesmo
+// lugar não é fotografada de novo antes de 8 s. Sem o medidor (PowerShell de reserva),
+// fica a tinta padrão.
+function acompanharFundo(w) {
+  let ultima = '';
+  let ocupado = false;
+  const passo = async () => {
+    if (w.isDestroyed()) return;
+    if (!ocupado && w.isVisible() && !w.isMinimized()) {
+      ocupado = true;
+      try {
+        const hwnd = w.getNativeWindowHandle().readBigUInt64LE(0).toString();
+        const cor = (await pedirServidorPS('fundo ' + hwnd)).trim();
+        if (/^#[0-9a-f]{6}$/i.test(cor) && cor !== ultima && !w.isDestroyed()) {
+          ultima = cor;
+          w.webContents.send('tela:fundo', cor);
+        }
+      } finally { ocupado = false; }
+    }
+    setTimeout(passo, ultimoEconomico ? 3000 : 1500);
+  };
+  w.webContents.once('did-finish-load', () => setTimeout(passo, 300));
+}
+let ultimoEconomico = false;
+
 let cantosTimer = null;
 function agendarCantos(w) {
   clearTimeout(cantosTimer); // durante o arrastar da borda, só no fim
@@ -316,6 +348,7 @@ function criarJanela(posicao) {
       setTimeout(mostrar, 6000); // garantia: nunca fica escondida
     }
     janela.on('resize', () => agendarCantos(esta)); // a região redonda acompanha o tamanho
+    acompanharFundo(esta);
   }
 
   // Guarda o tamanho que você escolheu (só no modo normal; 1 s depois de soltar)
@@ -455,10 +488,25 @@ function cargaCpu() {
   return dTotal > 0 ? Math.min(100, Math.max(0, (1 - dOcioso / dTotal) * 100)) : 0;
 }
 
+// RAM do próprio widget: todos os processos do Electron (memória privada) + o medidor.
+// O medidor (ou o PowerShell de reserva) responde "mem" a cada ~15 s.
+let memServidor = 0;
+let memServidorHora = 0;
+function ramDoWidget() {
+  if (Date.now() - memServidorHora > 15000) {
+    memServidorHora = Date.now();
+    pedirServidorPS('mem').then((r) => { const n = Number(r); if (Number.isFinite(n) && n > 0) memServidor = n; });
+  }
+  let kb = 0;
+  for (const m of app.getAppMetrics()) kb += (m.memory && (m.memory.privateBytes || m.memory.workingSetSize)) || 0;
+  return kb * 1024 + memServidor;
+}
+
 async function lerStats() {
   const cfg = carregarConfig();
   const carga = { currentLoad: cargaCpu() };
   const economico = modoEconomico(cfg, carga.currentLoad);
+  ultimoEconomico = economico;
   // no modo econômico a lista de processos é lida 3x menos
   if (Date.now() - ultimaLeituraProcessos >= INTERVALO_PROCESSOS * (economico ? 3 : 1)) {
     atualizarProcessos(); // sem await: não atrasa a resposta
@@ -470,6 +518,7 @@ async function lerStats() {
     cpu: carga.currentLoad,
     ramTotal: total,
     ramUsada: total - os.freemem(), // usada = total - disponível
+    ramWidget: ramDoWidget(),
     processos: processosCache,
     economico,
   };
@@ -649,6 +698,22 @@ function lerApp(indice) {
 // Ícone de um .exe/.lnk (em cache): vira dataURL para a tela
 async function iconeDe(caminho) {
   if (iconesCache.has(caminho)) return iconesCache.get(caminho);
+  if (/\.url$/i.test(caminho)) {
+    // Atalho de internet (.url, como os de jogos do Steam): o Windows mostra um ícone genérico,
+    // mas o arquivo diz qual é o ícone de verdade em "IconFile=" (um .ico ou um programa)
+    let alvo = null;
+    try {
+      const m = /^IconFile=(.+)$/mi.exec(fs.readFileSync(caminho, 'latin1'));
+      if (m && path.isAbsolute(m[1].trim()) && fs.existsSync(m[1].trim())) alvo = m[1].trim();
+    } catch { /* ilegível: ícone genérico */ }
+    if (alvo && /\.ico$/i.test(alvo)) {
+      const img = nativeImage.createFromPath(alvo);
+      if (!img.isEmpty()) { const url = img.resize({ width: 64, height: 64, quality: 'best' }).toDataURL(); iconesCache.set(caminho, url); return url; }
+    } else if (alvo && /\.(exe|dll)$/i.test(alvo)) {
+      const url = await iconeDe(alvo);
+      if (url) { iconesCache.set(caminho, url); return url; }
+    }
+  }
   if (/\.lnk$/i.test(caminho)) {
     // Atalho com ícone próprio quebrado (arquivo .ico que sumiu): vale o ícone do programa de destino
     let info = null;
@@ -720,13 +785,26 @@ ipcMain.handle('apps:abrir', async (e, indice) => {
   if (a.type === 'app') {
     // apps da Store / Menu Iniciar: o próprio Windows abre pelo AppID
     if (!APP_ID.test(a.target)) return 'app inválido';
+    if (await pedirServidorPS('focar-app ' + a.target) === 'true') return 'focado'; // já estava aberto
     spawn('explorer.exe', ['shell:AppsFolder\\' + a.target], { detached: true, stdio: 'ignore' }).unref();
     return '';
   }
   const caminho = caminhoCompleto(a.target);
   if (!fs.existsSync(caminho)) return 'caminho não existe: ' + caminho;
+  const exe = exeDoAtalho(caminho);
+  if (exe && await pedirServidorPS('focar-exe ' + exe) === 'true') return 'focado'; // já estava aberto
   return shell.openPath(caminho); // texto vazio = deu certo
 });
+
+// O .exe por trás de um app: ele mesmo, ou o destino do atalho .lnk (null se não for programa)
+const EXE_VALIDO = /^[A-Za-z]:\\[^"<>|*?\r\n]{1,300}\.exe$/i;
+function exeDoAtalho(caminho) {
+  let exe = caminho;
+  if (/\.lnk$/i.test(caminho)) {
+    try { exe = shell.readShortcutLink(caminho).target || ''; } catch { return null; }
+  }
+  return EXE_VALIDO.test(exe) ? exe : null;
+}
 
 ipcMain.handle('apps:icone', async (e, indice) => {
   if (!daJanela(e)) return null;

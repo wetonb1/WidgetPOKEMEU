@@ -446,6 +446,7 @@ public static class IconeApp {
                     'processos' { Listar-Processos }
                     'telacheia' { if ([TelaCheia]::Ativa()) { 'true' } else { 'false' } }
                     'volume'    { [VolumeSistema]::Json() }
+                    'mem'       { [string][Diagnostics.Process]::GetCurrentProcess().PrivateMemorySize64 }
                     'startapps' { Listar-StartApps }
                     'janelas'   { Listar-Janelas }
                     { $_ -match '^iconeapp [A-Za-z0-9_.!{}\ ()-]{1,300}$' } { Ler-IconeApp ('shell:AppsFolder\' + $_.Substring(9)) }

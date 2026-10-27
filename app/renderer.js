@@ -667,6 +667,7 @@ const sistema = (() => {
     procLista: document.getElementById('proc-lista'),
     stCpu: document.getElementById('st-cpu'),
     stRam: document.getElementById('st-ram'),
+    stWidget: document.getElementById('st-widget'),
     stModo: document.getElementById('st-modo'),
   };
   let ordenarPor = 'cpu'; // 'cpu' ou 'ram'
@@ -724,6 +725,7 @@ const sistema = (() => {
     el.stCpu.textContent = `cpu ${Math.round(s.cpu)}%`;
     el.stCpu.classList.toggle('alta', s.cpu > 85);
     el.stRam.textContent = `ram ${um(s.ramUsada / GB)}G`;
+    if (s.ramWidget > 0) el.stWidget.textContent = `widget ${Math.round(s.ramWidget / 1048576)} MB`;
     el.stModo.classList.toggle('oculto', !economico);
     if (economico !== economicoAntes) {
       dizer(economico
@@ -1556,7 +1558,9 @@ const apps = (() => {
       return d;
     };
     img.addEventListener('error', inicial);
-    if (a.type === 'url') {
+    if (a.icone) {
+      img.src = a.icone; // ícone escolhido por você
+    } else if (a.type === 'url') {
       try {
         img.src = 'https://www.google.com/s2/favicons?sz=64&domain=' + encodeURIComponent(new URL(a.target).hostname);
       } catch { return inicial(); }
@@ -1582,7 +1586,7 @@ const apps = (() => {
       const b = document.createElement('button');
       b.className = 'app';
       b.type = 'button';
-      b.title = a.name + ' (segure para mover · botão direito remove)';
+      b.title = a.name + ' (segure para mover · botão direito edita)';
       b.dataset.i = i; // posição na lista (a ordem na tela muda enquanto você arrasta)
       const nome = document.createElement('span');
       nome.className = 'app-nome';
@@ -1592,12 +1596,16 @@ const apps = (() => {
       if (icone.carregar) icone.carregar();
       b.addEventListener('click', () => {
         if (ignorarClique) { ignorarClique = false; return; } // o clique que termina um arrastar não abre o app
-        falar('appAbrir', { app: a.name });
+        // se já estiver aberto, o main traz a janela para a frente em vez de abrir outra
         window.widget.abrirApp(i)
-          .then((erro) => { if (erro) { dizer('Não consegui abrir ' + a.name + ': ' + erro); console.error('Não abriu', a.name + ':', erro); } })
+          .then((r) => {
+            if (r === 'focado') falar('appFocar', { app: a.name });
+            else if (r) { dizer('Não consegui abrir ' + a.name + ': ' + r); console.error('Não abriu', a.name + ':', r); }
+            else falar('appAbrir', { app: a.name });
+          })
           .catch((erro) => console.error('Erro ao abrir', a.name + ':', erro));
       });
-      b.addEventListener('contextmenu', (e) => { e.preventDefault(); pedirRemocao(i); });
+      b.addEventListener('contextmenu', (e) => { e.preventDefault(); abrirEdicao(i); });
       return b;
     }));
   }
@@ -1868,15 +1876,109 @@ const apps = (() => {
     (async () => { for (const item of itens.filter(Boolean)) await adicionar(item); })();
   });
 
-  // ----- confirmar remoção (botão direito) -----
+  // ----- editar (botão direito): nome, ícone e remover -----
+  const caixaEditar = document.getElementById('dialogo-editar');
+  const caixaConfirma = document.getElementById('dialogo-confirma');
+  const eNome = document.getElementById('e-nome');
+  const eIcone = document.getElementById('e-icone');
+  const eArquivo = document.getElementById('e-arquivo');
+  let indiceEditando = -1;
+  let iconeNovo; // undefined = não mexeu · null = voltar ao original · "data:..." = imagem escolhida
+
+  function mostrarIconeEdicao() {
+    const a = lista[indiceEditando];
+    const previa = { ...a };
+    if (iconeNovo === null) delete previa.icone; else if (iconeNovo) previa.icone = iconeNovo;
+    previa.name = eNome.value.trim() || a.name;
+    const i = criarIcone(previa, () => window.widget.iconeApp(indiceEditando));
+    eIcone.replaceChildren(i);
+    if (i.carregar) i.carregar();
+  }
+
+  function abrirEdicao(i) {
+    indiceEditando = i;
+    iconeNovo = undefined;
+    eNome.value = lista[i].name;
+    caixaConfirma.classList.add('oculto');
+    caixaEditar.classList.remove('oculto');
+    dialogo.classList.remove('oculto');
+    mostrarIconeEdicao();
+    eNome.focus();
+    eNome.select();
+  }
+
+  // imagem escolhida -> PNG 64x64 (centralizada, sem distorcer): pequena para caber na config
+  function reduzirImagem(arquivo) {
+    return new Promise((ok, falha) => {
+      const leitor = new FileReader();
+      leitor.onerror = () => falha(new Error('não deu para ler o arquivo'));
+      leitor.onload = () => {
+        const img = new Image();
+        img.onerror = () => falha(new Error('não é uma imagem'));
+        img.onload = () => {
+          const c = document.createElement('canvas');
+          c.width = c.height = 64;
+          const escala = Math.min(64 / img.naturalWidth, 64 / img.naturalHeight);
+          const w = Math.max(1, Math.round(img.naturalWidth * escala)), h = Math.max(1, Math.round(img.naturalHeight * escala));
+          const ctx = c.getContext('2d');
+          ctx.imageSmoothingQuality = 'high';
+          ctx.drawImage(img, (64 - w) / 2, (64 - h) / 2, w, h);
+          ok(c.toDataURL('image/png'));
+        };
+        img.src = leitor.result;
+      };
+      leitor.readAsDataURL(arquivo);
+    });
+  }
+
+  const escolherIcone = () => eArquivo.click();
+  eIcone.addEventListener('click', escolherIcone);
+  document.getElementById('e-trocar').addEventListener('click', escolherIcone);
+  document.getElementById('e-original').addEventListener('click', () => { iconeNovo = null; mostrarIconeEdicao(); });
+  eNome.addEventListener('input', () => { if (!eIcone.querySelector('img')) mostrarIconeEdicao(); }); // a inicial acompanha o nome
+  eArquivo.addEventListener('change', async () => {
+    const arquivo = eArquivo.files[0];
+    eArquivo.value = '';
+    if (!arquivo) return;
+    try {
+      iconeNovo = await reduzirImagem(arquivo);
+      mostrarIconeEdicao();
+    } catch (erro) {
+      dizer('Não consegui usar essa imagem: ' + erro.message);
+    }
+  });
+  eNome.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); salvarEdicao(); } });
+
+  async function salvarEdicao() {
+    const i = indiceEditando;
+    if (i < 0) return;
+    const a = { ...lista[i], name: eNome.value.trim().slice(0, 30) || lista[i].name };
+    if (iconeNovo === null) delete a.icone;
+    else if (iconeNovo) a.icone = iconeNovo;
+    fecharDialogo();
+    try {
+      await gravar(lista.map((x, j) => (j === i ? a : x)));
+      falar('appEditar', { app: a.name });
+    } catch (erro) {
+      console.error('Erro ao salvar o app:', erro);
+    }
+  }
+  document.getElementById('e-salvar').addEventListener('click', salvarEdicao);
+  document.getElementById('e-cancelar').addEventListener('click', () => fecharDialogo());
+  document.getElementById('e-remover').addEventListener('click', () => pedirRemocao(indiceEditando));
+
+  // ----- confirmar remoção -----
   function pedirRemocao(i) {
     indiceParaRemover = i;
     document.getElementById('c-texto').textContent = '$ apps rm "' + lista[i].name + '"?';
+    caixaEditar.classList.add('oculto');
+    caixaConfirma.classList.remove('oculto');
     dialogo.classList.remove('oculto');
   }
   function fecharDialogo() {
     dialogo.classList.add('oculto');
     indiceParaRemover = -1;
+    indiceEditando = -1;
   }
   document.getElementById('c-nao').addEventListener('click', fecharDialogo);
   document.getElementById('c-sim').addEventListener('click', () => {
@@ -2035,6 +2137,16 @@ const abas = (() => {
   // Visual iOS: abas com nomes por extenso e título com o nome do Pokémon
   const IOS = document.documentElement.dataset.estilo === 'ios';
   const ROTULOS_IOS = { sys: 'Sistema', music: 'Música', apps: 'Apps', term: 'Terminal', poke: 'Pokédex' };
+  // Vidro com a cor do que está atrás (o main.js manda a cor quando muda): uma tinta escura
+  // puxada para essa cor, para o texto branco continuar legível. A troca é suave (CSS).
+  if (IOS) {
+    window.widget.onFundo((cor) => {
+      if (!/^#[0-9a-f]{6}$/i.test(cor)) return;
+      const t = misturarCor(cor, '#101018', 0.6);
+      const [r, g, b] = [1, 3, 5].map((k) => parseInt(t.slice(k, k + 2), 16));
+      document.documentElement.style.setProperty('--tinta-vidro', `rgba(${r}, ${g}, ${b}, 0.55)`);
+    });
+  }
   if (IOS) {
     botoes.forEach((b) => { b.textContent = ROTULOS_IOS[b.dataset.aba]; });
     // botões de texto sem os [colchetes] do console

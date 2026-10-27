@@ -560,6 +560,36 @@ button { font-family: var(--font); }
   pointer-events: none;
 }
 
+/* diálogo de editar app: ícone à esquerda (clique troca), nome e botões à direita */
+.dialogo-caixa label { display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.dialogo-caixa input[type="text"] {
+  padding: 3px 6px;
+  border: 1px solid #3c3c3c;
+  background: #000000;
+  color: var(--text);
+  font: 13px var(--font);
+  user-select: text;
+  outline: none;
+}
+.dialogo-caixa input[type="text"]:focus { border-color: var(--accent); }
+.editar-linha { display: flex; gap: 12px; align-items: center; }
+.editar-icone {
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--linha);
+  background: transparent;
+  cursor: pointer;
+}
+.editar-icone:hover { border-color: var(--accent); }
+.editar-icone .app-icone { width: 40px; height: 40px; font-size: 20px; }
+.editar-campos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.editar-acoes { display: flex; gap: 6px; flex-wrap: wrap; }
+.dialogo-espaco { flex: 1; }
+.dialogo-botoes button.perigo:hover { background: var(--alerta); color: #ffffff; }
+
 /* escolha do visual (aba poke) */
 .estilo-escolha { display: flex; align-items: center; gap: 6px; }
 .estilo-escolha span { margin-right: 4px; color: var(--text); }
@@ -693,7 +723,7 @@ button { font-family: var(--font); }
 }
 .mini .st { border: none; padding: 0 4px; line-height: 17px; }
 .mini .st-musica { max-width: 236px; flex: none; }
-.mini .st-hora { display: none; }
+.mini .st-hora, .mini .st-modo { display: none; } /* no mini cabem cpu, ram, widget e música */
 
 /* ---------- Tela de carregamento: pokébola cúbica ----------
    Um cubo 3D (6 faces) com cantos arredondados: em cima a cor do Pokémon
@@ -854,9 +884,10 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 22px;
-  background:
-    radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%),
-    rgba(18, 18, 26, 0.5);
+  /* a tinta (--tinta-vidro) segue a cor do que está atrás do widget; muda devagar */
+  background-color: var(--tinta-vidro, rgba(18, 18, 26, 0.5));
+  background-image: radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%);
+  transition: background-color 0.9s ease;
 }
 
 /* ----- barra de cima ----- */
@@ -1141,6 +1172,12 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   box-shadow: 0 12px 30px rgba(0, 0, 0, 0.45);
 }
 [data-estilo="ios"] .dialogo-caixa h2 { font: 600 14px var(--font); color: #ffffff; }
+[data-estilo="ios"] .dialogo-caixa input[type="text"] { padding: 6px 10px; border: none; border-radius: 10px; background: rgba(255, 255, 255, 0.1); }
+[data-estilo="ios"] .dialogo-caixa input[type="text"]:focus { box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 55%, transparent); }
+[data-estilo="ios"] .editar-icone { border-radius: 14px; border: 1px dashed rgba(255, 255, 255, 0.25); }
+[data-estilo="ios"] .editar-icone .app-icone { border-radius: 11px; }
+[data-estilo="ios"] img.editar-icone, [data-estilo="ios"] .editar-icone img.app-icone { padding: 4px; background: rgba(255, 255, 255, 0.12); }
+[data-estilo="ios"] .dialogo-botoes button.perigo:hover { background: #ff5f57; color: #ffffff; }
 
 /* ----- tela de carregamento e modo mini ----- */
 /* Enquanto a tela de carregamento está ativa, o resto fica escondido: ela é translúcida
@@ -1157,4 +1194,4 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
 [data-estilo="ios"] #cartao.mini { grid-template-rows: 38px 1fr; padding-bottom: 8px; }
 [data-estilo="ios"] .mini .lado-poke { padding: 2px; }
 [data-estilo="ios"] .mini .status { margin: 0; padding: 4px 6px; border-radius: 14px; background: var(--vidro); }
-[data-estilo="ios"] .mini .st { border: none; }
+[data-estilo="ios"] .mini .st { border: none; line-height: 14px; font-size: 11px; }

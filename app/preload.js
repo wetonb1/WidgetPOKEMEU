@@ -18,6 +18,11 @@ contextBridge.exposeInMainWorld('widget', {
   // caminho de um arquivo solto na janela (arrastar-e-soltar); '' se não for arquivo do disco
   caminhoArquivo: (arquivo) => { try { return webUtils.getPathForFile(arquivo) || ''; } catch { return ''; } },
   janelaEstilo: (estilo) => ipcRenderer.invoke('janela:estilo', String(estilo)),
+  // estilo iOS: cor do que está atrás do widget ("#rrggbb"), quando muda
+  onFundo: (cb) => {
+    ipcRenderer.removeAllListeners('tela:fundo');
+    ipcRenderer.on('tela:fundo', (_e, cor) => cb(String(cor)));
+  },
   fechar: () => ipcRenderer.send('janela:fechar'),
   janelaModo: (modo) => ipcRenderer.invoke('janela:modo', String(modo)),
   janelaFixar: (fixar) => ipcRenderer.invoke('janela:fixar', fixar === true),

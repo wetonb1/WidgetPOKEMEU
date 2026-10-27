@@ -6,7 +6,9 @@
 // usa no lugar do PowerShell; se algo falhar, o media.ps1 continua valendo.
 //   Comandos: info | info-capa | playpause | next | prev | processos | telacheia
 //             | volume | volume-set N | mudo-set 0|1 | vidro HWND L A RAIO | cantos HWND L A RAIO
-//             | janelas | iconeapp APPID | iconearq CAMINHO.lnk | gc | sair
+//             | janelas | iconeapp APPID | iconearq CAMINHO.lnk | gc | mem (memória do medidor, bytes)
+//             | fundo HWND (cor "#rrggbb" do que está atrás do widget) | focar-exe CAMINHO.exe | focar-app APPID
+//             | sair
 //   (a lista de apps do Menu Iniciar, "startapps", é pedida pelo main.js a um PowerShell
 //    avulso, só quando a loja de apps abre.)
 // ATENÇÃO: as classes ListaProcessos, TelaCheia, VolumeSistema, Vidro e IconeApp são as
@@ -437,7 +439,215 @@ public static class Janelas {
 }
 
 // ---------- Laço de comandos ----------
+// ---------- Cor do que está atrás do widget (estilo iOS) ----------
+// Acha a primeira janela visível ABAIXO do widget (ordem Z) que cobre a área dele,
+// "fotografa" essa janela com PrintWindow (funciona mesmo coberta) e tira a cor média
+// só do pedaço que fica atrás do widget. Sem janela atrás: a cor do papel de parede.
+// Tudo em GDI nativo e reduzido para 32x16 pixels: barato. A mesma janela, no mesmo
+// lugar, só é fotografada de novo depois de 8 s (o conteúdo pode ter mudado).
+public static class Fundo {
+    [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
+    [DllImport("user32.dll")] static extern int GetWindowLong(IntPtr h, int idx);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetClassName(IntPtr h, StringBuilder sb, int n);
+    [DllImport("user32.dll")] static extern bool PrintWindow(IntPtr h, IntPtr hdc, uint flags);
+    [DllImport("user32.dll")] static extern IntPtr GetDC(IntPtr h);
+    [DllImport("user32.dll")] static extern int ReleaseDC(IntPtr h, IntPtr dc);
+    [DllImport("dwmapi.dll")] static extern int DwmGetWindowAttribute(IntPtr h, int attr, out int val, int size);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleDC(IntPtr dc);
+    [DllImport("gdi32.dll")] static extern IntPtr CreateCompatibleBitmap(IntPtr dc, int w, int h);
+    [DllImport("gdi32.dll")] static extern IntPtr SelectObject(IntPtr dc, IntPtr obj);
+    [DllImport("gdi32.dll")] static extern bool DeleteDC(IntPtr dc);
+    [DllImport("gdi32.dll")] static extern bool DeleteObject(IntPtr obj);
+    [DllImport("gdi32.dll")] static extern int SetStretchBltMode(IntPtr dc, int modo);
+    [DllImport("gdi32.dll")] static extern bool StretchBlt(IntPtr d, int x, int y, int w, int h, IntPtr s, int sx, int sy, int sw, int sh, uint rop);
+    [DllImport("gdi32.dll")] static extern uint GetPixel(IntPtr dc, int x, int y);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern bool SystemParametersInfo(uint acao, uint p, StringBuilder sb, uint ini);
+
+    static string chaveAnterior = "", corAnterior = "";
+    static DateTime quando = DateTime.MinValue;
+    static int capturas = 0;
+    static string papelCaminho = null, papelCor = "";
+
+    public static string Cor(long hwndWidget) {
+        IntPtr eu = new IntPtr(hwndWidget);
+        RECT w;
+        if (!GetWindowRect(eu, out w)) return "";
+        IntPtr h = eu;
+        while ((h = GetWindow(h, 2)) != IntPtr.Zero) { // 2 = GW_HWNDNEXT: a próxima abaixo
+            if (!IsWindowVisible(h) || IsIconic(h)) continue;
+            int oculta;
+            if (DwmGetWindowAttribute(h, 14, out oculta, 4) == 0 && oculta != 0) continue; // "cloaked" (outra área de trabalho, suspensa)
+            int ex = GetWindowLong(h, -20);
+            if ((ex & 0x20) != 0 || (ex & 0x80) != 0) continue; // transparente ao clique (overlays) ou janela de ferramenta
+            RECT r;
+            if (!GetWindowRect(h, out r) || r.R - r.L < 8 || r.B - r.T < 8) continue;
+            if (r.R <= w.L || r.L >= w.R || r.B <= w.T || r.T >= w.B) continue; // não passa atrás do widget
+            var classe = new StringBuilder(64);
+            GetClassName(h, classe, 64);
+            string c = classe.ToString();
+            if (c == "Progman" || c == "WorkerW") return PapelDeParede(); // chegou na área de trabalho
+            string chave = h.ToInt64() + ":" + r.L + "," + r.T + "," + r.R + "," + r.B;
+            // uma janela recém-chegada pode ainda estar se desenhando: só guarda a cor (por 8 s)
+            // depois que duas fotos seguidas da mesma janela, no mesmo lugar, derem o mesmo resultado
+            if (chave == chaveAnterior && capturas >= 2 && (DateTime.Now - quando).TotalSeconds < 8) return corAnterior;
+            string cor = Media(h, r, w);
+            if (cor.Length == 0) cor = corAnterior; // a janela não deixou fotografar: mantém
+            capturas = chave == chaveAnterior && cor == corAnterior ? capturas + 1 : 1;
+            chaveAnterior = chave; corAnterior = cor; quando = DateTime.Now;
+            return cor;
+        }
+        return PapelDeParede();
+    }
+
+    // média do pedaço da janela h que fica atrás do widget (coordenadas da tela -> da janela)
+    static string Media(IntPtr h, RECT r, RECT w) {
+        int lw = r.R - r.L, aw = r.B - r.T;
+        int x0 = Math.Max(w.L, r.L) - r.L, y0 = Math.Max(w.T, r.T) - r.T;
+        int x1 = Math.Min(w.R, r.R) - r.L, y1 = Math.Min(w.B, r.B) - r.T;
+        if (x1 - x0 < 4 || y1 - y0 < 4) return "";
+        IntPtr tela = GetDC(IntPtr.Zero), dc = CreateCompatibleDC(tela), bmp = CreateCompatibleBitmap(tela, lw, aw);
+        IntPtr pdc = CreateCompatibleDC(tela), pbmp = CreateCompatibleBitmap(tela, 32, 16);
+        IntPtr velho = SelectObject(dc, bmp), pvelho = SelectObject(pdc, pbmp);
+        try {
+            if (!PrintWindow(h, dc, 2)) return ""; // 2 = PW_RENDERFULLCONTENT
+            SetStretchBltMode(pdc, 4); // HALFTONE: a redução já faz a média
+            StretchBlt(pdc, 0, 0, 32, 16, dc, x0, y0, x1 - x0, y1 - y0, 0x00CC0020);
+            long sr = 0, sg = 0, sb = 0;
+            for (int y = 0; y < 16; y++) for (int x = 0; x < 32; x++) {
+                uint p = GetPixel(pdc, x, y);
+                sr += p & 0xFF; sg += (p >> 8) & 0xFF; sb += (p >> 16) & 0xFF;
+            }
+            if (sr + sg + sb == 0) return ""; // tudo preto: a janela não se deixou fotografar
+            return string.Format("#{0:x2}{1:x2}{2:x2}", sr / 512, sg / 512, sb / 512);
+        } finally {
+            SelectObject(dc, velho); SelectObject(pdc, pvelho);
+            DeleteObject(bmp); DeleteObject(pbmp); DeleteDC(dc); DeleteDC(pdc);
+            ReleaseDC(IntPtr.Zero, tela);
+        }
+    }
+
+    // cor média da imagem do papel de parede (guardada até o arquivo mudar)
+    static string PapelDeParede() {
+        var sb = new StringBuilder(520);
+        if (!SystemParametersInfo(0x73, 520, sb, 0)) return ""; // SPI_GETDESKWALLPAPER
+        string caminho = sb.ToString();
+        if (caminho == papelCaminho) return papelCor;
+        papelCaminho = caminho;
+        papelCor = "";
+        try {
+            using (var img = Image.FromFile(caminho))
+            using (var mini = new Bitmap(img, 32, 18)) {
+                long sr = 0, sg = 0, sbl = 0;
+                for (int y = 0; y < 18; y++) for (int x = 0; x < 32; x++) {
+                    Color c = mini.GetPixel(x, y);
+                    sr += c.R; sg += c.G; sbl += c.B;
+                }
+                papelCor = string.Format("#{0:x2}{1:x2}{2:x2}", sr / 576, sg / 576, sbl / 576);
+            }
+        } catch { /* sem papel de parede em arquivo (cor sólida, Wallpaper Engine...) */ }
+        return papelCor;
+    }
+}
+
+// ---------- Trazer para a frente um app que já está aberto ----------
+// Em vez de abrir uma cópia nova: procura uma janela principal (visível, sem dono, com
+// título) do mesmo programa e a restaura/ativa. Programa = mesmo .exe (caminho completo)
+// ou mesmo AppUserModelID (apps da Microsoft Store e do Menu Iniciar).
+public static class Foco {
+    delegate bool Enumerar(IntPtr h, IntPtr p);
+    [DllImport("user32.dll")] static extern bool EnumWindows(Enumerar f, IntPtr p);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr h, out uint pid);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr h);
+    [DllImport("user32.dll")] static extern IntPtr GetWindow(IntPtr h, uint cmd);
+    [DllImport("user32.dll")] static extern int GetWindowTextLength(IntPtr h);
+    [DllImport("user32.dll")] static extern bool IsIconic(IntPtr h);
+    [DllImport("user32.dll")] static extern bool ShowWindow(IntPtr h, int cmd);
+    [DllImport("user32.dll")] static extern bool SetForegroundWindow(IntPtr h);
+    [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, uint flags, UIntPtr extra);
+    [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(uint acesso, bool herda, uint pid);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] static extern bool QueryFullProcessImageName(IntPtr h, int flags, StringBuilder sb, ref int tamanho);
+    [DllImport("shell32.dll")] static extern int SHGetPropertyStoreForWindow(IntPtr h, ref Guid iid, [MarshalAs(UnmanagedType.Interface)] out IPropertyStore ps);
+    [DllImport("ole32.dll")] static extern int PropVariantClear(ref PROPVARIANT pv);
+
+    [StructLayout(LayoutKind.Sequential, Pack = 4)] struct PROPERTYKEY { public Guid fmtid; public uint pid; }
+    [StructLayout(LayoutKind.Explicit, Size = 24)] struct PROPVARIANT { [FieldOffset(0)] public ushort vt; [FieldOffset(8)] public IntPtr p; }
+    [ComImport, Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    interface IPropertyStore {
+        [PreserveSig] int GetCount(out uint n);
+        [PreserveSig] int GetAt(uint i, out PROPERTYKEY k);
+        [PreserveSig] int GetValue(ref PROPERTYKEY k, out PROPVARIANT v);
+        [PreserveSig] int SetValue(ref PROPERTYKEY k, ref PROPVARIANT v);
+        [PreserveSig] int Commit();
+    }
+
+    // janelas "principais": visíveis, sem dono e com título
+    static List<IntPtr> Principais() {
+        var lista = new List<IntPtr>();
+        EnumWindows((h, p) => {
+            if (IsWindowVisible(h) && GetWindow(h, 4) == IntPtr.Zero && GetWindowTextLength(h) > 0) lista.Add(h); // 4 = GW_OWNER
+            return true;
+        }, IntPtr.Zero);
+        return lista;
+    }
+
+    static string CaminhoDe(IntPtr h) {
+        uint pid;
+        GetWindowThreadProcessId(h, out pid);
+        IntPtr ph = OpenProcess(0x1000, false, pid); // PROCESS_QUERY_LIMITED_INFORMATION
+        if (ph == IntPtr.Zero) return "";
+        try {
+            var sb = new StringBuilder(1024);
+            int n = sb.Capacity;
+            return QueryFullProcessImageName(ph, 0, sb, ref n) ? sb.ToString() : "";
+        } finally { CloseHandle(ph); }
+    }
+
+    static string AppIdDe(IntPtr h) {
+        Guid iid = typeof(IPropertyStore).GUID;
+        IPropertyStore ps;
+        if (SHGetPropertyStoreForWindow(h, ref iid, out ps) != 0 || ps == null) return "";
+        try {
+            var k = new PROPERTYKEY { fmtid = new Guid("9F4C2855-9F79-4B39-A8D0-E1D42DE1D5F3"), pid = 5 }; // PKEY_AppUserModel_ID
+            PROPVARIANT v;
+            if (ps.GetValue(ref k, out v) != 0) return "";
+            string id = v.vt == 31 && v.p != IntPtr.Zero ? Marshal.PtrToStringUni(v.p) : ""; // 31 = VT_LPWSTR
+            PropVariantClear(ref v);
+            return id ?? "";
+        } finally { Marshal.ReleaseComObject(ps); }
+    }
+
+    static bool Ativar(IntPtr h) {
+        if (IsIconic(h)) ShowWindow(h, 9); // 9 = SW_RESTORE
+        // o Windows só deixa trocar o primeiro plano logo depois de uma tecla: um Alt solto basta
+        keybd_event(0x12, 0, 0, UIntPtr.Zero);
+        keybd_event(0x12, 0, 2, UIntPtr.Zero);
+        return SetForegroundWindow(h);
+    }
+
+    public static string PorExe(string caminho) {
+        foreach (IntPtr h in Principais()) {
+            if (string.Equals(CaminhoDe(h), caminho, StringComparison.OrdinalIgnoreCase)) return Ativar(h) ? "true" : "false";
+        }
+        return "false";
+    }
+
+    public static string PorAppId(string id) {
+        foreach (IntPtr h in Principais()) {
+            if (string.Equals(AppIdDe(h), id, StringComparison.OrdinalIgnoreCase)) return Ativar(h) ? "true" : "false";
+        }
+        return "false";
+    }
+}
+
 public static class Programa {
+    static readonly Regex ReFundo = new Regex(@"^fundo (\d+)$");
+    static readonly Regex ReFocarExe = new Regex(@"^focar-exe [A-Za-z]:\\[^""<>|*?\r\n]{1,300}\.exe$", RegexOptions.IgnoreCase);
+    static readonly Regex ReFocarApp = new Regex(@"^focar-app [A-Za-z0-9_.!{}\\ ()-]{1,300}$");
     static readonly Regex ReIconeApp = new Regex(@"^iconeapp [A-Za-z0-9_.!{}\\ ()-]{1,300}$");
     static readonly Regex ReIconeArq = new Regex(@"^iconearq [A-Za-z]:\\[^""<>|*?\r\n]{1,300}\.lnk$");
     static readonly Regex ReVidro = new Regex(@"^(vidro|cantos) (\d+) (\d+) (\d+) (\d+)$");
@@ -455,8 +665,12 @@ public static class Programa {
             case "gc": GC.Collect(); return "ok";
             case "mudo-set 0": return VolumeSistema.Mudo(false);
             case "mudo-set 1": return VolumeSistema.Mudo(true);
+            case "mem": return Process.GetCurrentProcess().PrivateMemorySize64.ToString(CultureInfo.InvariantCulture);
         }
         Match m;
+        if ((m = ReFundo.Match(c)).Success) return Fundo.Cor(long.Parse(m.Groups[1].Value));
+        if (ReFocarExe.IsMatch(c)) return Foco.PorExe(c.Substring(10));
+        if (ReFocarApp.IsMatch(c)) return Foco.PorAppId(c.Substring(10));
         if (ReIconeApp.IsMatch(c)) return IconeApp.Png("shell:AppsFolder\\" + c.Substring(9), 96);
         if (ReIconeArq.IsMatch(c)) return IconeApp.Png(c.Substring(9), 96);
         if ((m = ReVidro.Match(c)).Success) {
