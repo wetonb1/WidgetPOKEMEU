@@ -5,6 +5,7 @@
   "shiny": false,
   "gifAnimado": false,
   "aceleracaoGPU": false,
+  "redeEmProcesso": false,
   "desempenho": "normal",
   "economiaAutomatica": true,
   "visualizador": true,

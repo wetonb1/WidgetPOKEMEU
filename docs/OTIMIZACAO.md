@@ -129,6 +129,70 @@ Mesma config, só muda `estilo` (`WIDGET_ESTILO=ios` no `tools/cenario.js` usa u
 - **Cenário B (música tocando) ainda não medido:** a música estava pausada na hora. Para medir: dê play e rode `$env:WIDGET_ESTILO='ios'; npm run medir -- -Cenario B -Variante estilo-ios`.
 - **Loja de apps:** custo zero parada. Ao abrir, pede a lista uma vez (~1 s na primeira vez, porque o `Get-StartApps` roda no PowerShell que já está aberto; depois fica 5 min em cache). Os ícones só carregam para os itens que aparecem na rolagem, e tudo é liberado ao fechar a loja.
 
+## Rodada final: v1.4 mais leve (medidor no lugar do PowerShell)
+
+Pedido: deixar o widget o mais leve possível **sem tirar nenhuma mecânica**. Método: medir a v1.4
+(`base`) e a nova (`novo`) **alternando as duas** no mesmo PC (3 rodadas de 45 s, 15 s de aquecimento,
+mediana), em CMD e iOS, ocioso (A) e com música tocando (B). Os números brutos estão em
+`tools/resultados.csv` (variantes `base-*` e `novo-*`). O B usou uma sessão de mídia de teste, silenciosa.
+
+| Cenário | CPU antes → depois | RAM privada antes → depois | WS antes → depois |
+|---|---|---|---|
+| A, CMD (ocioso) | 2,7% → 2,8% (ruído) | 182 → **137 MB** (−25%) | 391 → 330 MB |
+| A, iOS (ocioso) | 3,9% → 4,6% (ruído) | 183 → **135 MB** (−26%) | 394 → 337 MB |
+| B, CMD (música) | 4,9% → **2,2%** (−55%) | 200 → **142 MB** (−29%) | 483 → 401 MB |
+| B, iOS (música) | 6,8% → **3,2%** (−53%) | 201 → **146 MB** (−27%) | 483 → 419 MB |
+
+Com o ajuste final (medidor sem console), a árvore ociosa fecha em **124–126 MB** de RAM privada e
+5 processos, contra 182–187 MB e 6 processos antes (≈ −33%). O CPU ocioso em regime (depois da abertura)
+é de só **0,2–0,9% de um núcleo**; a diferença entre as rodadas do `medir` no A é o pico de abertura e o
+ruído do PC (a mesma versão deu de 0,6% a 5,3%).
+
+### O que mudou (um item por ideia)
+
+| Ideia | Resultado medido |
+|---|---|
+| **Medidor compilado no lugar do PowerShell** (`app/helper.cs`). Um PowerShell **vazio** já gasta 55 MB; o servidor chegava a 66–85 MB, dos quais só ~11 MB eram nossos. O medidor faz o mesmo trabalho (mesmo protocolo de linhas) em 12–15 MB | −50 a −60 MB; com música, o CPU cai a menos da metade (cada consulta custa bem menos) |
+| **Sem janela de console** (`-target:winexe`): some o `conhost.exe` que acompanhava o medidor | −6 MB e um processo a menos |
+| **Sem `systeminformation`**: a carga da CPU vem do `os.cpus()` (mesma conta do Gerenciador de Tarefas; conferido lado a lado: 43,7% contra 43,4% etc.) | main 40 → 35 MB; CPU de abertura do main 1,8 s → 0,5 s |
+| **`node-pty` só ao abrir o terminal** | menos memória e tempo de abertura para quem não usa a aba `term` |
+
+**Como o medidor funciona.** O `main.js` compila o `helper.cs` uma vez (~0,5 s, com o `csc.exe` que já vem
+no Windows) para `%APPDATA%\meu-widget\medidor-<hash>.exe` e usa esse programa. O hash vem do código e das
+opções de compilação: mudou o código, recompila sozinho (e apaga as versões antigas). **Reserva**: sem
+`csc.exe`, com falha de compilação, arquivo corrompido ou bloqueado pelo antivírus, o widget usa o
+`media.ps1` como antes, e o arquivo ruim é apagado para recompilar na próxima abertura. Nada some em
+nenhum caso. A lista de apps do Menu Iniciar (`Get-StartApps`) só existe no PowerShell: com o medidor ela
+roda num PowerShell avulso, só quando a loja de apps abre (cache de 5 min).
+
+**Testes do medidor** (feitos contra o servidor PowerShell, comando a comando): 13 comandos com resposta
+idêntica (info, capa, volume, tela cheia, processos, janelas, ícones da Store e de atalhos, vidro/cantos,
+entradas inválidas). A mídia foi testada contra uma sessão de mídia real de teste: leitura de título,
+artista, álbum e status, tocar/pausar, próxima/anterior. O teste da capa, isolado, achou um defeito real (o
+`ContentType` fica numa interface-base que a reflexão do C# não enxerga), já corrigido: a capa agora sai
+byte a byte igual ao arquivo. Também foram testados: arquivo do medidor corrompido (cai no PowerShell na
+hora), compilação do zero dentro do .exe empacotado, e o terminal.
+
+### Opcional: `"redeEmProcesso": true`
+
+O Chromium roda a rede num processo separado (12 MB). Com a chave ligada, ela roda dentro do processo
+principal: **−12 MB de RAM privada, −45 MB de WS e um processo a menos** (medido: 136/122 MB → 105/110 MB), e a
+rede (PokéAPI, AniList, imagens, favicons) segue funcionando. O preço é **menos isolamento**: a rede deixa
+de ter o sandbox do processo próprio. Por isso fica **desligada por padrão**; quem quiser o máximo de
+leveza liga na config.
+
+### Testado e descartado nesta rodada
+
+| Ideia | Resultado | Motivo |
+|---|---|---|
+| Visualizador por temporizador de 30/s em vez de `requestAnimationFrame` | 2,73% contra 2,58% (3 rodadas cada) | Sem ganho |
+| `--disable-features=Translate,MediaRouter,OptimizationHints,…` | 135/138 MB contra 136/122 MB | Sem ganho |
+| `[GC]::Collect` no PowerShell | 66 MB antes e depois | Não devolve memória: os 66 MB são do próprio PowerShell |
+
+> Cuidado ao medir com um jogo em tela cheia aberto: o Chromium pausa o desenho de janelas cobertas
+> (o xterm aparece vazio, por exemplo). Para testar nessas condições, use
+> `--disable-features=CalculateNativeWinOcclusion`.
+
 ## Como repetir a medição
 
 Na pasta do projeto, num PowerShell:

@@ -3,7 +3,6 @@ const { app, BrowserWindow, ipcMain, screen, session, desktopCapturer, shell } =
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const si = require('systeminformation');
 
 // Tamanho da janela (horizontal). Você redimensiona puxando as bordas, dentro
 // de um mínimo e um máximo que não quebram o layout; o tamanho fica salvo.
@@ -126,6 +125,7 @@ function sanitizarConfig(cfg, modelo) {
     shiny: bool(cfg.shiny, modelo.shiny),
     gifAnimado: bool(cfg.gifAnimado, modelo.gifAnimado),
     aceleracaoGPU: bool(cfg.aceleracaoGPU, modelo.aceleracaoGPU),
+    redeEmProcesso: bool(cfg.redeEmProcesso, false), // veja a nota perto do disableHardwareAcceleration
     desempenho: cfg.desempenho === 'economico' ? 'economico' : 'normal',
     economiaAutomatica: bool(cfg.economiaAutomatica, modelo.economiaAutomatica),
     visualizador: bool(cfg.visualizador, modelo.visualizador),
@@ -216,7 +216,13 @@ function salvarConfig(cfg) {
 // 1 núcleo e -185 MB de memória privada (na época da janela transparente).
 // O efeito varia por PC: "aceleracaoGPU": true religa.
 // (A config é lida aqui, antes do app ficar pronto, porque depois não dá mais.)
-if (!carregarConfig().aceleracaoGPU) app.disableHardwareAcceleration();
+const cfgInicial = carregarConfig();
+if (!cfgInicial.aceleracaoGPU) app.disableHardwareAcceleration();
+// Opcional (desligado por padrão): o serviço de rede do Chromium roda dentro do processo
+// principal em vez de num processo próprio. Medido: -12 MB de RAM privada e um processo
+// a menos. Em troca, a rede perde o isolamento (sandbox) do processo separado; por isso
+// só liga se você pedir: "redeEmProcesso": true.
+if (cfgInicial.redeEmProcesso) app.commandLine.appendSwitch('enable-features', 'NetworkServiceInProcess2');
 
 let modoAtual = 'normal';
 let alturaAntesDoTerminal = null; // a aba term estica; ao sair, volta a esta altura
@@ -338,7 +344,7 @@ function criarJanela(posicao) {
 
 // ---------- Módulo Sistema ----------
 // A lista de processos vem do mesmo PowerShell persistente da música (comando
-// "processos"); o si.processes() abria um PowerShell novo a cada chamada.
+// "processos"); o antigo si.processes() abria um PowerShell novo a cada chamada.
 // Ela é atualizada a cada ~6 s, em segundo plano, e reaproveitada nas
 // leituras de 3 s (que não esperam por ela).
 const INTERVALO_PROCESSOS = 5500; // ms
@@ -427,11 +433,32 @@ function modoEconomico(cfg, cpu) {
   return telaCheia || historicoCpu.filter((c) => c > CPU_ECONOMIA).length >= 2;
 }
 
-// RAM via os (leitura direta, sem abrir PowerShell). os.freemem() no Windows
-// é a memória "disponível", a mesma que o si.mem() chama de available.
+// CPU e RAM via os (leitura direta, sem abrir PowerShell e sem biblioteca extra).
+// CPU: os.cpus() dá o tempo acumulado de cada núcleo; a carga é a fração que NÃO foi
+// ociosa desde a leitura anterior (a mesma conta do Gerenciador de Tarefas).
+// os.freemem() no Windows é a memória "disponível".
+let cpuAnterior = somaCpu();
+function somaCpu() {
+  let ocioso = 0;
+  let total = 0;
+  for (const c of os.cpus()) {
+    const t = c.times;
+    ocioso += t.idle;
+    total += t.user + t.nice + t.sys + t.idle + t.irq;
+  }
+  return { ocioso, total };
+}
+function cargaCpu() {
+  const agora = somaCpu();
+  const dTotal = agora.total - cpuAnterior.total;
+  const dOcioso = agora.ocioso - cpuAnterior.ocioso;
+  cpuAnterior = agora;
+  return dTotal > 0 ? Math.min(100, Math.max(0, (1 - dOcioso / dTotal) * 100)) : 0;
+}
+
 async function lerStats() {
   const cfg = carregarConfig();
-  const carga = await si.currentLoad();
+  const carga = { currentLoad: cargaCpu() };
   const economico = modoEconomico(cfg, carga.currentLoad);
   // no modo econômico a lista de processos é lida 3x menos
   if (Date.now() - ultimaLeituraProcessos >= INTERVALO_PROCESSOS * (economico ? 3 : 1)) {
@@ -459,6 +486,58 @@ const { spawn } = require('child_process');
 const SCRIPT_MIDIA = path.join(__dirname, 'media.ps1').replace('app.asar', 'app.asar.unpacked');
 const ACOES_MIDIA = new Set(['playpause', 'next', 'prev']);
 
+// ----- auxiliar compilado (no lugar do PowerShell) -----
+// O PowerShell sozinho gasta ~55 MB de RAM só por existir. O app/helper.cs faz o mesmo
+// trabalho do media.ps1 (mesmo protocolo de linhas) num programinha de ~20 KB que usa
+// ~25 MB. Ele é compilado uma vez, com o csc.exe que já vem no Windows, e guardado em
+// %APPDATA%\meu-widget\medidor-<hash>.exe (o hash muda se o código mudar). Se o csc não
+// existir, a compilação falhar ou o programa não responder, tudo segue pelo media.ps1.
+const FONTE_AUXILIAR = path.join(__dirname, 'helper.cs').replace('app.asar', 'app.asar.unpacked');
+const CSC = path.join(process.env.windir || 'C:\\Windows', 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe');
+let auxiliarExe = null;     // caminho do medidor compilado (null = usar o PowerShell)
+let usandoAuxiliar = false; // o servidor atual é o medidor?
+
+function prepararAuxiliar() {
+  return new Promise((resolve) => {
+    try {
+      if (!fs.existsSync(CSC)) return resolve();
+      const codigo = fs.readFileSync(FONTE_AUXILIAR);
+      const opcoes = ['-nologo', '-target:winexe', '-platform:x64', '-optimize+', '-r:System.Drawing.dll', '-r:System.Runtime.WindowsRuntime.dll']; // winexe: sem janela de console (e sem o conhost.exe dela)
+      const hash = require('crypto').createHash('sha1').update(codigo).update(opcoes.join(' ')).digest('hex').slice(0, 10);
+      const exe = path.join(PASTA_CONFIG, `medidor-${hash}.exe`);
+      if (fs.existsSync(exe)) { auxiliarExe = exe; limparAntigos(exe); return resolve(); }
+      // primeira vez (ou código novo): compila num nome temporário e só então renomeia
+      fs.mkdirSync(PASTA_CONFIG, { recursive: true });
+      const temp = exe + '.tmp';
+      require('child_process').execFile(CSC, [...opcoes, '-out:' + temp, FONTE_AUXILIAR], { windowsHide: true, timeout: 60000 }, (erro, saida) => {
+        try {
+          if (erro) throw new Error((saida || erro.message).toString().slice(0, 300));
+          fs.renameSync(temp, exe);
+          auxiliarExe = exe;
+          limparAntigos(exe);
+        } catch (e) {
+          console.error('Não deu para compilar o medidor; segue pelo PowerShell:', e.message);
+          try { fs.rmSync(temp, { force: true }); } catch { /* nada a limpar */ }
+        }
+        resolve();
+      });
+    } catch (e) {
+      console.error('Medidor indisponível; segue pelo PowerShell:', e.message);
+      resolve();
+    }
+  });
+}
+// versões antigas do medidor (de quando o código era outro)
+function limparAntigos(atual) {
+  try {
+    for (const f of fs.readdirSync(PASTA_CONFIG)) {
+      if (/^medidor-[0-9a-f]+\.exe(\.tmp)?$/.test(f) && path.join(PASTA_CONFIG, f) !== atual) fs.rmSync(path.join(PASTA_CONFIG, f), { force: true });
+    }
+  } catch { /* em uso ou sem permissão: fica para a próxima */ }
+}
+// a compilação roda já na abertura, em paralelo; o primeiro pedido espera por ela
+const auxiliarPronto = prepararAuxiliar();
+
 // Só repassa à tela os campos esperados; a capa só como imagem base64
 const CAPA_VALIDA = /^data:image\/(png|jpeg|gif|bmp|webp);base64,[A-Za-z0-9+/=]+$/;
 function filtrarMidia(obj) {
@@ -478,11 +557,39 @@ let servidorPS = null;
 let pendentes = [];   // pedidos em ordem: o servidor responde na mesma ordem
 let bufferSaida = '';
 
+// O medidor deu problema (não abre, morreu sem responder...): apaga o arquivo (a próxima
+// abertura compila de novo) e passa a usar o PowerShell
+function descartarAuxiliar(motivo) {
+  if (!auxiliarExe) return;
+  console.error('Medidor descartado (' + motivo + '); voltando ao PowerShell.');
+  try { fs.rmSync(auxiliarExe, { force: true }); } catch { /* em uso: fica para a próxima */ }
+  auxiliarExe = null;
+}
+
 function iniciarServidorPS() {
-  servidorPS = spawn('powershell.exe',
-    ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT_MIDIA, '-Action', 'servidor'],
-    { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] });
+  const opcoes = { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] };
+  servidorPS = null;
+  usandoAuxiliar = false;
+  if (auxiliarExe) {
+    try {
+      servidorPS = spawn(auxiliarExe, [], opcoes);
+      usandoAuxiliar = true;
+    } catch (erro) {
+      descartarAuxiliar(erro.message); // arquivo inválido: o spawn já falha na hora
+    }
+  }
+  if (!servidorPS) {
+    servidorPS = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT_MIDIA, '-Action', 'servidor'], opcoes);
+  }
   const meu = servidorPS;
+  const eraAuxiliar = usandoAuxiliar;
+  let respondeu = false;
+  const encerrado = (motivo) => {
+    if (eraAuxiliar && !respondeu) descartarAuxiliar(motivo);
+    if (servidorPS === meu) servidorPS = null;
+    bufferSaida = '';
+    for (const p of pendentes.splice(0)) { clearTimeout(p.timer); p.resolve(''); }
+  };
   meu.stdout.setEncoding('utf8');
   meu.stdout.on('data', (pedaco) => {
     bufferSaida += pedaco;
@@ -493,18 +600,20 @@ function iniciarServidorPS() {
       bufferSaida = bufferSaida.slice(fim + 1);
       const p = pendentes.shift();
       if (p) { clearTimeout(p.timer); p.resolve(linha); }
+      respondeu = true;
     }
   });
   meu.stdin.on('error', () => { /* processo morreu; o 'exit' cuida */ });
-  meu.on('exit', () => {
-    if (servidorPS === meu) servidorPS = null;
-    bufferSaida = '';
-    for (const p of pendentes.splice(0)) { clearTimeout(p.timer); p.resolve(''); }
-  });
+  meu.on('error', (erro) => encerrado('erro ao abrir: ' + erro.message));
+  meu.on('exit', () => encerrado('encerrou sem responder'));
 }
 
 // Manda um comando e devolve a linha de resposta ('' se falhar)
-function pedirServidorPS(comando) {
+async function pedirServidorPS(comando) {
+  if (!servidorPS) {
+    await auxiliarPronto; // só espera na primeira vez (compilação do medidor)
+    if (!servidorPS) iniciarServidorPS();
+  }
   return new Promise((resolve) => {
     if (!servidorPS) iniciarServidorPS();
     const meu = servidorPS;
@@ -707,10 +816,24 @@ function atalhoMorto(caminho) {
   }
 }
 
+// Apps do Menu Iniciar: [{"n":nome,"id":AppID}]. Com o servidor PowerShell, é um comando dele; com
+// o medidor, um PowerShell avulso (só quando a loja de apps abre, e o resultado fica 5 min em cache).
+const SCRIPT_STARTAPPS = "[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
+  + "$i = @(Get-StartApps | Where-Object { $_.Name -and $_.AppID } | ForEach-Object { [ordered]@{ n = [string]$_.Name; id = [string]$_.AppID } }); "
+  + "if ($i.Count -eq 0) { '[]' } else { ConvertTo-Json $i -Compress }";
+async function lerStartApps() {
+  await auxiliarPronto;
+  if (!auxiliarExe) return pedirServidorPS('startapps'); // sem medidor: o servidor PowerShell responde
+  return new Promise((resolve) => {
+    require('child_process').execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', SCRIPT_STARTAPPS],
+      { windowsHide: true, timeout: 30000, maxBuffer: 20 * 1024 * 1024, encoding: 'utf8' }, (erro, saida) => resolve(erro ? '[]' : String(saida).trim()));
+  });
+}
+
 async function listarInstalados() {
   if (instaladosCache && Date.now() - instaladosHora < 5 * 60000) return instaladosCache;
   let lista = [];
-  try { lista = JSON.parse(await pedirServidorPS('startapps')); } catch { lista = []; }
+  try { lista = JSON.parse(await lerStartApps()); } catch { lista = []; }
   const atalhos = atalhosDoMenu();
   const vistos = new Set();
   const itens = [];
@@ -828,7 +951,9 @@ ipcMain.handle('autostart', (e, on) => {
 // ---------- Terminal embutido ----------
 // PowerShell real via ConPTY (@lydell/node-pty). Tudo local: a saída do shell
 // vai por IPC direto para a janela; não há servidor nem porta aberta.
-const pty = require('@lydell/node-pty');
+// (o módulo nativo só é carregado na primeira vez que o terminal abre: quem nunca usa
+// a aba term não paga a memória nem o tempo de carregar)
+let pty = null;
 
 let shellPty = null;     // só um shell por vez
 
@@ -860,6 +985,7 @@ ipcMain.handle('term-start', (e, cols, rows) => {
   const env = { ...process.env };
   delete env.ELECTRON_RUN_AS_NODE; // não vazar variáveis do Electron para o shell
   try {
+    if (!pty) pty = require('@lydell/node-pty');
     shellPty = pty.spawn('powershell.exe', ['-NoLogo'], {
       name: 'xterm-256color',
       cols,

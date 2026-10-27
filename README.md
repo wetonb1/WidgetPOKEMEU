@@ -39,7 +39,8 @@ widget/
 │  ├─ temas.js           cor, animação e bordão de cada tipo de Pokémon (e de cada fonte de anime)
 │  ├─ franquias.js       personagens de anime (AniList) e a cor de cada um
 │  ├─ falas.js           as frases de cada dono (Pokémon, anime e personagens conhecidos)
-│  ├─ media.ps1          música, volume, processos, vidro e lista de apps (PowerShell)
+│  ├─ helper.cs          o "medidor": música, volume, processos, vidro... compilado uma vez (leve)
+│  ├─ media.ps1          o mesmo trabalho em PowerShell (reserva, se o medidor não puder ser usado)
 │  └─ config.json        modelo da config (a sua fica em %APPDATA%\meu-widget)
 ├─ assets/               ícone (a pokébola cúbica vermelha)
 ├─ docs/                 OTIMIZACAO.md (medições de consumo) e FRANQUIAS.md (fontes de anime)
@@ -89,5 +90,6 @@ modelo `app/config.json`. Feche o widget, abra com `abrir-config.bat`, edite e a
 - **Janela:** `"fixado"` (sempre no topo), `"aba"` (a aba que abre; a `term` nunca abre sozinha) e `"janela"` (o tamanho salvo).
 - **Apps (1 clique):** na aba `apps`, clique em **[+ adicionar]**: aparecem os programas abertos agora, sites populares e tudo o que está no Menu Iniciar (inclusive apps da Microsoft Store). Clique num item para adicionar (✓) e clique de novo para tirar. Digite no campo para buscar e Enter adiciona o primeiro. Também dá para **colar um link ou caminho** e dar Enter (ou Ctrl+V direto na aba) e **arrastar** um programa, atalho, pasta ou link para a aba. Cada app aparece com a sua foto (o mesmo ícone que o Windows mostra, inclusive para apps da Microsoft Store; sites usam o favicon), e atalhos de programas já desinstalados não entram na lista. **Para reorganizar, segure um app por uns 0,6 s**: ele levanta, e é só arrastar para onde quiser (os outros abrem espaço); soltar grava a nova ordem, e Esc cancela. Botão direito num app remove. Na config: `"apps"` (a ordem da lista é a ordem na tela).
 - **Visual:** `"estilo"` (`"cmd"` ou `"ios"`).
+- **Leveza:** o widget usa um programinha auxiliar (compilado sozinho na primeira abertura, em `%APPDATA%\meu-widget`) em vez de um PowerShell residente: **~125 MB de RAM** em vez de ~185 MB. Se ele não puder ser usado, o PowerShell assume, sem perder nada. `"redeEmProcesso": true` tira mais ~12 MB (a rede roda no processo principal, com menos isolamento).
 - **Desempenho e recursos:** `"desempenho"` (`"normal"` ou `"economico"`), `"economiaAutomatica"`, `"visualizador"`, `"animacoes"`, `"gifAnimado"` e `"aceleracaoGPU"`. O custo medido de cada um está em [docs/OTIMIZACAO.md](docs/OTIMIZACAO.md).
 - **Boas-vindas:** `"boasVindas": { "ativo", "voz", "grito", "chamar" }`.
