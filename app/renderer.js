@@ -2036,14 +2036,17 @@ const abas = (() => {
   // Visual iOS: abas com nomes por extenso e título com o nome do Pokémon
   const IOS = document.documentElement.dataset.estilo === 'ios';
   const ROTULOS_IOS = { sys: 'Sistema', music: 'Música', apps: 'Apps', poke: 'Pokédex' };
-  // Vidro com a cor do que está atrás (o main.js manda a cor quando muda): uma tinta escura
-  // puxada para essa cor, para o texto branco continuar legível. A troca é suave (CSS).
+  // Vidro: as CORES de trás vêm do próprio desfoque do Windows, que se atualiza a cada quadro
+  // (sempre certo, sem palpite). Por cima vai só uma tinta NEUTRA; o main.js manda, a cada
+  // 1,5 s, a cor média ao redor do widget e daqui sai só o BRILHO dela: fundo claro deixa a
+  // tinta mais forte (o texto branco continua legível), fundo escuro a deixa mais leve. Suave (CSS).
   if (IOS) {
     window.widget.onFundo((cor) => {
       if (!/^#[0-9a-f]{6}$/i.test(cor)) return;
-      const t = misturarCor(cor, '#101018', 0.6);
-      const [r, g, b] = [1, 3, 5].map((k) => parseInt(t.slice(k, k + 2), 16));
-      document.documentElement.style.setProperty('--tinta-vidro', `rgba(${r}, ${g}, ${b}, 0.55)`);
+      const [r, g, b] = [1, 3, 5].map((k) => parseInt(cor.slice(k, k + 2), 16) / 255);
+      const brilho = 0.2126 * r + 0.7152 * g + 0.0722 * b; // 0 = preto, 1 = branco
+      const opacidade = (0.3 + 0.32 * brilho).toFixed(2);   // 0,30 (escuro) a 0,62 (claro)
+      document.documentElement.style.setProperty('--tinta-vidro', `rgba(14, 14, 20, ${opacidade})`);
     });
   }
   if (IOS) {
