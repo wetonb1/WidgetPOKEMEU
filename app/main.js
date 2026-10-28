@@ -1,5 +1,5 @@
 // main.js — processo principal do Electron: cria a janela e cuida da config.
-const { app, BrowserWindow, ipcMain, screen, session, desktopCapturer, shell, nativeImage, powerMonitor } = require('electron');
+const { app, BrowserWindow, ipcMain, screen, session, desktopCapturer, shell, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -232,47 +232,19 @@ let modoAtual = 'normal';
 let alturaAntesDoTerminal = null; // a aba term estica; ao sair, volta a esta altura
 let tamanhoAntesDoMini = null;
 let salvarTamanhoTimer = null;
-const RAIO_IOS = 22; // px: cantos da janela no estilo iOS (o CSS usa o mesmo)
-
-// Estilo iOS: liga o desfoque real do que está atrás da janela e recorta os
-// cantos arredondados. Quem faz é o PowerShell persistente (media.ps1, comando
-// "vidro"), com o identificador da janela; os tamanhos vão em pixels da tela.
-function medidasVidro(w) {
-  const hwnd = w.getNativeWindowHandle().readBigUInt64LE(0).toString();
-  const [l, a] = w.getSize();
-  const f = screen.getDisplayMatching(w.getBounds()).scaleFactor;
-  return `${hwnd} ${Math.round(l * f)} ${Math.round(a * f)} ${Math.round(RAIO_IOS * f)}`;
-}
-// devolve uma promessa que termina quando o vidro já está aplicado
-function aplicarVidro(w) {
-  if (w.isDestroyed()) return Promise.resolve();
-  return pedirServidorPS('vidro ' + medidasVidro(w))
-    .then((r) => { if (r !== 'true') console.error('Vidro não aplicado:', r); });
-}
-// Estilo iOS: a tinta do vidro acompanha a cor do que está atrás do widget. A cada 1,5 s
-// (3 s no modo econômico) o medidor lê os pixels da tela ao redor do widget (janelas,
-// navegador, papel de parede animado) e diz a cor média; a tela só é avisada quando a cor
-// muda de verdade (limiar de ruído). Sem o medidor (PowerShell de reserva), fica a tinta padrão.
-//
-// Junto vem o VIGIA do arredondado: o Windows às vezes zera a região da janela (jogo em tela
-// cheia, mudança de resolução/escala, bloqueio de tela) e o vidro volta a aparecer quadrado.
-// O medidor confere a região a cada 0,7 s, e na hora em que a janela muda de foco, aparece,
-// é movida ou a tela muda; se estiver errada, refaz o arredondado e o desfoque.
-const LIMIAR_COR = 5; // diferença mínima em algum canal (0-255) para repintar a tinta
+// Estilo iOS: o cartão é OPACO (nada do que está atrás aparece). A cor dele vem do que está
+// AO REDOR do widget: a cada 1,5 s (3 s no modo econômico) o medidor lê faixas finas da tela
+// logo fora de cada lado (esquerda, direita, cima, baixo) e devolve a cor média de cada uma
+// ("-" quando o lado encosta na borda da tela). A tela monta com elas um degradê suave, como
+// um vidro fosco. Só avisa quando alguma cor muda de verdade (limiar de ruído). Sem o medidor
+// (PowerShell de reserva), fica a cor padrão.
+const LIMIAR_COR = 5; // diferença mínima em algum canal (0-255) para repintar
+const COR_OK = /^#[0-9a-f]{6}$/i;
 const distanciaCor = (a, b) => Math.max(...[1, 3, 5].map((i) => Math.abs(parseInt(a.slice(i, i + 2), 16) - parseInt(b.slice(i, i + 2), 16))));
-
-function repararVidro(w) {
-  if (w.isDestroyed() || !w.isVisible()) return Promise.resolve(false);
-  return pedirServidorPS('reparar ' + medidasVidro(w)).then((r) => r === 'true', () => false);
-}
-let reparoTimer = null;
-function agendarReparo(w) {
-  clearTimeout(reparoTimer); // vários eventos seguidos viram um só
-  reparoTimer = setTimeout(() => { repararVidro(w); }, 120);
-}
+const mudouLados = (a, b) => a.some((c, i) => (c === '-') !== (b[i] === '-') || (c !== '-' && distanciaCor(c, b[i]) >= LIMIAR_COR));
 
 function acompanharFundo(w) {
-  let ultima = '';
+  let ultima = null;
   let ocupado = false;
   const passo = async () => {
     if (w.isDestroyed()) return;
@@ -280,46 +252,19 @@ function acompanharFundo(w) {
       ocupado = true;
       try {
         const hwnd = w.getNativeWindowHandle().readBigUInt64LE(0).toString();
-        const cor = (await pedirServidorPS('fundo ' + hwnd)).trim();
-        if (/^#[0-9a-f]{6}$/i.test(cor) && (!ultima || distanciaCor(cor, ultima) >= LIMIAR_COR) && !w.isDestroyed()) {
-          ultima = cor;
-          w.webContents.send('tela:fundo', cor);
+        const lados = (await pedirServidorPS('fundo ' + hwnd)).trim().split(' ');
+        if (lados.length === 4 && lados.every((c) => c === '-' || COR_OK.test(c)) && lados.some((c) => c !== '-')
+          && (!ultima || mudouLados(lados, ultima)) && !w.isDestroyed()) {
+          ultima = lados;
+          w.webContents.send('tela:fundo', lados.join(' '));
         }
-      } finally { ocupado = false; }
+      } catch { /* sem leitura nesta volta */ } finally { ocupado = false; }
     }
     setTimeout(passo, ultimoEconomico ? 3000 : 1500);
   };
   w.webContents.once('did-finish-load', () => setTimeout(passo, 300));
-  // vigia do arredondado: uma consulta minúscula a cada 0,7 s (1,5 s no modo econômico)
-  const vigia = async () => {
-    if (w.isDestroyed()) return;
-    await repararVidro(w);
-    setTimeout(vigia, ultimoEconomico ? 1500 : 700);
-  };
-  w.webContents.once('did-finish-load', () => setTimeout(vigia, 1500));
-  // eventos que costumam zerar a região: confere logo, sem esperar a próxima volta
-  for (const ev of ['focus', 'blur', 'show', 'restore', 'moved', 'unmaximize']) w.on(ev, () => agendarReparo(w));
-  const aoMudarATela = () => { agendarCantos(w); agendarReparo(w); };
-  screen.on('display-metrics-changed', aoMudarATela);
-  screen.on('display-added', aoMudarATela);
-  screen.on('display-removed', aoMudarATela);
-  powerMonitor.on('unlock-screen', aoMudarATela);
-  powerMonitor.on('resume', aoMudarATela);
-  w.on('closed', () => {
-    screen.removeListener('display-metrics-changed', aoMudarATela);
-    screen.removeListener('display-added', aoMudarATela);
-    screen.removeListener('display-removed', aoMudarATela);
-    powerMonitor.removeListener('unlock-screen', aoMudarATela);
-    powerMonitor.removeListener('resume', aoMudarATela);
-  });
 }
 let ultimoEconomico = false;
-
-let cantosTimer = null;
-function agendarCantos(w) {
-  clearTimeout(cantosTimer); // durante o arrastar da borda, só no fim
-  cantosTimer = setTimeout(() => { if (!w.isDestroyed()) pedirServidorPS('cantos ' + medidasVidro(w)); }, 40);
-}
 
 function criarJanela(posicao) {
   // canto superior direito da tela principal (respeita a barra de tarefas)
@@ -339,8 +284,8 @@ function criarJanela(posicao) {
     minHeight: MIN.altura,
     maxWidth: MAX.largura,
     maxHeight: MAX.altura,
-    // CMD: opaca (mais leve de desenhar). iOS: transparente, com o desfoque do
-    // Windows atrás (aplicarVidro). Sem frame do Windows: a barra de título é nossa.
+    // CMD: opaca (mais leve de desenhar). iOS: janela transparente só para os cantos
+    // redondos do CSS saírem lisos; o cartão em si é opaco. Sem frame: a barra é nossa.
     frame: false,
     transparent: ios,
     backgroundColor: ios ? '#00000000' : '#0c0c0c',
@@ -353,7 +298,7 @@ function criarJanela(posicao) {
     alwaysOnTop: cfg.fixado,
     skipTaskbar: cfg.fixado,
     // CMD: aparece na hora (o fundo já é o preto da tela de carregamento, sem piscar branco).
-    // iOS e troca de estilo: só aparece pronta (vidro aplicado; a antiga fica na tela até lá).
+    // iOS e troca de estilo: só aparece já pintada (a antiga fica na tela até lá).
     show: !ios && !posicao,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -376,17 +321,13 @@ function criarJanela(posicao) {
   janela.on('closed', () => { if (janela === esta) janela = null; });
   esta.vidroPronto = Promise.resolve();
   if (ios) {
-    // A janela só aparece com o desfoque e os cantos já aplicados: antes disso ela é
-    // transparente "crua" e deixaria ver o desktop (e o que está sendo montado).
-    esta.vidroPronto = new Promise((ok) => {
-      esta.webContents.once('did-finish-load', () => aplicarVidro(esta).then(ok, ok));
-    });
+    // a janela transparente só aparece depois de pintada (senão mostraria o desktop um instante)
+    esta.vidroPronto = new Promise((ok) => esta.once('ready-to-show', ok));
     if (!posicao) {
       const mostrar = () => { if (!esta.isDestroyed() && !esta.isVisible()) esta.show(); };
       esta.vidroPronto.then(mostrar);
       setTimeout(mostrar, 6000); // garantia: nunca fica escondida
     }
-    janela.on('resize', () => agendarCantos(esta)); // a região redonda acompanha o tamanho
     acompanharFundo(esta);
   }
 
