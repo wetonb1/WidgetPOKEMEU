@@ -464,13 +464,11 @@ public static class Janelas {
 }
 
 // ---------- Laço de comandos ----------
-// ---------- Cor do que está atrás do widget (estilo iOS) ----------
-// Lê os pixels da TELA em faixas logo ao redor do widget (esquerda, direita, topo e base,
-// o que couber no monitor) e tira a cor média. O que está atrás do widget é, quase sempre, a
-// continuação do que aparece ao redor dele: janelas, navegador, jogo em janela, o papel de
-// parede animado (Wallpaper Engine). Não depende de "fotografar" a janela de trás (que vem
-// preta em vários programas) e reage na hora, sem cache. Custo: 4 cópias de uma faixa fina
-// da tela, reduzidas a 16x16 pixels (~1 ms).
+// ---------- Cores AO REDOR do widget (estilo iOS) ----------
+// Lê os pixels da TELA numa faixa fina logo fora de cada lado do widget e devolve a cor
+// média de cada uma: "esquerda direita cima baixo" (#rrggbb, ou "-" quando o lado encosta
+// na borda da tela). O que está atrás do widget não entra: o cartão é opaco e só responde
+// ao que está em volta. Custo: até 4 cópias de uma faixa fina, reduzidas a 16x16 (~1 ms).
 public static class Fundo {
     [StructLayout(LayoutKind.Sequential)] struct RECT { public int L, T, R, B; }
     [DllImport("user32.dll")] static extern bool GetWindowRect(IntPtr h, out RECT r);
@@ -486,32 +484,34 @@ public static class Fundo {
     [DllImport("gdi32.dll")] static extern bool StretchBlt(IntPtr d, int x, int y, int w, int h, IntPtr s, int sx, int sy, int sw, int sh, uint rop);
     [DllImport("gdi32.dll")] static extern uint GetPixel(IntPtr dc, int x, int y);
 
-    public static string Cor(long hwndWidget) {
+    public static string Lados(long hwndWidget) {
         RECT w;
         if (!GetWindowRect(new IntPtr(hwndWidget), out w) || w.R - w.L < 40 || w.B - w.T < 40) return "";
         int vx = GetSystemMetrics(76), vy = GetSystemMetrics(77), vw = GetSystemMetrics(78), vh = GetSystemMetrics(79); // tela virtual (todos os monitores)
-        const int FOLGA = 6, ESPESSURA = 14;
-        var faixas = new List<int[]>(); // x, y, largura, altura
-        if (w.L - FOLGA - ESPESSURA >= vx) faixas.Add(new[] { w.L - FOLGA - ESPESSURA, w.T, ESPESSURA, w.B - w.T });
-        if (w.R + FOLGA + ESPESSURA <= vx + vw) faixas.Add(new[] { w.R + FOLGA, w.T, ESPESSURA, w.B - w.T });
-        if (w.T - FOLGA - ESPESSURA >= vy) faixas.Add(new[] { w.L, w.T - FOLGA - ESPESSURA, w.R - w.L, ESPESSURA });
-        if (w.B + FOLGA + ESPESSURA <= vy + vh) faixas.Add(new[] { w.L, w.B + FOLGA, w.R - w.L, ESPESSURA });
-        if (faixas.Count == 0) return ""; // o widget ocupa a tela toda: sem referência
+        const int FOLGA = 2, ESPESSURA = 10; // cabe até com o widget a 12 px da borda
+        int[][] faixas = { // x, y, largura, altura (null = fora da tela)
+            w.L - FOLGA - ESPESSURA >= vx ? new[] { w.L - FOLGA - ESPESSURA, w.T, ESPESSURA, w.B - w.T } : null,
+            w.R + FOLGA + ESPESSURA <= vx + vw ? new[] { w.R + FOLGA, w.T, ESPESSURA, w.B - w.T } : null,
+            w.T - FOLGA - ESPESSURA >= vy ? new[] { w.L, w.T - FOLGA - ESPESSURA, w.R - w.L, ESPESSURA } : null,
+            w.B + FOLGA + ESPESSURA <= vy + vh ? new[] { w.L, w.B + FOLGA, w.R - w.L, ESPESSURA } : null,
+        };
         IntPtr tela = GetDC(IntPtr.Zero), dc = CreateCompatibleDC(tela), bmp = CreateCompatibleBitmap(tela, 16, 16);
         IntPtr velho = SelectObject(dc, bmp);
         try {
-            long sr = 0, sg = 0, sb = 0; int n = 0;
             SetStretchBltMode(dc, 4); // HALFTONE: a redução já faz a média
-            foreach (int[] f in faixas) {
+            var saida = new string[4];
+            for (int i = 0; i < 4; i++) {
+                int[] f = faixas[i];
                 // SRCCOPY | CAPTUREBLT: inclui janelas "em camadas" (a maioria dos apps modernos)
-                if (!StretchBlt(dc, 0, 0, 16, 16, tela, f[0], f[1], f[2], f[3], 0x40CC0020)) continue;
+                if (f == null || !StretchBlt(dc, 0, 0, 16, 16, tela, f[0], f[1], f[2], f[3], 0x40CC0020)) { saida[i] = "-"; continue; }
+                long sr = 0, sg = 0, sb = 0;
                 for (int y = 0; y < 16; y++) for (int x = 0; x < 16; x++) {
                     uint p = GetPixel(dc, x, y);
-                    sr += p & 0xFF; sg += (p >> 8) & 0xFF; sb += (p >> 16) & 0xFF; n++;
+                    sr += p & 0xFF; sg += (p >> 8) & 0xFF; sb += (p >> 16) & 0xFF;
                 }
+                saida[i] = string.Format("#{0:x2}{1:x2}{2:x2}", sr / 256, sg / 256, sb / 256);
             }
-            if (n == 0) return "";
-            return string.Format("#{0:x2}{1:x2}{2:x2}", sr / n, sg / n, sb / n);
+            return string.Join(" ", saida);
         } finally {
             SelectObject(dc, velho); DeleteObject(bmp); DeleteDC(dc); ReleaseDC(IntPtr.Zero, tela);
         }
@@ -634,7 +634,7 @@ public static class Programa {
             case "mem": return Process.GetCurrentProcess().PrivateMemorySize64.ToString(CultureInfo.InvariantCulture);
         }
         Match m;
-        if ((m = ReFundo.Match(c)).Success) return Fundo.Cor(long.Parse(m.Groups[1].Value));
+        if ((m = ReFundo.Match(c)).Success) return Fundo.Lados(long.Parse(m.Groups[1].Value));
         if ((m = ReReparar.Match(c)).Success) return Vidro.Reparar(long.Parse(m.Groups[1].Value), int.Parse(m.Groups[2].Value), int.Parse(m.Groups[3].Value), int.Parse(m.Groups[4].Value)) ? "true" : "false";
         if (ReFocarExe.IsMatch(c)) return Foco.PorExe(c.Substring(10));
         if (ReFocarApp.IsMatch(c)) return Foco.PorAppId(c.Substring(10));

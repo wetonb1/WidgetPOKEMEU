@@ -870,17 +870,29 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
 [data-estilo="ios"] body { font: 13px/1.4 var(--font); -webkit-font-smoothing: antialiased; }
 [data-estilo="ios"] * { scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
 
-/* janela: tinta translúcida com um brilho da cor do Pokémon no canto */
+/* janela: OPACA, um "vidro fosco" pintado com as cores AO REDOR do widget (renderer.js):
+   cada lado vira uma mancha difusa vinda da sua borda, sobre a média de todas, mais um brilho
+   da cor do Pokémon no canto. As cores são registradas (@property) para a troca ser suave. */
+@property --c-esq { syntax: '<color>'; inherits: true; initial-value: rgb(24, 24, 32); }
+@property --c-dir { syntax: '<color>'; inherits: true; initial-value: rgb(24, 24, 32); }
+@property --c-topo { syntax: '<color>'; inherits: true; initial-value: rgb(24, 24, 32); }
+@property --c-baixo { syntax: '<color>'; inherits: true; initial-value: rgb(24, 24, 32); }
+@property --c-media { syntax: '<color>'; inherits: true; initial-value: rgb(22, 22, 30); }
 [data-estilo="ios"] #cartao {
   grid-template-rows: 46px 1fr 44px;
   column-gap: 10px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 22px;
-  /* a tinta (--tinta-vidro) segue a cor do que está atrás do widget; muda devagar */
-  background-color: var(--tinta-vidro, rgba(18, 18, 26, 0.5));
-  background-image: radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%);
-  transition: background-color 0.9s ease;
+  background-color: var(--c-media);
+  background-image:
+    radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 62%),
+    radial-gradient(75% 120% at 0% 50%, var(--c-esq), transparent),
+    radial-gradient(75% 120% at 100% 50%, var(--c-dir), transparent),
+    radial-gradient(120% 75% at 50% 0%, var(--c-topo), transparent),
+    radial-gradient(120% 75% at 50% 100%, var(--c-baixo), transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transition: --c-esq 1.2s ease, --c-dir 1.2s ease, --c-topo 1.2s ease, --c-baixo 1.2s ease, --c-media 1.2s ease;
 }
 
 /* ----- barra de cima ----- */

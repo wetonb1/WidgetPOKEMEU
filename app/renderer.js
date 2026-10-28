@@ -2036,17 +2036,29 @@ const abas = (() => {
   // Visual iOS: abas com nomes por extenso e título com o nome do Pokémon
   const IOS = document.documentElement.dataset.estilo === 'ios';
   const ROTULOS_IOS = { sys: 'Sistema', music: 'Música', apps: 'Apps', poke: 'Pokédex' };
-  // Vidro: as CORES de trás vêm do próprio desfoque do Windows, que se atualiza a cada quadro
-  // (sempre certo, sem palpite). Por cima vai só uma tinta NEUTRA; o main.js manda, a cada
-  // 1,5 s, a cor média ao redor do widget e daqui sai só o BRILHO dela: fundo claro deixa a
-  // tinta mais forte (o texto branco continua legível), fundo escuro a deixa mais leve. Suave (CSS).
+  // Fundo opaco que responde ao que está AO REDOR do widget (nada do que está atrás aparece).
+  // O main.js manda, a cada 1,5 s, a cor de cada lado ("esquerda direita cima baixo", "-" quando
+  // o lado encosta na borda da tela). Cada cor é escurecida até um brilho em que o texto branco
+  // continua legível e vira uma mancha difusa no seu lado do cartão (CSS); a troca é suave.
   if (IOS) {
-    window.widget.onFundo((cor) => {
-      if (!/^#[0-9a-f]{6}$/i.test(cor)) return;
-      const [r, g, b] = [1, 3, 5].map((k) => parseInt(cor.slice(k, k + 2), 16) / 255);
-      const brilho = 0.2126 * r + 0.7152 * g + 0.0722 * b; // 0 = preto, 1 = branco
-      const opacidade = (0.3 + 0.32 * brilho).toFixed(2);   // 0,30 (escuro) a 0,62 (claro)
-      document.documentElement.style.setProperty('--tinta-vidro', `rgba(14, 14, 20, ${opacidade})`);
+    const LADOS = ['--c-esq', '--c-dir', '--c-topo', '--c-baixo'];
+    const BRILHO_MAX = 0.2; // 0 = preto, 1 = branco
+    const escurecer = ([r, g, b]) => {
+      const brilho = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+      const k = brilho > BRILHO_MAX ? BRILHO_MAX / brilho : 1;
+      // 80% a própria cor (mais escura), 20% o grafite padrão: nunca fica preto chapado
+      return [r, g, b].map((v, i) => Math.round(v * k * 0.8 + [20, 20, 28][i] * 0.2));
+    };
+    window.widget.onFundo((texto) => {
+      const lados = String(texto).split(' ');
+      if (lados.length !== 4) return;
+      const rgb = lados.map((c) => (/^#[0-9a-f]{6}$/i.test(c) ? [1, 3, 5].map((k) => parseInt(c.slice(k, k + 2), 16)) : null));
+      const lidos = rgb.filter(Boolean);
+      if (!lidos.length) return;
+      const media = [0, 1, 2].map((i) => Math.round(lidos.reduce((s, c) => s + c[i], 0) / lidos.length));
+      const raiz = document.documentElement.style;
+      rgb.forEach((c, i) => raiz.setProperty(LADOS[i], 'rgb(' + escurecer(c || media).join(', ') + ')'));
+      raiz.setProperty('--c-media', 'rgb(' + escurecer(media).join(', ') + ')');
     });
   }
   if (IOS) {
