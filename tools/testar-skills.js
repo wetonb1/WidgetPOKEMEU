@@ -50,7 +50,7 @@ const carta = (p, nome) => p.dados.skills.find((s) => s.nome === nome);
     const p = await skillsLib.painel('global', '');
     assert.ok(p.ok, p.erro);
     assert.deepStrictEqual(p.dados.skills.map((s) => s.nome), ['combinada', 'leve', 'nos-dois', 'pesada']);
-    assert.deepStrictEqual([p.dados.imposto.total, p.dados.imposto.cor, p.dados.imposto.limite, p.dados.imposto.faixa_verde], [0, 'verde', 3000, 1500]);
+    assert.deepStrictEqual([p.dados.imposto.total, p.dados.imposto.cor, p.dados.imposto.limite, p.dados.imposto.faixa_verde], [0, 'verde', 8000, 4000]);
     const pesada = carta(p, 'pesada');
     assert.ok(pesada.custo.ao_usar > 500 && pesada.custo.fixo > carta(p, 'leve').custo.fixo);
     assert.strictEqual(p.dados.escala, Math.max(...p.dados.skills.flatMap((s) => [s.custo.fixo, s.custo.ao_usar])));

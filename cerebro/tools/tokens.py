@@ -52,7 +52,7 @@ CONCEITO = (
 FATOR_ACENTOS = 1.1        # português com acentos
 MAX_DESCRICAO = 200        # caracteres
 MAX_CORPO_TOKENS = 2000    # tokens ao usar
-MAX_IMPOSTO_TOKENS = 3000  # imposto fixo por conversa
+MAX_IMPOSTO_TOKENS = 8000  # busca normal de referência (~8.000 tokens)
 
 # endpoint oficial de contagem (documentação: Token counting). Gratuito; limite de requisições por minuto por tier.
 API_URL = "https://api.anthropic.com/v1/messages/count_tokens"
@@ -547,7 +547,7 @@ def formatar_relatorio(r):
 
 # ---------- Painel da aba Skills do widget ----------
 
-FAIXA_VERDE = 1500  # até aqui a barra é verde; até MAX_IMPOSTO_TOKENS, amarela; acima, vermelha
+FAIXA_VERDE = 4000  # até aqui a barra é verde (faixa econômica: menor que busca normal); até MAX_IMPOSTO_TOKENS, amarela; acima, vermelha
 
 
 def painel(escopo="projeto", projeto=None, alvo="claude", bib=None):

@@ -226,7 +226,7 @@ class TestRelatorioEAlertas(Base):
                 "nome": nome, "titulo": nome, "descricao_curta": "x", "exemplo_de_uso": "y", "categoria": "codigo", "versao": "1.0.0",
                 "autor": "eu", "origem": "local", "compativel": ["claude"], "arquivos_extras": []}), encoding="utf-8")
         (self.home).mkdir(parents=True, exist_ok=True)
-        (self.home / "CLAUDE.md").write_text("regra global muito longa " * 700, encoding="utf-8")  # imposto fixo > 3.000
+        (self.home / "CLAUDE.md").write_text("regra global muito longa " * 1500, encoding="utf-8")  # imposto fixo > 8.000
         r = tokens.relatorio(self.bib, "claude")
         sec = r["secoes"][0]
         self.assertEqual([c["nome"] for c in sec["skills"]], ["boa", "corpo-grande", "descricao-longa"])
@@ -255,7 +255,7 @@ class TestRelatorioEAlertas(Base):
         self.assertEqual(dados["secoes"][0]["skills"][0]["nome"], "boa")
         self.assertEqual(dados["secoes"][0]["estimativa"]["origem"], "padrão")
         self.assertEqual(dados["secoes"][1]["estimativa"]["origem"], "estimado")
-        self.assertEqual(dados["limites"]["imposto_tokens"], 3000)
+        self.assertEqual(dados["limites"]["imposto_tokens"], 8000)
 
 
 class TestPainelDaAba(Base):
@@ -328,12 +328,12 @@ class TestPainelDaAba(Base):
         self.biblioteca()
         self.home.mkdir(parents=True, exist_ok=True)
         cores = []
-        for palavras in (10, 400, 1300):  # CLAUDE.md global de tamanhos diferentes
+        for palavras in (10, 1200, 2000):  # CLAUDE.md global de tamanhos diferentes
             (self.home / "CLAUDE.md").write_text("regra longa demais " * palavras, encoding="utf-8")
             i = tokens.painel("global", None, bib=self.bib)["imposto"]
             cores.append((i["cor"], i["limite"], i["faixa_verde"]))
         self.assertEqual([c[0] for c in cores], ["verde", "amarela", "vermelha"])
-        self.assertEqual(cores[0][1:], (3000, 1500))
+        self.assertEqual(cores[0][1:], (8000, 4000))
 
     def test_cache_por_arquivo_invalida_pela_data_ou_pelo_fator(self):
         self.biblioteca()

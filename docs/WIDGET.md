@@ -97,7 +97,7 @@ YAML). *Ao usar*: o corpo do SKILL.md (e às vezes extras) entra quando a skill 
 extras + saída (o fixo já está pago). *Imposto fixo por conversa* = fixo de todas as skills instaladas (globais + do projeto, a do
 projeto vale no lugar da global de mesmo nome) + `~/.claude/CLAUDE.md` + `CLAUDE.md` do projeto. É sempre uma ESTIMATIVA: caracteres/4
 para cima, x1,1 em português com acentos (CRLF conta como 1). `tokens.py relatorio [--json]` (uma linha por skill, total, imposto
-por conversa e alertas: descrição > 200 caracteres, corpo > 2.000 tokens, imposto > 3.000; o JSON traz o texto do conceito para a
+por conversa e alertas: descrição > 200 caracteres, corpo > 2.000 tokens, imposto > 8.000; o JSON traz o texto do conceito para a
 interface), `estimar [ARQUIVO]`, `calibrar`. A opção precisa usa o endpoint oficial `POST /v1/messages/count_tokens` (gratuito, com
 limite de requisições por minuto; cabeçalhos `x-api-key`, `anthropic-version: 2023-06-01`, `content-type`; corpo `{model, messages}`;
 resposta `{input_tokens}`): `calibrar` sem `--enviar` só mostra o que enviaria; com `--enviar` e `ANTHROPIC_API_KEY` conta os
@@ -105,8 +105,8 @@ SKILL.md da biblioteca, descobre o fator e o grava em `~/.cerebro.json` (`tokens
 modelo (padrão `claude-sonnet-5-5`; os modelos 4.7 em diante geram ~30% mais tokens que os anteriores). Testes:
 `python cerebro/tools/test_tokens.py` (a API é um servidor local falso).
 
-**Aba Skills (fase 3.3, Alt+6):** topo com o "imposto fixo por conversa" (número grande + barra de 0 a 3.000 tokens: verde até
-1.500, amarela até 3.000, vermelha acima), para o projeto escolhido (seletor) e o escopo `projeto`/`global` (o mesmo escopo vale
+**Aba Skills (fase 3.3, Alt+6):** topo com o "imposto fixo por conversa" (número grande + barra de 0 a 8.000 tokens: verde até
+4.000 na faixa de economia menor que busca normal, amarela até 8.000, vermelha acima), para o projeto escolhido (seletor) e o escopo `projeto`/`global` (o mesmo escopo vale
 para Instalar e Remover; sem projeto só existe o global). Depois, filtro por categoria e busca, e um cartão por skill da biblioteca:
 título, descrição curta, exemplo de uso em itálico, selos "Instalado no projeto" / "Instalado global" (amarelo se a versão
 instalada é velha, vermelho se foi instalada por outro meio), versão, ⚠ de alerta e duas barras (fixo azul, ao usar roxo) na
@@ -319,7 +319,7 @@ compatibilidade com cada IA é revisão sua). Testes: `python -X utf8 skills-bib
 fica FORA do total. Skills de plugins são só do Claude (no agy, zero). O fator calibrado pela API vale só para o Claude; o agy usa a estimativa padrão (caracteres/4, x1,1 com acentos),
 rotulada "estimado", porque cada modelo conta tokens de um jeito (nenhuma API é chamada). O cache por arquivo leva a IA na chave. `tokens.py relatorio [--alvo claude|antigravity|ambos]`
 (padrão: ambos) traz uma seção por IA e o imposto lado a lado; um projeto entra na seção das IAs dele (`ia` e `ia_reserva`); o relatório mudou de formato (`secoes`). A aba Skills ganhou o
-seletor Claude | Antigravity | Ambos (uma barra de 0 a 3.000 por IA, selos "Claude: projeto v1.0.0", "sem teste no Antigravity") e [instalar]/[remover] abrem a janela que pergunta em qual
+seletor Claude | Antigravity | Ambos (uma barra de 0 a 8.000 por IA, selos "Claude: projeto v1.0.0", "sem teste no Antigravity") e [instalar]/[remover] abrem a janela que pergunta em qual
 IA (Claude, Antigravity ou Ambos) com a simulação de cada uma. Custo: cada IA mostrada é 1 chamada ao `tokens.py painel` (~0,3 s com cache), só ao abrir a aba ou em [atualizar]; "Ambos"
 faz 2, uma depois da outra (o cache é um arquivo só); a janela de instalar busca a IA que faltar só no clique. Testes: `python -X utf8 cerebro/tools/test_tokens.py` (36), `npm run testar-skills`.
 

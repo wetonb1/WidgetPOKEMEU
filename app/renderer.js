@@ -5376,27 +5376,19 @@ const skillsAba = (() => {
     else window.removeEventListener('resize', desenharComparacao);
   }
 
-  // ----- imposto fixo: número grande + barra de economia (verde até 4.500 tokens, amarela até 6.000, vermelha acima) -----
-  const IMP = ['', '-2'].map((s, n) => ({ bloco: $('sk-imposto-' + (n + 1)), total: $('sk-total' + s), cheia: $('sk-barra-cheia' + s), barra: $('sk-barra' + s),
+  // ----- imposto fixo: número grande + barra de 0 a 8.000 (verde até 4.000 na faixa econômica, amarela até 8.000, vermelha acima), um bloco por IA -----
+  const IMP = ['', '-2'].map((s, n) => ({ bloco: $('sk-imposto-' + (n + 1)), total: $('sk-total' + s), sub: $('sk-sub' + s), cheia: $('sk-barra-cheia' + s), barra: $('sk-barra' + s),
     detalhe: $('sk-detalhe' + s), rot: $('sk-rot' + s), sim: el('div', 'sk-barra-sim') }));
   IMP.forEach((b) => b.barra.append(b.sim));
-  const ESCALA_IMPOSTO = 6000; // escala visual (3.000 tokens fica no meio a 50%, marco de economia vs busca normal)
-  function corImposto(total) {
-    if (total <= 4500) return 'verde'; // economizando: ~3k tokens é muito menor que busca normal (~10k+)
-    if (total <= 6000) return 'amarela';
-    return 'vermelha';
-  }
-  function statusEconomia(total) {
-    if (total <= 4500) return ' · economizando (~3k tokens é menor que busca normal)';
-    if (total <= 6000) return ' · faixa moderada';
-    return ' · acima de 6.000 tokens';
-  }
   function detalheNormal(a) {
     const i = dadosPor[a].imposto;
     const regras = a === 'claude' ? ` + CLAUDE.md ${num(i.claude_md_global)}` + (i.projeto ? ` + ${num(i.claude_md_projeto)} do projeto` : '')
       : (i.projeto ? ` + ${num(i.claude_md_projeto)} de AGENTS.md e regras` : '') + (i.nao_confirmado ? ` (GEMINI.md global: +${num(i.nao_confirmado)}, não confirmado, fora da conta)` : '');
+    const statusEco = i.total <= i.faixa_verde
+      ? ' · economizando (< busca normal)'
+      : (i.total > i.limite ? ` · ACIMA de ${num(i.limite)}` : ' · moderado');
     return `${i.skills} skills (${num(i.skills_tokens)})` + (i.plugins ? ` + ${i.plugins} de plugins (${num(i.plugins_tokens)})` : '') + regras
-      + ` · ${i.contexto}` + statusEconomia(i.total);
+      + ` · ${i.contexto}` + statusEco;
   }
   function desenharImposto() {
     const ativos = alvosAtivos();
@@ -5405,12 +5397,16 @@ const skillsAba = (() => {
       b.bloco.classList.toggle('oculto', !a);
       if (!a) return;
       const i = dadosPor[a].imposto;
-      const cor = corImposto(i.total);
       b.rot.textContent = NOME_IA[a] + (a === 'claude' ? '' : ' (estimado)');
       b.total.textContent = num(i.total);
-      b.total.className = cor;
-      b.cheia.className = 'sk-barra-cheia ' + cor;
-      b.cheia.style.width = Math.min(100, (i.total / ESCALA_IMPOSTO) * 100) + '%';
+      b.total.className = i.cor;
+      if (b.sub) {
+        b.sub.textContent = i.cor === 'verde'
+          ? 'tokens fixos · economizando'
+          : (i.cor === 'amarela' ? 'tokens fixos por conversa' : 'tokens fixos · acima da média');
+      }
+      b.cheia.className = 'sk-barra-cheia ' + i.cor;
+      b.cheia.style.width = Math.min(100, (i.total / i.limite) * 100) + '%';
       b.barra.setAttribute('aria-valuenow', String(i.total));
       b.detalhe.className = 'sk-detalhe';
       b.detalhe.textContent = detalheNormal(a);
@@ -5430,7 +5426,7 @@ const skillsAba = (() => {
       b.barra.parentElement.classList.add('simulando');
       b.detalhe.textContent = `o imposto fixo passará de ${num(s.antes)} para ${num(s.depois)} tokens (${d >= 0 ? '+' : '−'}${num(Math.abs(d))}) se ${s.acao} ${c.titulo || c.nome}`;
       b.detalhe.title = b.detalhe.textContent;
-      b.sim.style.width = Math.min(100, (s.depois / ESCALA_IMPOSTO) * 100) + '%';
+      b.sim.style.width = Math.min(100, (s.depois / dadosPor[a].imposto.limite) * 100) + '%';
       b.sim.classList.add('ativa');
     });
   }
@@ -5776,8 +5772,10 @@ const skillsAba = (() => {
   });
   function mostrarCusto() {
     const f = dados ? dados.estimativa : { fator: 1.1, origem: 'padrão' };
+    const lim = dados && dados.imposto ? dados.imposto.limite : 8000;
+    const verde = dados && dados.imposto ? dados.imposto.faixa_verde : 4000;
     $('sk-info-texto').textContent = (dados ? dados.conceito : '')
-      + ` A barra fica verde até ${num(1500)} tokens, amarela até ${num(3000)} e vermelha acima. O imposto fixo soma as skills instaladas`
+      + ` A barra fica verde até ${num(verde)} tokens (faixa de economia: bem menor que uma busca normal sem skills), amarela até ${num(lim)} e vermelha acima. O imposto fixo soma as skills instaladas`
       + ' (globais e do projeto) e as instruções da IA (Claude: CLAUDE.md global e do projeto; Antigravity: AGENTS.md e regras always_on do projeto; o GEMINI.md global ainda não foi confirmado e fica fora da conta): tudo isso entra em toda conversa. '
       + `Estimativa: caracteres/4 para cima, com fator ${String(f.fator).replace('.', ',')} (${f.origem}).`
       + ' Cada modelo conta tokens de um jeito: no Antigravity o número é só estimado (sem calibração) e nenhuma API é chamada para contar.';
