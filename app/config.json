@@ -1,6 +1,8 @@
 {
   "pokemon": "pikachu",
   "pokemonEscolhido": false,
+  "setupInicialFeito": false,
+  "pastaInstalacao": "",
   "corPokebola": "#e3350d",
   "shiny": false,
   "gifAnimado": false,

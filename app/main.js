@@ -146,6 +146,8 @@ function sanitizarConfig(cfg, modelo) {
       chamar: texto(bv.chamar, 40).trim() || mbv.chamar,
     },
     appsSemeados: bool(cfg.appsSemeados, false),
+    setupInicialFeito: bool(cfg.setupInicialFeito, false),
+    pastaInstalacao: typeof cfg.pastaInstalacao === 'string' ? cfg.pastaInstalacao : '',
     // false até a primeira escolha de Pokémon: até lá as funções ficam bloqueadas
     pokemonEscolhido: bool(cfg.pokemonEscolhido, false),
     fixado: bool(cfg.fixado, modelo.fixado), // sempre no topo
@@ -1623,7 +1625,44 @@ app.on('will-quit', () => {
   encerrarServidorPS();
 });
 
+// Setup inicial na primeira abertura: descobre a pasta onde o widget foi extraído
+// e configura o ~/.cerebro.json apontando para o cerebro/ local, garantindo também o projetos.json.
+// Executado somente 1 vez na primeira abertura.
+function executarSetupInicial() {
+  try {
+    const cfg = carregarConfig();
+    if (cfg.setupInicialFeito) return;
+
+    const raiz = cerebro.pastaRaizWidget();
+    const pastaCerebro = path.join(raiz, 'cerebro');
+
+    if (fs.existsSync(pastaCerebro)) {
+      const arqConfigCerebro = process.env.CEREBRO_CONFIG || path.join(os.homedir(), '.cerebro.json');
+      let dados = {};
+      try {
+        dados = JSON.parse(fs.readFileSync(arqConfigCerebro, 'utf8').replace(/^\uFEFF/, ''));
+      } catch { /* sem config previa ou corrompido */ }
+
+      dados.cerebro_dir = pastaCerebro;
+      fs.writeFileSync(arqConfigCerebro, JSON.stringify(dados, null, 2) + '\n', 'utf8');
+
+      // Garante projetos.json na raiz do widget para não dar erro de leitura
+      const arqProj = path.join(raiz, 'projetos.json');
+      if (!fs.existsSync(arqProj)) {
+        try { fs.writeFileSync(arqProj, '[]\n', 'utf8'); } catch { /* ignora */ }
+      }
+
+      cfg.setupInicialFeito = true;
+      cfg.pastaInstalacao = raiz;
+      salvarConfig(cfg);
+    }
+  } catch (erro) {
+    console.error('Falha no setup inicial do widget:', erro.message);
+  }
+}
+
 app.whenReady().then(() => {
+  executarSetupInicial();
   const sessao = session.defaultSession;
 
   // Nenhuma permissão é concedida à tela, exceto a captura de tela/áudio do

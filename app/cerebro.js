@@ -11,8 +11,27 @@ const os = require('os');
 
 // Onde está o cerebro/tools: ao lado do widget (npm start) ou, no .exe (que não leva o cérebro
 // junto), na pasta do cérebro escolhida (CEREBRO_DIR ou "cerebro_dir" do ~/.cerebro.json).
+// Onde o widget esta instalado/extraido (raiz do projeto ou pasta do .exe portatil)
+function pastaRaizWidget() {
+  if (process.env.PORTABLE_EXECUTABLE_DIR && fs.existsSync(process.env.PORTABLE_EXECUTABLE_DIR)) {
+    return process.env.PORTABLE_EXECUTABLE_DIR;
+  }
+  if (process.env.PORTABLE_EXECUTABLE_FILE && fs.existsSync(process.env.PORTABLE_EXECUTABLE_FILE)) {
+    return path.dirname(process.env.PORTABLE_EXECUTABLE_FILE);
+  }
+  if (process.execPath && !process.execPath.includes('node_modules') && !process.execPath.endsWith('node.exe') && !process.execPath.endsWith('electron.exe')) {
+    const dirExe = path.dirname(process.execPath);
+    if (fs.existsSync(path.join(dirExe, 'cerebro'))) return dirExe;
+  }
+  return path.resolve(__dirname, '..');
+}
+
 function pastaTools() {
-  const candidatos = [path.join(__dirname, '..', 'cerebro', 'tools')];
+  const raiz = pastaRaizWidget();
+  const candidatos = [
+    path.join(__dirname, '..', 'cerebro', 'tools'),
+    path.join(raiz, 'cerebro', 'tools'),
+  ];
   const pastas = [process.env.CEREBRO_DIR];
   try {
     const arquivo = process.env.CEREBRO_CONFIG || path.join(os.homedir(), '.cerebro.json');
@@ -153,4 +172,4 @@ function promptCompactacao() {
 // Nós e ligações do grafo 3D (grafo.py: só lê os cabeçalhos; ~1 s com 4.000 arquivos)
 const grafo = () => executar(['--json'], undefined, 'grafo.py');
 
-module.exports = { pastaTools, executar, painel, buscar, ler, salvar, validar, indice, config, definirPasta, caminhoDoArquivo, promptCompactacao, caminhoScript, grafo };
+module.exports = { pastaTools, pastaRaizWidget, executar, painel, buscar, ler, salvar, validar, indice, config, definirPasta, caminhoDoArquivo, promptCompactacao, caminhoScript, grafo };

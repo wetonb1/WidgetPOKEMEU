@@ -6,7 +6,7 @@
 // Sem dependência do Electron: dá para testar com "node tools/testar-cerebro.js".
 const fs = require('fs');
 const path = require('path');
-const { executar } = require('./cerebro');
+const { executar, pastaRaizWidget } = require('./cerebro');
 const ias = require('./ias');
 
 const ID = /^[a-z0-9][a-z0-9-]{0,29}$/;
@@ -20,7 +20,8 @@ let cacheListar = null;
 let mtimeAssinatura = '';
 
 function arqProjetos() {
-  return process.env.PROJETOS_JSON || path.join(__dirname, '..', 'projetos.json');
+  const raiz = typeof pastaRaizWidget === 'function' ? pastaRaizWidget() : path.resolve(__dirname, '..');
+  return process.env.PROJETOS_JSON || path.join(raiz, 'projetos.json');
 }
 
 function obterAssinatura() {
@@ -28,7 +29,7 @@ function obterAssinatura() {
     const ap = arqProjetos();
     const st1 = fs.statSync(ap);
     let sig = `${ap}:${st1.mtimeMs}:${st1.size}`;
-    const log = path.join(__dirname, '..', 'cerebro', '.log', 'sessoes.jsonl');
+    const log = path.join(path.dirname(ap), 'cerebro', '.log', 'sessoes.jsonl');
     try {
       const st2 = fs.statSync(log);
       sig += `|${st2.mtimeMs}:${st2.size}`;
