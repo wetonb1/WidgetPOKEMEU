@@ -2502,6 +2502,118 @@ const economiaCer = (() => {
 // PARA; depois disso só se desenha quando você mexe (nenhum laço parado). Fora da tela, nada roda.
 // Mouse: arrastar o fundo = girar · roda = ampliar (na direção do cursor) · botão direito ou Shift+arrastar = mover a vista ·
 // arrastar uma bolinha = mover o arquivo (os vizinhos acompanham; ela fica onde você soltou) · clique = detalhes · duplo clique = abrir.
+// Dados meramente ilustrativos para o modo visual "cheio" (zero escrita em disco, zero tokens gastos)
+const DADOS_ILUSTRATIVOS_CEREBRO = (() => {
+  const hubs = [
+    { id: 'projeto:Rede Neural & IA', t: 'p', n: 'Rede Neural & IA', p: 'Rede Neural & IA', cor: '#8b5cf6', ilustrativo: true },
+    { id: 'projeto:Banco de Memória', t: 'p', n: 'Banco de Memória', p: 'Banco de Memória', cor: '#06b6d4', ilustrativo: true },
+    { id: 'projeto:Agentes Autônomos', t: 'p', n: 'Agentes Autônomos', p: 'Agentes Autônomos', cor: '#10b981', ilustrativo: true },
+    { id: 'projeto:Visão Computacional', t: 'p', n: 'Visão Computacional', p: 'Visão Computacional', cor: '#f59e0b', ilustrativo: true },
+    { id: 'projeto:Síntese e Voz', t: 'p', n: 'Síntese e Voz', p: 'Síntese e Voz', cor: '#ec4899', ilustrativo: true },
+  ];
+
+  const itens = [
+    // Rede Neural & IA
+    { p: 'Rede Neural & IA', t: 'e', a: 'estado/rede-neural-ia.md', n: 'estado: Rede Neural & IA', d: '2026-10-29', k: ['ia', 'rede', 'modelo'] },
+    { p: 'Rede Neural & IA', t: 'c', a: 'conversas/2026-10-15_arquitetura-transformer-atencao.md', n: 'Arquitetura Transformer e Mecanismos de Atenção', d: '2026-10-15', k: ['transformer', 'atencao', 'pesos', 'qkv', 'camadas'] },
+    { p: 'Rede Neural & IA', t: 'c', a: 'conversas/2026-10-18_fine-tuning-lora-adaptadores.md', n: 'Fine-Tuning com LoRA e Adaptadores', d: '2026-10-18', k: ['lora', 'fine-tuning', 'treinamento', 'pesos', 'memoria'] },
+    { p: 'Rede Neural & IA', t: 'c', a: 'conversas/2026-10-22_quantizacao-modelos-gguf-awq.md', n: 'Quantização de Modelos GGUF e AWQ 4-bit', d: '2026-10-22', k: ['quantizacao', 'gguf', 'awq', 'vram', 'inferencia'] },
+    { p: 'Rede Neural & IA', t: 'c', a: 'conversas/2026-10-25_inferencia-especulativa-tokens.md', n: 'Inferência Especulativa e Geração Rápida', d: '2026-10-25', k: ['inferencia', 'latencia', 'tokens', 'gpu'] },
+    { p: 'Rede Neural & IA', t: 'c', a: 'conversas/2026-10-08_otimizacao-compilador-torch.md', n: 'Otimização com Compilador TorchDynamo', d: '2026-10-08', k: ['compilador', 'torch', 'kernel', 'gpu', 'latencia'] },
+    { p: 'Rede Neural & IA', t: 'c', a: 'conversas/2026-10-09_alinhamento-dpo-preferencias.md', n: 'Alinhamento Direto por Preferência (DPO)', d: '2026-10-09', k: ['dpo', 'alinhamento', 'recompensa', 'feedback'] },
+
+    // Banco de Memória
+    { p: 'Banco de Memória', t: 'e', a: 'estado/banco-de-memoria.md', n: 'estado: Banco de Memória', d: '2026-10-29', k: ['memoria', 'dados', 'vetores'] },
+    { p: 'Banco de Memória', t: 'c', a: 'conversas/2026-10-12_pesquisa-embeddings-vetoriais.md', n: 'Embeddings Vetoriais e Busca Cosseno', d: '2026-10-12', k: ['embeddings', 'vetores', 'similaridade', 'cosseno'] },
+    { p: 'Banco de Memória', t: 'c', a: 'conversas/2026-10-16_pipeline-rag-busca-hibrida.md', n: 'Pipeline RAG e Busca Híbrida BM25', d: '2026-10-16', k: ['rag', 'bm25', 'busca-hibrida', 'contexto', 'recuperacao'] },
+    { p: 'Banco de Memória', t: 'c', a: 'conversas/2026-10-20_cache-semantico-latencia.md', n: 'Cache Semântico e Redução de Latência', d: '2026-10-20', k: ['cache', 'semantico', 'latencia', 'redis', 'tokens'] },
+    { p: 'Banco de Memória', t: 'c', a: 'conversas/2026-10-27_grafo-conhecimento-entidades.md', n: 'Grafo de Conhecimento e Extração de Entidades', d: '2026-10-27', k: ['grafo', 'entidades', 'triplas', 'nos', 'relacoes'] },
+    { p: 'Banco de Memória', t: 'c', a: 'conversas/2026-10-07_indices-hnsw-escalabilidade.md', n: 'Índices HNSW e Grafo de Proximidade', d: '2026-10-07', k: ['hnsw', 'vetores', 'grafo', 'busca-hibrida'] },
+    { p: 'Banco de Memória', t: 'c', a: 'conversas/2026-10-10_compressao-vetorial-pq.md', n: 'Compressão Vetorial e Product Quantization', d: '2026-10-10', k: ['quantizacao', 'compressao', 'memoria', 'vetores'] },
+
+    // Agentes Autônomos
+    { p: 'Agentes Autônomos', t: 'e', a: 'estado/agentes-autonomos.md', n: 'estado: Agentes Autônomos', d: '2026-10-29', k: ['agentes', 'autonomia', 'ferramentas'] },
+    { p: 'Agentes Autônomos', t: 'c', a: 'conversas/2026-10-14_agente-coordenador-enxame.md', n: 'Coordenação de Enxame de Agentes', d: '2026-10-14', k: ['enxame', 'coordenador', 'subagentes', 'mensagens'] },
+    { p: 'Agentes Autônomos', t: 'c', a: 'conversas/2026-10-19_planejamento-mcts-raciocinio.md', n: 'Planejamento MCTS para Decisão de Código', d: '2026-10-19', k: ['mcts', 'planejamento', 'arvore', 'decisao', 'codigo'] },
+    { p: 'Agentes Autônomos', t: 'c', a: 'conversas/2026-10-24_execucao-sandbox-ferramentas.md', n: 'Sandbox e Isolamento de Processos PTY', d: '2026-10-24', k: ['sandbox', 'seguranca', 'pty', 'processos', 'bash'] },
+    { p: 'Agentes Autônomos', t: 'c', a: 'conversas/2026-10-28_auto-correcao-loops-reflexao.md', n: 'Loops de Auto-Correção e Reflexão Crítica', d: '2026-10-28', k: ['reflexao', 'auto-correcao', 'feedback', 'testes'] },
+    { p: 'Agentes Autônomos', t: 'c', a: 'conversas/2026-10-05_protocolo-mcp-servidores.md', n: 'Protocolo de Contexto de Modelo (MCP)', d: '2026-10-05', k: ['mcp', 'protocolo', 'ferramentas', 'sandbox'] },
+    { p: 'Agentes Autônomos', t: 'c', a: 'conversas/2026-10-06_gestao-contexto-janela-deslizante.md', n: 'Janela Deslizante e Compressão de Histórico', d: '2026-10-06', k: ['contexto', 'historico', 'tokens', 'cache'] },
+
+    // Visão Computacional
+    { p: 'Visão Computacional', t: 'e', a: 'estado/visao-computacional.md', n: 'estado: Visão Computacional', d: '2026-10-29', k: ['visao', 'imagem', 'camera'] },
+    { p: 'Visão Computacional', t: 'c', a: 'conversas/2026-10-13_reconhecimento-espacial-3d.md', n: 'Reconhecimento Espacial e Detecção 3D', d: '2026-10-13', k: ['espacial', '3d', 'projecao', 'camera', 'sensores'] },
+    { p: 'Visão Computacional', t: 'c', a: 'conversas/2026-10-17_segmentacao-mascaras-zero-shot.md', n: 'Segmentação Semântica Zero-Shot com SAM', d: '2026-10-17', k: ['segmentacao', 'sam', 'mascaras', 'visao', 'zero-shot'] },
+    { p: 'Visão Computacional', t: 'c', a: 'conversas/2026-10-21_ocr-multimodal-estruturado.md', n: 'OCR Multimodal e Extração de Documentos', d: '2026-10-21', k: ['ocr', 'documentos', 'tabelas', 'visao', 'multimodal'] },
+    { p: 'Visão Computacional', t: 'c', a: 'conversas/2026-10-26_rastreamento-video-tempo-real.md', n: 'Rastreamento de Objetos em Tempo Real', d: '2026-10-26', k: ['video', 'rastreamento', 'fps', 'yolo', 'tempo-real'] },
+    { p: 'Visão Computacional', t: 'c', a: 'conversas/2026-10-03_reconstrucao-radiance-fields-nerf.md', n: 'Campos de Radiância Neural (NeRF 3D)', d: '2026-10-03', k: ['nerf', '3d', 'projecao', 'camera'] },
+
+    // Síntese e Voz
+    { p: 'Síntese e Voz', t: 'e', a: 'estado/sintese-e-voz.md', n: 'estado: Síntese e Voz', d: '2026-10-29', k: ['audio', 'voz', 'fala'] },
+    { p: 'Síntese e Voz', t: 'c', a: 'conversas/2026-10-11_sintese-neural-prosodia.md', n: 'Síntese Neural de Fala com Prosódia', d: '2026-10-11', k: ['tts', 'prosodia', 'fonemas', 'audio', 'sintese'] },
+    { p: 'Síntese e Voz', t: 'c', a: 'conversas/2026-10-23_transcricao-whisper-streaming.md', n: 'Transcrição Streaming Whisper Baixa Latência', d: '2026-10-23', k: ['whisper', 'transcricao', 'streaming', 'audio', 'microfone'] },
+    { p: 'Síntese e Voz', t: 'c', a: 'conversas/2026-10-29_clonagem-vocal-poucas-amostras.md', n: 'Clonagem Vocal Poucas Amostras', d: '2026-10-29', k: ['clonagem', 'voz', 'amostras', 'latente'] },
+    { p: 'Síntese e Voz', t: 'c', a: 'conversas/2026-10-04_cancelamento-ruido-neural.md', n: 'Cancelamento Ativo de Ruído Neural', d: '2026-10-04', k: ['audio', 'ruido', 'filtros', 'latencia'] },
+  ];
+
+  const nos = [...hubs, ...itens.map((it) => ({ id: it.a, ...it, ilustrativo: true }))];
+  const hubIdx = new Map(hubs.map((h, i) => [h.p, i]));
+  const ligacoes = [];
+  const mapa = new Map(itens.map((it) => [it.a, it]));
+
+  itens.forEach((it, idx) => {
+    const noIdx = hubs.length + idx;
+    const hIdx = hubIdx.get(it.p);
+    if (hIdx !== undefined) ligacoes.push([noIdx, hIdx, 1, 'p']);
+  });
+
+  for (let i = 0; i < itens.length; i++) {
+    for (let j = i + 1; j < itens.length; j++) {
+      const ki = new Set(itens[i].k || []);
+      const comuns = (itens[j].k || []).filter((k) => ki.has(k));
+      if (comuns.length > 0) ligacoes.push([hubs.length + i, hubs.length + j, Math.min(comuns.length, 3), 'k']);
+    }
+  }
+
+  for (let i = 0; i < hubs.length; i++) {
+    for (let j = i + 1; j < hubs.length; j++) {
+      ligacoes.push([i, j, 1, 'p']);
+    }
+  }
+
+  return { nos, ligacoes, itens, hubs, mapa };
+})();
+
+function fundirComDemoCerebro(dadosReais) {
+  if (!dadosReais || !dadosReais.nos) return DADOS_ILUSTRATIVOS_CEREBRO;
+  const offset = dadosReais.nos.length;
+  const nosFundidos = [...dadosReais.nos, ...DADOS_ILUSTRATIVOS_CEREBRO.nos];
+  const ligsFundidas = [
+    ...(dadosReais.ligacoes || []),
+    ...DADOS_ILUSTRATIVOS_CEREBRO.ligacoes.map(([a, b, w, t]) => [a + offset, b + offset, w, t]),
+  ];
+  return { nos: nosFundidos, ligacoes: ligsFundidas };
+}
+
+function gerarTextoIlustrativo(arquivo) {
+  const meta = DADOS_ILUSTRATIVOS_CEREBRO.mapa.get(arquivo);
+  const titulo = meta ? meta.n : arquivo;
+  const proj = meta ? meta.p : 'Demonstração';
+  const data = meta ? meta.d : '2026-10-29';
+  const chaves = meta && meta.k ? meta.k.join(', ') : 'ilustrativo, demo, visual';
+  return `# ✦ [MODO ILUSTRATIVO] ${titulo}\n\n`
+    + `> [!NOTE]\n`
+    + `> Este arquivo é meramente ilustrativo para demonstração visual do cérebro.\n`
+    + `> Ele existe somente na memória de exibição: zero espaço no disco e zero tokens gastos.\n\n`
+    + `palavras-chave: ${chaves}\n`
+    + `data: ${data} | origem: antigravity | projeto: ${proj}\n\n`
+    + `- Tópico demonstrativo estruturado para simulação de grafo de conhecimento.\n`
+    + `- Arquitetura de nós interconectados por afinidade conceitual e termos em comum.\n`
+    + `- Representação tridimensional de memórias ativas com cálculo de dispersão por molas.\n`
+    + `- Integração harmoniosa com o ecossistema do widget sem alterar o cérebro real.\n`
+    + `- Para desativar estas memórias visuais, clique no botão [✦ cheio] no topo.`;
+}
+
 const grafoCer = (() => {
   const $ = (id) => document.getElementById(id);
   const IOS = document.documentElement.dataset.estilo === 'ios';
@@ -2520,6 +2632,8 @@ const grafoCer = (() => {
   let emTela = false;
   let carregando = false;
   let ultimaCarga = 0;
+  let modoDemo = false;
+  let dadosReais = null;
   let nos = []; // {id,t,n,a,p,d,k,cor,x,y,z,vx,vy,vz,grau,preso}
   let ligs = []; // [a, b, peso, tipo]
   let viz = []; // vizinhos de cada nó
@@ -2576,7 +2690,8 @@ const grafoCer = (() => {
     carregando = false;
     if (!r.ok) { status(r.tipo === 'semPython' ? 'o grafo precisa do Python 3' : 'não consegui ler o cérebro: ' + (r.erro || '')); return; }
     ultimaCarga = Date.now();
-    montar(r.dados);
+    dadosReais = r.dados;
+    montar(modoDemo ? fundirComDemoCerebro(dadosReais) : dadosReais);
   }
   function montar(d) {
     const antigos = new Map(nos.map((n) => [n.id, n]));
@@ -3080,7 +3195,37 @@ const grafoCer = (() => {
     } else if (e.key === 'Escape') { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); }
   });
   $('graf-centro').addEventListener('click', () => { mexeuNaCamera = false; enquadrar(true); });
+  const bgDemo = $('graf-demo');
+  if (bgDemo) bgDemo.addEventListener('click', alternarDemo);
   new ResizeObserver(() => { if (aberto && emTela) { medir(); pedir(); } }).observe(area);
+
+  function atualizarBotoesDemo(ativo) {
+    const rotulo = ativo ? (IOS ? '✦ cheio: on' : '[✦ cheio: on]') : (IOS ? '✦ cheio' : '[✦ cheio]');
+    const bg = $('graf-demo');
+    const bc = $('cer-demo');
+    if (bg) { bg.textContent = rotulo; bg.classList.toggle('ativa', ativo); }
+    if (bc) { bc.textContent = rotulo; bc.classList.toggle('ativa', ativo); }
+  }
+
+  function alternarDemo() {
+    modoDemo = !modoDemo;
+    atualizarBotoesDemo(modoDemo);
+    if (!dadosReais) {
+      carregar(true);
+      return;
+    }
+    montar(modoDemo ? fundirComDemoCerebro(dadosReais) : dadosReais);
+    enquadrarAoParar = true;
+    reaquecer(modoDemo ? 1 : 0.6);
+    if (modoDemo) {
+      dizer('Cérebro cheio no modo visual! Ficou parecendo uma constelação!');
+    } else {
+      dizer('Voltei para o cérebro real com as suas memórias.');
+    }
+    if (typeof cerebro !== 'undefined' && cerebro.aoMudarDemo) {
+      cerebro.aoMudarDemo(modoDemo);
+    }
+  }
 
   // troca Graph | Search (existe uma nas duas telas); a aba sempre começa no grafo
   const trocas = [...document.querySelectorAll('.cer-troca-btn')];
@@ -3101,7 +3246,9 @@ const grafoCer = (() => {
 
   return {
     abrir,
-    iniciar() { aberto = true; aba.classList.add('grafo'); marcarTroca(); },
+    alternarDemo,
+    modoAtivo() { return modoDemo; },
+    iniciar() { aberto = true; aba.classList.add('grafo'); marcarTroca(); atualizarBotoesDemo(modoDemo); },
     visivel(v) {
       emTela = v;
       if (!v) { if (quadro) { cancelAnimationFrame(quadro); quadro = 0; } return; } // fora da tela: nada roda (a simulação pausa)
@@ -3602,7 +3749,8 @@ const cerebro = (() => {
   }
   function desenharStats(s) {
     const kb = s.kb.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-    stats.textContent = `${s.arquivos} arq · ${kb} KB · última compactação ${fmtData(s.ultima_compactacao) || 'nunca'}`;
+    const extraDemo = grafoCer.modoAtivo && grafoCer.modoAtivo() ? ' · [✦ cheio: +36 ilustrativos]' : '';
+    stats.textContent = `${s.arquivos} arq · ${kb} KB · última compactação ${fmtData(s.ultima_compactacao) || 'nunca'}${extraDemo}`;
     stats.title = `${s.conversas} conversas e ${s.estados} estados; última compactação = a conversa mais recente salva`;
   }
   async function carregar(forcar) {
@@ -3627,7 +3775,14 @@ const cerebro = (() => {
     const r = await chamar(() => window.widget.cerebroBuscar(termos, projeto));
     if (meu !== pedido) return;
     if (!r.ok) { erro(r); return; }
-    const achados = r.dados.candidatos || [];
+    let achados = r.dados.candidatos || [];
+    if (grafoCer.modoAtivo && grafoCer.modoAtivo()) {
+      const tNorm = termos.toLowerCase();
+      const demoAchados = DADOS_ILUSTRATIVOS_CEREBRO.itens
+        .filter((it) => (!projeto || it.p === projeto) && (it.n.toLowerCase().includes(tNorm) || (it.k || []).some((k) => k.toLowerCase().includes(tNorm))))
+        .map((it) => ({ arquivo: it.a, pontos: 99, palavras_chave: it.k || [], ilustrativo: true }));
+      achados = [...achados, ...demoAchados];
+    }
     if (!achados.length) {
       aviso(`Nenhum resultado para "${termos}"${projeto ? ' (projeto ' + projeto + ')' : ''}. Tente outras palavras.`);
       dizer('Procurei na memória e não achei nada disso.');
@@ -3635,10 +3790,11 @@ const cerebro = (() => {
     }
     const sugeridos = new Set(r.dados.abrir || []);
     lista.replaceChildren(...achados.map((x) => {
-      const item = el('button', 'cer-item' + (sugeridos.has(x.arquivo) ? ' sugerido' : ''));
+      const item = el('button', 'cer-item' + (sugeridos.has(x.arquivo) ? ' sugerido' : '') + (x.ilustrativo ? ' demo' : ''));
       item.type = 'button';
-      item.title = x.arquivo + ' · ' + x.pontos + ' pontos';
-      item.append(el('span', 'cer-pontos', String(x.pontos)), el('span', 'cer-nome', x.arquivo),
+      item.title = x.arquivo + ' · ' + x.pontos + ' pontos' + (x.ilustrativo ? ' (ilustrativo)' : '');
+      item.append(el('span', 'cer-pontos', x.ilustrativo ? '✦' : String(x.pontos)),
+        el('span', 'cer-nome', (x.ilustrativo ? '✦ ' : '') + x.arquivo),
         el('span', 'cer-chaves', (x.palavras_chave || []).join(', ')));
       item.addEventListener('click', () => abrir(x.arquivo));
       return item;
@@ -3651,6 +3807,14 @@ const cerebro = (() => {
   async function abrir(arquivo) {
     doGrafo = false;
     aberto = arquivo;
+    if (DADOS_ILUSTRATIVOS_CEREBRO.mapa.has(arquivo)) {
+      leitorNome.textContent = '✦ ' + arquivo + ' (Modo Ilustrativo)';
+      leitorNome.title = arquivo + ' · arquivo visual de demonstração';
+      texto.textContent = gerarTextoIlustrativo(arquivo);
+      texto.scrollTop = 0;
+      vista('leitor');
+      return;
+    }
     leitorNome.textContent = arquivo;
     leitorNome.title = arquivo;
     texto.textContent = 'lendo…';
@@ -3677,6 +3841,10 @@ const cerebro = (() => {
   }
   async function abrirNoEditor() {
     if (!aberto) return;
+    if (DADOS_ILUSTRATIVOS_CEREBRO.mapa.has(aberto)) {
+      dizer('Arquivo do modo ilustrativo: ele existe apenas na visualização do cérebro.');
+      return;
+    }
     const r = await chamar(() => window.widget.cerebroEditor(aberto));
     if (!r.ok) dizer('Não consegui abrir o arquivo no editor.');
     else dizer(r.via === 'code' ? 'Abri no VS Code.' : 'O VS Code não respondeu; abri no programa padrão.');
@@ -3789,8 +3957,17 @@ const cerebro = (() => {
     carregar(true);
   });
 
+  function aoMudarDemo(ativo) {
+    if (stats.textContent && stats.textContent !== '--') {
+      const limpo = stats.textContent.replace(/ · \[✦ cheio: \+\d+ ilustrativos\]/g, '');
+      stats.textContent = limpo + (ativo ? ' · [✦ cheio: +36 ilustrativos]' : '');
+    }
+  }
+
   // ----- ligações -----
   $('cer-form').addEventListener('submit', (ev) => { ev.preventDefault(); buscar(); });
+  const btnDemoCer = $('cer-demo');
+  if (btnDemoCer) btnDemoCer.addEventListener('click', () => grafoCer.alternarDemo());
   seletor.addEventListener('change', () => {
     projeto = seletor.value;
     mudarConfig((cfg) => { cfg.cerebroProjeto = projeto; }).catch((e) => console.error('Erro ao salvar o projeto:', e));
@@ -3827,6 +4004,7 @@ const cerebro = (() => {
 
   return {
     iniciar(cfg) { projeto = typeof cfg.cerebroProjeto === 'string' ? cfg.cerebroProjeto : ''; grafoCer.iniciar(); },
+    aoMudarDemo,
     visivel(v) {
       emTela = v;
       economiaCer.visivel(v);
@@ -4014,7 +4192,10 @@ const terminalEmb = (() => {
     aba.classList.add('terminal');
     if (DESTACADO) {
       const tit = $('titulo');
-      if (tit) tit.textContent = `C:\\WINDOWS\\system32\\WindowsPowerShell\\v1.0\\powershell.exe — ${s.nome} (${s.modelo})`;
+      if (tit) {
+        const cmdShell = window.widget?.plataforma === 'linux' ? '/bin/bash' : 'powershell.exe';
+        tit.textContent = `${cmdShell} — ${s.nome} (${s.modelo})`;
+      }
     }
     desenharAbas();
     aplicarVista();
@@ -4269,18 +4450,20 @@ const projetos = (() => {
     return abrirSessao(p, modeloInicial(p, outra), 'novo', '', { retomada: true, ia: outra, semPularPermissoes: true });
   }
 
-  // ----- abrir PowerShell na pasta do projeto -----
+  // ----- abrir terminal (PowerShell / bash) na pasta do projeto -----
   async function abrirPS(p) {
     if (ocupado) return;
     ocupado = true;
+    const isLinux = window.widget?.plataforma === 'linux';
+    const nomeShell = isLinux ? 'bash' : 'PowerShell';
     const r = await chamar(() => window.widget.projetosAbrirPS(p.id));
     ocupado = false;
-    if (!r.ok) { dizer('Não consegui abrir o PowerShell: ' + r.erro); return; }
+    if (!r.ok) { dizer(`Não consegui abrir o ${nomeShell}: ` + r.erro); return; }
     if (r.via === 'widget' && r.termId) {
-      await terminalEmb.abrir({ termId: r.termId, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id });
-      dizer('Abri o PowerShell em ' + p.nome + '. Use [↗ destacar] para levar só o terminal para outro monitor.');
+      await terminalEmb.abrir({ termId: r.termId, nome: p.nome, modelo: r.modelo || nomeShell.toLowerCase(), cor: p.cor, ia: r.ia || nomeShell.toLowerCase(), projetoId: p.id });
+      dizer(`Abri o ${nomeShell} em ` + p.nome + '. Use [↗ destacar] para levar só o terminal para outro monitor.');
     } else {
-      dizer('Abri o PowerShell em ' + p.nome + ' numa janela externa.');
+      dizer(`Abri o ${nomeShell} em ` + p.nome + ' numa janela externa.');
     }
   }
   terminalEmb.aoPedirPS((projId) => {
@@ -4336,7 +4519,9 @@ const projetos = (() => {
     const abrirIA = botao('[▶ abrir]', () => abrirSessao(p, estado.modelo, 'novo', '', { semPrompt: true, ia: estado.ia }), '');
     abrirIA.classList.add('proj-abrir');
     const continuar = quadro('continuar');
-    const psBtn = botao('[powershell]', () => abrirPS(p), 'Abre um PowerShell na pasta deste projeto (dá para destacar só ele para outro monitor)');
+    const isLinux = window.widget?.plataforma === 'linux';
+    const psRotulo = isLinux ? '[bash]' : '[powershell]';
+    const psBtn = botao(psRotulo, () => abrirPS(p), `Abre um terminal (${isLinux ? 'bash' : 'PowerShell'}) na pasta deste projeto (dá para destacar só ele para outro monitor)`);
     psBtn.classList.add('proj-ps');
     const escolherModelo = (modelo) => { estado.modelo = modelo; };
     function desenharModelo() {
@@ -5270,7 +5455,8 @@ const projetos = (() => {
   $('pi-fechar').addEventListener('click', fechar);
   $('pi-copiar').addEventListener('click', async () => {
     const ok = await chamar(() => window.widget.cerebroCopiar($('pi-comando').textContent));
-    dizer(ok === true ? 'Comando copiado! Cole no PowerShell.' : 'Não consegui copiar.');
+    const termNome = window.widget?.plataforma === 'linux' ? 'terminal' : 'PowerShell';
+    dizer(ok === true ? `Comando copiado! Cole no ${termNome}.` : 'Não consegui copiar.');
   });
   $('pi-docs').addEventListener('click', () => chamar(() => window.widget.iasDocs(instalando)));
   $('pj-pular').addEventListener('change', () => {

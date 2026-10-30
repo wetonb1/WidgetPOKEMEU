@@ -1,10 +1,18 @@
 // terminal.js — abre uma janela de terminal nova numa pasta, rodando um programa, sem esperar ela
-// fechar (processo solto: o widget segue livre). Prefere o Windows Terminal (wt.exe); sem ele, usa
-// "cmd /c start". Nos dois casos a janela fica aberta depois (cmd /k).
-// O widget não tem mais terminal embutido (saiu na v1.6), então não há essa opção.
+// fechar (processo solto: o widget segue livre). No Linux/Ubuntu procura emuladores nativos (gnome-terminal,
+// x-terminal-emulator, konsole etc.). No Windows prefere o Windows Terminal (wt.exe) ou cmd.
 const { spawn } = require('child_process');
 const fs = require('fs');
 const { localizar } = require('./ias');
+
+const EMULADORES_LINUX = ['gnome-terminal', 'x-terminal-emulator', 'konsole', 'xfce4-terminal', 'alacritty', 'kitty', 'xterm'];
+
+function terminalLinux() {
+  for (const t of EMULADORES_LINUX) {
+    if (localizar(t)) return t;
+  }
+  return 'x-terminal-emulator';
+}
 
 // Um texto vira UM argumento seguro para a linha de comando do cmd (e do wt):
 //  - uma linha só (o cmd não aceita quebra de linha num argumento);
@@ -30,9 +38,26 @@ function linhaDeComando(programa, args) {
 }
 
 // Monta o que seria executado, sem executar (o widget usa; os testes conferem).
-//   { pasta, titulo, programa, args } -> { via: 'wt'|'cmd', exe, argv, verbatim }
+//   { pasta, titulo, programa, args } -> { via, exe, argv, verbatim }
 function planejar({ pasta, titulo, programa, args = [] }, temWt = !!localizar('wt')) {
   if (typeof pasta !== 'string' || !pasta || !fs.existsSync(pasta)) throw new Error('a pasta do projeto não existe');
+  if (process.platform !== 'win32') {
+    const term = terminalLinux();
+    const nome = String(titulo || programa).replace(/["'`$\\]/g, '');
+    const cmd = [programa, ...args.map((a) => (/[\s"'$`\\!]/.test(a) || a === '' ? `"${String(a).replace(/(["\\$`!])/g, '\\$1')}"` : a))].join(' ');
+    const script = `${cmd}; exec bash`;
+    if (term === 'gnome-terminal') {
+      return { via: 'gnome-terminal', exe: 'gnome-terminal', argv: ['--title', nome, '--working-directory', pasta, '--', 'bash', '-c', script], verbatim: false };
+    }
+    if (term === 'konsole') {
+      return { via: 'konsole', exe: 'konsole', argv: ['--workdir', pasta, '-e', 'bash', '-c', script], verbatim: false };
+    }
+    if (term === 'xfce4-terminal') {
+      return { via: 'xfce4-terminal', exe: 'xfce4-terminal', argv: ['--title', nome, '--working-directory', pasta, '-e', `bash -c "${script}"`], verbatim: false };
+    }
+    return { via: term, exe: term, argv: ['-e', `bash -c "cd '${pasta.replace(/'/g, "'\\''")}' && ${script}"`], verbatim: false };
+  }
+
   // % e aspas no caminho quebrariam a linha do cmd; caminhos do Windows quase nunca têm isso
   if (/["%]/.test(pasta)) throw new Error('o caminho da pasta tem % ou aspas; renomeie a pasta para abrir daqui');
   const seguros = args.map((a) => argumentoSeguro(a));
@@ -54,7 +79,7 @@ function abrir(opcoes) {
   });
   filho.on('error', () => { /* o widget não fica preso por isso; o pedido já respondeu */ });
   filho.unref();
-  return { ...plano, pid: filho.pid }; // o pid é do processo que abre a janela (o cmd dela é filho dele)
+  return { ...plano, pid: filho.pid }; // o pid é do processo que abre a janela
 }
 
-module.exports = { argumentoSeguro, linhaDeComando, planejar, abrir };
+module.exports = { argumentoSeguro, linhaDeComando, planejar, abrir, terminalLinux };

@@ -11,6 +11,7 @@ const { argumentoSeguro } = require('./terminal');
 
 const CSC = path.join(process.env.windir || 'C:\\Windows', 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe');
 const FONTE = path.join(__dirname, 'pty.cs').replace('app.asar', 'app.asar.unpacked');
+const FONTE_LINUX = path.join(__dirname, 'pty-linux.py').replace('app.asar', 'app.asar.unpacked');
 const OPCOES_CSC = ['-nologo', '-target:winexe', '-platform:x64', '-optimize+'];
 const ESPERA_PID = 8000; // quanto esperar o host dizer "PID n" depois de iniciado
 
@@ -18,10 +19,13 @@ let compilando = null; // Promise do exe (uma compilação só, mesmo com vário
 
 // Devolve o caminho do pty-<hash>.exe (compilando se preciso) ou null se não der.
 function garantirExe(pasta) {
+  if (process.platform !== 'win32') {
+    return Promise.resolve(fs.existsSync(FONTE_LINUX) ? FONTE_LINUX : null);
+  }
   if (compilando) return compilando;
   compilando = new Promise((resolve) => {
     try {
-      if (process.platform !== 'win32' || !fs.existsSync(CSC)) return resolve(null);
+      if (!fs.existsSync(CSC)) return resolve(null);
       const codigo = fs.readFileSync(FONTE);
       const hash = crypto.createHash('sha1').update(codigo).update(OPCOES_CSC.join(' ')).digest('hex').slice(0, 10);
       const exe = path.join(pasta, `pty-${hash}.exe`);
@@ -73,6 +77,9 @@ function aspas(a) {
 // .exe roda direto (o prompt vai inteiro, com quebras de linha); .cmd/.bat passam pelo cmd.exe, que não aceita quebra de
 // linha nem aspas num argumento: ali os argumentos passam pelo mesmo filtro do terminal externo (terminal.argumentoSeguro).
 function linhaDeComando(programa, args = []) {
+  if (process.platform !== 'win32') {
+    return [programa, ...args.map((a) => (/[\s"'$`\\!]/.test(a) || a === '' ? `"${String(a).replace(/(["\\$`!])/g, '\\$1')}"` : a))].join(' ');
+  }
   if (/\.(cmd|bat)$/i.test(programa)) {
     const seguros = args.map((a) => argumentoSeguro(a));
     return `cmd.exe /d /s /c "${[aspas(programa), ...seguros.map(aspas)].join(' ')}"`;
@@ -85,9 +92,16 @@ function linhaDeComando(programa, args = []) {
 //   aoFim(codigo, erro)     o programa terminou (erro = texto do host, se ele reclamou de algo)
 function criar({ exe, pasta, programa, args = [], env = process.env, colunas = 100, linhas = 30, aoDados = () => {}, aoFim = () => {} }) {
   const linha = linhaDeComando(programa, args);
-  const filho = spawn(exe, [String(Math.max(2, colunas | 0)), String(Math.max(2, linhas | 0))], {
+  const ehLinux = process.platform !== 'win32';
+  const comando = ehLinux ? 'python3' : exe;
+  const cmdArgs = ehLinux
+    ? [exe, String(Math.max(2, colunas | 0)), String(Math.max(2, linhas | 0))]
+    : [String(Math.max(2, colunas | 0)), String(Math.max(2, linhas | 0))];
+
+  const filho = spawn(comando, cmdArgs, {
     env: { COLORTERM: 'truecolor', ...env, WIDGET_PTY_LINHA: linha, WIDGET_PTY_PASTA: pasta || '' },
-    stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    windowsHide: true,
   });
   let pidPrograma = null;
   let erroHost = '';
@@ -131,12 +145,20 @@ function criar({ exe, pasta, programa, args = [], env = process.env, colunas = 1
       d.writeUInt16LE(Math.min(200, Math.max(2, l | 0)), 2);
       quadro(1, d);
     },
-    // fecha o canal: o host encerra o programa e tudo o que ele abriu. Se ele não sair em 2 s, o taskkill acaba com a árvore.
+    // fecha o canal: o host encerra o programa e tudo o que ele abriu. Se ele não sair em 2 s, o taskkill/kill acaba com a árvore.
     encerrar() {
       if (acabou) return;
       try { filho.stdin.end(); } catch { /* já fechado */ }
       const t = setTimeout(() => {
-        if (!acabou) execFile('taskkill', ['/PID', String(filho.pid), '/T', '/F'], { windowsHide: true }, () => {});
+        if (!acabou) {
+          if (process.platform === 'win32') {
+            execFile('taskkill', ['/PID', String(filho.pid), '/T', '/F'], { windowsHide: true }, () => {});
+          } else {
+            try { process.kill(-filho.pid, 'SIGKILL'); } catch {
+              try { filho.kill('SIGKILL'); } catch {}
+            }
+          }
+        }
       }, 2000);
       t.unref();
     },

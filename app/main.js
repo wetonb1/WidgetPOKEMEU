@@ -68,10 +68,10 @@ function limparTexto(t) {
   return String(t || '').trim().replace(/^["']+|["']+$/g, '').trim();
 }
 
-// AppID do Menu Iniciar / Microsoft Store (ex.: "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify").
-// Vai como UM argumento para o explorer.exe (sem shell), mas mesmo assim só
+// AppID do Menu Iniciar / Microsoft Store (ex.: "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify") ou caminho .desktop no Linux.
+// Vai como UM argumento para o explorer.exe/gtk-launch (sem shell), mas mesmo assim só
 // aceita caracteres comuns.
-const APP_ID = /^[A-Za-z0-9_.!{}\\ ()\-]{1,300}$/;
+const APP_ID = /^[A-Za-z0-9_.!{}\\/ ()\-]{1,300}$/;
 
 // ícone escolhido por você para um app: só PNG em base64, até ~24 KB (a tela reduz para 64 px)
 const ICONE_PROPRIO = /^data:image\/png;base64,[A-Za-z0-9+/=]{20,32000}$/;
@@ -528,20 +528,24 @@ const { spawn } = require('child_process');
 // No .exe o media.ps1 fica fora do app.asar (asarUnpack), porque o PowerShell
 // não enxerga arquivos dentro do .asar.
 const SCRIPT_MIDIA = path.join(__dirname, 'media.ps1').replace('app.asar', 'app.asar.unpacked');
+const SCRIPT_AUXILIAR_LINUX = path.join(__dirname, 'helper-linux.py').replace('app.asar', 'app.asar.unpacked');
 const ACOES_MIDIA = new Set(['playpause', 'next', 'prev']);
 
-// ----- auxiliar compilado (no lugar do PowerShell) -----
+// ----- auxiliar nativo/compilado (no lugar do PowerShell) -----
 // O PowerShell sozinho gasta ~55 MB de RAM só por existir. O app/helper.cs faz o mesmo
 // trabalho do media.ps1 (mesmo protocolo de linhas) num programinha de ~20 KB que usa
-// ~25 MB. Ele é compilado uma vez, com o csc.exe que já vem no Windows, e guardado em
-// %APPDATA%\meu-widget\medidor-<hash>.exe (o hash muda se o código mudar). Se o csc não
-// existir, a compilação falhar ou o programa não responder, tudo segue pelo media.ps1.
+// ~25 MB. Ele é compilado uma vez, com o csc.exe que já vem no Windows.
+// No Linux/Ubuntu, usa-se o app/helper-linux.py nativo (MPRIS2, /proc, playerctl, xprop).
 const FONTE_AUXILIAR = path.join(__dirname, 'helper.cs').replace('app.asar', 'app.asar.unpacked');
 const CSC = path.join(process.env.windir || 'C:\\Windows', 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe');
 let auxiliarExe = null;     // caminho do medidor compilado (null = usar o PowerShell)
 let usandoAuxiliar = false; // o servidor atual é o medidor?
 
 function prepararAuxiliar() {
+  if (process.platform !== 'win32') {
+    auxiliarExe = SCRIPT_AUXILIAR_LINUX;
+    return Promise.resolve();
+  }
   return new Promise((resolve) => {
     try {
       if (!fs.existsSync(CSC)) return resolve();
@@ -594,7 +598,7 @@ function filtrarMidia(obj) {
   return r;
 }
 
-// ----- servidor PowerShell persistente -----
+// ----- servidor persistente (auxiliar ou fallback) -----
 const LIMITE_RESPOSTA = 20 * 1024 * 1024; // uma capa grande cabe com folga
 const TEMPO_LIMITE = 10000;               // ms; se travar, o processo é recriado
 let servidorPS = null;
@@ -604,6 +608,7 @@ let bufferSaida = '';
 // O medidor deu problema (não abre, morreu sem responder...): apaga o arquivo (a próxima
 // abertura compila de novo) e passa a usar o PowerShell
 function descartarAuxiliar(motivo) {
+  if (process.platform !== 'win32') return;
   if (!auxiliarExe) return;
   console.error('Medidor descartado (' + motivo + '); voltando ao PowerShell.');
   try { fs.rmSync(auxiliarExe, { force: true }); } catch { /* em uso: fica para a próxima */ }
@@ -614,16 +619,30 @@ function iniciarServidorPS() {
   const opcoes = { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] };
   servidorPS = null;
   usandoAuxiliar = false;
-  if (auxiliarExe) {
+  if (process.platform !== 'win32') {
     try {
-      servidorPS = spawn(auxiliarExe, [], opcoes);
+      servidorPS = spawn('python3', [SCRIPT_AUXILIAR_LINUX, 'servidor'], opcoes);
       usandoAuxiliar = true;
-    } catch (erro) {
-      descartarAuxiliar(erro.message); // arquivo inválido: o spawn já falha na hora
+    } catch (e1) {
+      try {
+        servidorPS = spawn('python', [SCRIPT_AUXILIAR_LINUX, 'servidor'], opcoes);
+        usandoAuxiliar = true;
+      } catch (e2) {
+        console.error('Falha ao iniciar helper-linux.py:', e2.message);
+      }
     }
-  }
-  if (!servidorPS) {
-    servidorPS = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT_MIDIA, '-Action', 'servidor'], opcoes);
+  } else {
+    if (auxiliarExe) {
+      try {
+        servidorPS = spawn(auxiliarExe, [], opcoes);
+        usandoAuxiliar = true;
+      } catch (erro) {
+        descartarAuxiliar(erro.message); // arquivo inválido: o spawn já falha na hora
+      }
+    }
+    if (!servidorPS) {
+      servidorPS = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT_MIDIA, '-Action', 'servidor'], opcoes);
+    }
   }
   const meu = servidorPS;
   const eraAuxiliar = usandoAuxiliar;
@@ -751,20 +770,29 @@ const pngParaUrl = (png) => (/^[A-Za-z0-9+/=]{20,}$/.test(png.trim()) ? 'data:im
 // "notepad.exe" é procurado no System32, no Windows e nas pastas do PATH.
 function caminhoCompleto(alvo) {
   if (path.isAbsolute(alvo) || /[\\/]/.test(alvo)) return alvo;
-  const raiz = process.env.SystemRoot || 'C:\\Windows';
-  const pastas = [path.join(raiz, 'System32'), raiz, ...(process.env.PATH || '').split(';')];
-  const sufixos = path.extname(alvo) ? [''] : ['.exe', '.com', '.bat', '.cmd', '.lnk'];
-  for (const pasta of pastas) {
-    if (!pasta) continue;
-    for (const sufixo of sufixos) {
-      const candidato = path.join(pasta, alvo + sufixo);
+  if (process.platform === 'win32') {
+    const raiz = process.env.SystemRoot || 'C:\\Windows';
+    const pastas = [path.join(raiz, 'System32'), raiz, ...(process.env.PATH || '').split(';')];
+    const sufixos = path.extname(alvo) ? [''] : ['.exe', '.com', '.bat', '.cmd', '.lnk'];
+    for (const pasta of pastas) {
+      if (!pasta) continue;
+      for (const sufixo of sufixos) {
+        const candidato = path.join(pasta, alvo + sufixo);
+        if (fs.existsSync(candidato)) return candidato;
+      }
+    }
+  } else {
+    const pastas = (process.env.PATH || '/usr/local/bin:/usr/bin:/bin').split(':');
+    for (const pasta of pastas) {
+      if (!pasta) continue;
+      const candidato = path.join(pasta, alvo);
       if (fs.existsSync(candidato)) return candidato;
     }
   }
   return alvo; // não achou: o openPath devolve o erro
 }
 
-// Abre só sites http(s) ou caminhos que existem (.exe, .lnk, pasta, arquivo)
+// Abre só sites http(s) ou caminhos que existem (.exe, .lnk, pasta, arquivo, .desktop)
 ipcMain.handle('apps:abrir', async (e, indice) => {
   if (!daJanela(e)) return 'origem inválida';
   const a = lerApp(indice);
@@ -779,10 +807,22 @@ ipcMain.handle('apps:abrir', async (e, indice) => {
     }
   }
   if (a.type === 'app') {
-    // apps da Store / Menu Iniciar: o próprio Windows abre pelo AppID
+    // apps da Store / Menu Iniciar no Windows; .desktop ou comando no Linux
     if (!APP_ID.test(a.target)) return 'app inválido';
     if (await pedirServidorPS('focar-app ' + a.target) === 'true') return 'focado'; // já estava aberto
-    spawn('explorer.exe', ['shell:AppsFolder\\' + a.target], { detached: true, stdio: 'ignore' }).unref();
+    if (process.platform === 'win32') {
+      spawn('explorer.exe', ['shell:AppsFolder\\' + a.target], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      try {
+        if (a.target.endsWith('.desktop')) {
+          spawn('gtk-launch', [path.basename(a.target, '.desktop')], { detached: true, stdio: 'ignore' }).unref();
+        } else {
+          spawn(a.target, { shell: true, detached: true, stdio: 'ignore' }).unref();
+        }
+      } catch (err) {
+        return err.message;
+      }
+    }
     return '';
   }
   const caminho = caminhoCompleto(a.target);
@@ -792,13 +832,14 @@ ipcMain.handle('apps:abrir', async (e, indice) => {
   return shell.openPath(caminho); // texto vazio = deu certo
 });
 
-// O .exe por trás de um app: ele mesmo, ou o destino do atalho .lnk (null se não for programa)
+// O .exe/binário por trás de um app: ele mesmo, ou o destino do atalho .lnk (null se não for programa)
 const EXE_VALIDO = /^[A-Za-z]:\\[^"<>|*?\r\n]{1,300}\.exe$/i;
 function exeDoAtalho(caminho) {
   let exe = caminho;
   if (/\.lnk$/i.test(caminho)) {
     try { exe = shell.readShortcutLink(caminho).target || ''; } catch { return null; }
   }
+  if (process.platform !== 'win32') return exe;
   return EXE_VALIDO.test(exe) ? exe : null;
 }
 
@@ -896,6 +937,7 @@ const SCRIPT_STARTAPPS = "[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
   + "if ($i.Count -eq 0) { '[]' } else { ConvertTo-Json $i -Compress }";
 async function lerStartApps() {
   await auxiliarPronto;
+  if (process.platform !== 'win32') return pedirServidorPS('startapps');
   if (!auxiliarExe) return pedirServidorPS('startapps'); // sem medidor: o servidor PowerShell responde
   return new Promise((resolve) => {
     require('child_process').execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', SCRIPT_STARTAPPS],
@@ -907,6 +949,21 @@ async function listarInstalados() {
   if (instaladosCache && Date.now() - instaladosHora < 5 * 60000) return instaladosCache;
   let lista = [];
   try { lista = JSON.parse(await lerStartApps()); } catch { lista = []; }
+  if (process.platform !== 'win32') {
+    const itens = [];
+    const vistos = new Set();
+    for (const a of Array.isArray(lista) ? lista : []) {
+      if (!a || typeof a.n !== 'string' || typeof a.id !== 'string') continue;
+      const chave = a.n.toLowerCase();
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
+      itens.push({ nome: a.n, type: 'app', target: a.id });
+    }
+    itens.sort((x, y) => x.nome.localeCompare(y.nome, 'pt'));
+    instaladosCache = itens.slice(0, 500);
+    instaladosHora = Date.now();
+    return instaladosCache;
+  }
   const atalhos = atalhosDoMenu();
   const vistos = new Set();
   const itens = [];
@@ -1183,13 +1240,21 @@ ipcMain.handle('projetos:abrir-ps', async (e, id) => {
   if (!p) return { ok: false, tipo: 'erro', erro: 'projeto não encontrado: ' + id };
   if (!p.pasta_existe) return { ok: false, tipo: 'erro', erro: 'a pasta do projeto não existe: ' + p.pasta };
   const env = ias.ambiente(ias.obter('claude'), process.env, { usarChave: false });
+  const prog = process.platform === 'win32' ? 'powershell.exe' : (process.env.SHELL || '/bin/bash');
+  const progArgs = process.platform === 'win32' ? ['-NoLogo'] : [];
+  const rotulo = process.platform === 'win32' ? 'powershell' : 'bash';
   if (iniciarEmbutido) {
-    const r = await iniciarEmbutido({ pasta: p.pasta, programa: 'powershell.exe', args: ['-NoLogo'], env });
-    if (r && r.termId) return { ok: true, via: 'widget', termId: r.termId, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id };
+    const r = await iniciarEmbutido({ pasta: p.pasta, programa: prog, args: progArgs, env });
+    if (r && r.termId) return { ok: true, via: 'widget', termId: r.termId, nome: p.nome, modelo: rotulo, cor: p.cor, ia: rotulo, projetoId: p.id };
   }
-  spawn('cmd.exe', ['/d', '/s', '/c', `"start "PowerShell - ${p.nome.replace(/"/g, "'")}" /d "${p.pasta}" powershell.exe -NoLogo"`],
-    { detached: true, stdio: 'ignore', windowsVerbatimArguments: true, env }).unref();
-  return { ok: true, via: 'cmd', termId: null, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id };
+  if (process.platform === 'win32') {
+    spawn('cmd.exe', ['/d', '/s', '/c', `"start "PowerShell - ${p.nome.replace(/"/g, "'")}" /d "${p.pasta}" powershell.exe -NoLogo"`],
+      { detached: true, stdio: 'ignore', windowsVerbatimArguments: true, env }).unref();
+  } else {
+    const { abrirTerminalLinux } = require('./terminal');
+    if (typeof abrirTerminalLinux === 'function') abrirTerminalLinux(p.pasta, p.nome);
+  }
+  return { ok: true, via: process.platform === 'win32' ? 'cmd' : 'terminal', termId: null, nome: p.nome, modelo: rotulo, cor: p.cor, ia: rotulo, projetoId: p.id };
 });
 
 // Destacar somente o terminal/PowerShell numa janela própria mantendo a borda característica do widget (para usar em outro monitor)
@@ -1425,8 +1490,21 @@ async function montarGerenciador() {
   mapaGerenciador = { apps, procs };
   return mapaGerenciador;
 }
-function taskkill(args) {
-  return new Promise((resolve) => require('child_process').execFile('taskkill', args, { windowsHide: true, timeout: 15000 }, (erro) => resolve(!erro)));
+function encerrarPid(pid, forcar = false) {
+  return new Promise((resolve) => {
+    if (process.platform === 'win32') {
+      const args = forcar ? ['/F', '/PID', String(pid)] : ['/PID', String(pid)];
+      require('child_process').execFile('taskkill', args, { windowsHide: true, timeout: 15000 }, (erro) => resolve(!erro));
+    } else {
+      const signal = forcar ? 'SIGKILL' : 'SIGTERM';
+      try {
+        process.kill(Number(pid), signal);
+        resolve(true);
+      } catch (e) {
+        require('child_process').execFile('kill', [forcar ? '-9' : '-15', String(pid)], { timeout: 15000 }, (erro) => resolve(!erro));
+      }
+    }
+  });
 }
 ipcMain.handle('sys:lista', async (e) => {
   if (!daJanela(e)) return RECUSADO;
@@ -1438,9 +1516,9 @@ ipcMain.handle('sys:fechar-app', async (e, id) => {
   if (!daJanela(e) || typeof id !== 'string') return RECUSADO;
   const a = mapaGerenciador.apps.get(id);
   if (!a) return { ok: false, erro: 'esse programa já fechou' };
-  if (a.protegido) return { ok: false, erro: 'este programa é do Windows ou do próprio widget: não dá para fechar daqui' };
+  if (a.protegido) return { ok: false, erro: 'este programa é do sistema ou do próprio widget: não dá para fechar daqui' };
   let enviados = 0;
-  for (const pid of a.pids) if (await taskkill(['/PID', String(pid)])) enviados++;
+  for (const pid of a.pids) if (await encerrarPid(pid, false)) enviados++;
   return { ok: true, enviados };
 });
 // encerrar à força (apps que não respondem, ou qualquer processo da lista Processes)
@@ -1448,10 +1526,10 @@ ipcMain.handle('sys:encerrar', async (e, id) => {
   if (!daJanela(e) || typeof id !== 'string') return RECUSADO;
   const x = mapaGerenciador.apps.get(id) || mapaGerenciador.procs.get(id);
   if (!x) return { ok: false, erro: 'esse processo já acabou' };
-  if (x.protegido) return { ok: false, erro: 'este processo é do Windows ou do próprio widget: não dá para encerrar daqui' };
+  if (x.protegido) return { ok: false, erro: 'este processo é do sistema ou do próprio widget: não dá para encerrar daqui' };
   const pids = x.pids.length ? x.pids : [];
   let mortos = 0;
-  for (const pid of pids) if (await taskkill(['/F', '/PID', String(pid)])) mortos++;
+  for (const pid of pids) if (await encerrarPid(pid, true)) mortos++;
   return { ok: true, mortos };
 });
 // "fechar todos os apps": primeiro MOSTRA o que seria fechado (sem o que é protegido); só fecha o que você confirmou
@@ -1467,7 +1545,7 @@ ipcMain.handle('sys:fechar-todos', async (e, ids) => {
   if (!daJanela(e) || !Array.isArray(ids)) return RECUSADO;
   const escolhidos = ids.filter((id) => typeof id === 'string' && previsaoFechar.has(id) && mapaGerenciador.apps.has(id) && !mapaGerenciador.apps.get(id).protegido);
   previsaoFechar = new Set();
-  for (const id of escolhidos) for (const pid of mapaGerenciador.apps.get(id).pids) await taskkill(['/PID', String(pid)]);
+  for (const id of escolhidos) for (const pid of mapaGerenciador.apps.get(id).pids) await encerrarPid(pid, false);
   await new Promise((r) => setTimeout(r, 2500)); // dá tempo de fechar (ou de aparecer o "deseja salvar?")
   const m = await montarGerenciador();
   const restantes = escolhidos.filter((id) => m.apps.has(id)).map((id) => publicoSys(m.apps.get(id)));
@@ -1475,7 +1553,7 @@ ipcMain.handle('sys:fechar-todos', async (e, ids) => {
 });
 
 // ---------- Desligar o PC ----------
-// Duas confirmações em sequência (a ordem é conferida AQUI, não só na tela) e uma contagem de 20 s que dá para cancelar (shutdown /a).
+// Duas confirmações em sequência (a ordem é conferida AQUI, não só na tela) e uma contagem de 20 s (Windows) ou 60 s (Linux) que dá para cancelar.
 // MEU_WIDGET_DESLIGAR_TESTE: só para os testes automáticos; em vez de desligar de verdade, anota o comando no arquivo indicado.
 const SEGUNDOS_DESLIGAR = 20;
 const JANELA_CONFIRMACAO = 60000;
@@ -1483,7 +1561,12 @@ let etapaDesligar = { n: 0, t: 0 };
 function comandoDeSistema(args) {
   const teste = process.env.MEU_WIDGET_DESLIGAR_TESTE;
   if (teste) { fs.appendFileSync(teste, 'shutdown ' + args.join(' ') + '\n'); return; }
-  require('child_process').execFile('shutdown', args, { windowsHide: true }, () => {});
+  if (process.platform === 'win32') {
+    require('child_process').execFile('shutdown', args, { windowsHide: true }, () => {});
+  } else {
+    const cmd = args.includes('/a') ? ['-c'] : ['+1', 'Desligando pelo Meu Widget. Para cancelar: shutdown -c'];
+    require('child_process').execFile('shutdown', cmd, {}, () => {});
+  }
 }
 ipcMain.handle('power:etapa', (e, n) => {
   if (!daJanela(e)) return RECUSADO;
@@ -1498,8 +1581,13 @@ ipcMain.handle('power:desligar', (e) => {
   const ok = etapaDesligar.n === 2 && Date.now() - etapaDesligar.t < JANELA_CONFIRMACAO;
   etapaDesligar = { n: 0, t: 0 };
   if (!ok) return { ok: false, erro: 'faltou confirmar as duas etapas' };
-  comandoDeSistema(['/s', '/t', String(SEGUNDOS_DESLIGAR), '/c', 'Desligando pelo Meu Widget. Para cancelar: shutdown /a']);
-  return { ok: true, segundos: SEGUNDOS_DESLIGAR };
+  if (process.platform === 'win32') {
+    comandoDeSistema(['/s', '/t', String(SEGUNDOS_DESLIGAR), '/c', 'Desligando pelo Meu Widget. Para cancelar: shutdown /a']);
+    return { ok: true, segundos: SEGUNDOS_DESLIGAR };
+  } else {
+    comandoDeSistema(['+1']);
+    return { ok: true, segundos: 60 };
+  }
 });
 ipcMain.handle('power:cancelar', (e) => {
   if (!daJanela(e)) return RECUSADO;

@@ -1,11 +1,12 @@
 {
   "name": "meu-widget",
   "version": "1.0.0",
-  "description": "Widget pessoal para Windows 10",
+  "description": "Widget pessoal para Linux (Ubuntu) e Windows",
   "main": "app/main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win portable && node tools/finalizar-exe.js",
+    "dist:linux": "electron-builder --linux AppImage",
     "icone": "electron tools/gerar-icone.js",
     "medir": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/medir.ps1",
     "testar-cerebro": "node tools/testar-cerebro.js",
@@ -39,10 +40,19 @@
       "target": "portable",
       "icon": "assets/icone.ico"
     },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Utility",
+      "icon": "assets/icone.png"
+    },
     "asarUnpack": [
       "app/media.ps1",
       "app/helper.cs",
-      "app/pty.cs"
+      "app/pty.cs",
+      "app/helper-linux.py",
+      "app/pty-linux.py"
     ],
     "npmRebuild": false,
     "files": [

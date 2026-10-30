@@ -47,7 +47,7 @@ function pastaTools() {
 }
 const caminhoScript = (nome = 'cerebro.py') => path.join(pastaTools(), nome);
 // Se "python" não existir (ou for o atalho da Microsoft Store), tenta o "py -3" do Windows
-const PYTHONS = [['python'], ['py', '-3']];
+const PYTHONS = process.platform === 'win32' ? [['python'], ['py', '-3'], ['python3']] : [['python3'], ['python']];
 const TIMEOUT = 20000;
 const LIMITE_RESULTADOS = 12;
 const MAX_RESUMO = 20000; // caracteres do corpo de um resumo

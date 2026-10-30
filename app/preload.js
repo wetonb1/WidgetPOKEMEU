@@ -2,6 +2,7 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('widget', {
+  plataforma: process.platform,
   loadConfig: () => ipcRenderer.invoke('config:carregar'),
   saveConfig: (cfg) => ipcRenderer.invoke('config:salvar', cfg),
   getStats: () => ipcRenderer.invoke('stats'),
