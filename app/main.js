@@ -1625,26 +1625,31 @@ app.on('will-quit', () => {
   encerrarServidorPS();
 });
 
-// Setup inicial na primeira abertura: descobre a pasta onde o widget foi extraído
-// e configura o ~/.cerebro.json apontando para o cerebro/ local, garantindo também o projetos.json.
-// Executado somente 1 vez na primeira abertura.
+// Setup inicial na primeira abertura / verificação: descobre a pasta onde o widget está instalado/extraído
+// e garante o ~/.cerebro.json apontando para o cerebro/ válido, bem como projetos.json.
 function executarSetupInicial() {
   try {
     const cfg = carregarConfig();
-    if (cfg.setupInicialFeito) return;
-
     const raiz = cerebro.pastaRaizWidget();
     const pastaCerebro = path.join(raiz, 'cerebro');
 
     if (fs.existsSync(pastaCerebro)) {
       const arqConfigCerebro = process.env.CEREBRO_CONFIG || path.join(os.homedir(), '.cerebro.json');
       let dados = {};
+      let precisaAtualizar = true;
       try {
-        dados = JSON.parse(fs.readFileSync(arqConfigCerebro, 'utf8').replace(/^\uFEFF/, ''));
+        if (fs.existsSync(arqConfigCerebro)) {
+          dados = JSON.parse(fs.readFileSync(arqConfigCerebro, 'utf8').replace(/^\uFEFF/, ''));
+          if (dados && dados.cerebro_dir && fs.existsSync(dados.cerebro_dir) && fs.existsSync(path.join(dados.cerebro_dir, 'tools', 'cerebro.py'))) {
+            precisaAtualizar = false;
+          }
+        }
       } catch { /* sem config previa ou corrompido */ }
 
-      dados.cerebro_dir = pastaCerebro;
-      fs.writeFileSync(arqConfigCerebro, JSON.stringify(dados, null, 2) + '\n', 'utf8');
+      if (precisaAtualizar) {
+        dados.cerebro_dir = pastaCerebro;
+        fs.writeFileSync(arqConfigCerebro, JSON.stringify(dados, null, 2) + '\n', 'utf8');
+      }
 
       // Garante projetos.json na raiz do widget para não dar erro de leitura
       const arqProj = path.join(raiz, 'projetos.json');
@@ -1652,9 +1657,11 @@ function executarSetupInicial() {
         try { fs.writeFileSync(arqProj, '[]\n', 'utf8'); } catch { /* ignora */ }
       }
 
-      cfg.setupInicialFeito = true;
-      cfg.pastaInstalacao = raiz;
-      salvarConfig(cfg);
+      if (!cfg.setupInicialFeito || cfg.pastaInstalacao !== raiz) {
+        cfg.setupInicialFeito = true;
+        cfg.pastaInstalacao = raiz;
+        salvarConfig(cfg);
+      }
     }
   } catch (erro) {
     console.error('Falha no setup inicial do widget:', erro.message);

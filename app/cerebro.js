@@ -11,7 +11,7 @@ const os = require('os');
 
 // Onde está o cerebro/tools: ao lado do widget (npm start) ou, no .exe (que não leva o cérebro
 // junto), na pasta do cérebro escolhida (CEREBRO_DIR ou "cerebro_dir" do ~/.cerebro.json).
-// Onde o widget esta instalado/extraido (raiz do projeto ou pasta do .exe portatil)
+// Onde o widget está instalado/extraído (raiz do projeto ou pasta do .exe portátil)
 function pastaRaizWidget() {
   if (process.env.PORTABLE_EXECUTABLE_DIR && fs.existsSync(process.env.PORTABLE_EXECUTABLE_DIR)) {
     return process.env.PORTABLE_EXECUTABLE_DIR;
@@ -29,15 +29,20 @@ function pastaRaizWidget() {
 function pastaTools() {
   const raiz = pastaRaizWidget();
   const candidatos = [
-    path.join(__dirname, '..', 'cerebro', 'tools'),
     path.join(raiz, 'cerebro', 'tools'),
+    path.join(__dirname, '..', 'cerebro', 'tools'),
   ];
   const pastas = [process.env.CEREBRO_DIR];
   try {
     const arquivo = process.env.CEREBRO_CONFIG || path.join(os.homedir(), '.cerebro.json');
-    pastas.push(JSON.parse(fs.readFileSync(arquivo, 'utf8').replace(/^﻿/, '')).cerebro_dir);
-  } catch { /* sem config: só a pasta ao lado */ }
-  for (const p of pastas) if (typeof p === 'string' && p) candidatos.push(path.join(p, 'tools'));
+    if (fs.existsSync(arquivo)) {
+      const conteudo = JSON.parse(fs.readFileSync(arquivo, 'utf8').replace(/^\uFEFF/, ''));
+      if (conteudo && conteudo.cerebro_dir) pastas.push(conteudo.cerebro_dir);
+    }
+  } catch { /* sem config ou corrompido */ }
+  for (const p of pastas) {
+    if (typeof p === 'string' && p) candidatos.push(path.join(p, 'tools'));
+  }
   return candidatos.find((p) => fs.existsSync(path.join(p, 'cerebro.py'))) || candidatos[0];
 }
 const caminhoScript = (nome = 'cerebro.py') => path.join(pastaTools(), nome);

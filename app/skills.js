@@ -4,7 +4,7 @@
 // executa "python <script> <comando> --json". Não depende do Electron (testável com node).
 const fs = require('fs');
 const path = require('path');
-const { executar, pastaTools } = require('./cerebro');
+const { executar, pastaTools, pastaRaizWidget } = require('./cerebro');
 const ias = require('./ias');
 
 const NOME = /^[a-z0-9][a-z0-9-]{0,63}$/;
@@ -12,7 +12,14 @@ const PROJETO = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const CATEGORIAS = new Set(['cerebro', 'codigo', 'escrita', 'blender', 'roblox', 'design', 'outros']);
 
 // o skills.py mora em skills-biblioteca/, ao lado da pasta do cérebro (a mesma relação do repositório)
-const scriptSkills = () => path.join(pastaTools(), '..', '..', 'skills-biblioteca', 'skills.py');
+const scriptSkills = () => {
+  const raiz = typeof pastaRaizWidget === 'function' ? pastaRaizWidget() : path.resolve(__dirname, '..');
+  const cand = [
+    path.join(raiz, 'skills-biblioteca', 'skills.py'),
+    path.join(pastaTools(), '..', '..', 'skills-biblioteca', 'skills.py'),
+  ];
+  return cand.find((p) => fs.existsSync(p)) || cand[0];
+};
 const falhou = (erro) => Promise.resolve({ ok: false, tipo: 'erro', erro });
 const escopoValido = (e) => (e === 'global' ? 'global' : 'projeto');
 const projetoValido = (p) => (typeof p === 'string' && PROJETO.test(p) ? p : null);
