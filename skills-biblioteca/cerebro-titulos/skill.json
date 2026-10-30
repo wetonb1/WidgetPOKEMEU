@@ -1,0 +1,14 @@
+{
+  "nome": "cerebro-titulos",
+  "titulo": "Cérebro: títulos",
+  "descricao_curta": "Nível 1: procura no cérebro só pelos nomes dos arquivos, sem abrir nenhum.",
+  "exemplo_de_uso": "o que já decidimos sobre o cérebro do meu-widget?",
+  "categoria": "cerebro",
+  "versao": "1.0.0",
+  "autor": "eu",
+  "origem": "local",
+  "compativel": [
+    "claude"
+  ],
+  "arquivos_extras": []
+}

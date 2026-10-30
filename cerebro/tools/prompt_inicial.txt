@@ -1,0 +1,4 @@
+Projeto: {projeto}. Antes de qualquer coisa, rode: python "{CAMINHO_CEREBRO}/tools/cerebro.py" buscar {tema} --projeto {projeto}
+Se a saída disser "estado disponível", leia o estado inteiro: python "{CAMINHO_CEREBRO}/tools/cerebro.py" ler estado/{projeto}.md
+Abra outros arquivos só se as palavras-chave combinarem (máx. 3, com "ler"). Nunca leia arquivos do cérebro direto.
+Diga em 1 linha o que achou (ou "cérebro: nada útil") e {depois}

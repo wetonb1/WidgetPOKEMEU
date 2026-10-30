@@ -1,0 +1,19 @@
+node_modules
+dist
+*.exe
+.env
+__pycache__/
+# Cérebro: logs e exportações de chats ficam só na máquina (a pasta vazia vai no git)
+cerebro/.log/*
+!cerebro/.log/.gitkeep
+importacoes/*
+!importacoes/.gitkeep
+
+# marca local do instalador de skills (data e caminho desta máquina)
+.claude/skills/*/.instalado.json
+.agents/skills/*/.instalado.json
+
+# Backups do cérebro (.zip) e índices por projeto (gerados): ficam só na máquina
+*.zip
+cerebro/indices/*
+!cerebro/indices/.gitkeep

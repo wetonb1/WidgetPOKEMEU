@@ -1,0 +1,6 @@
+> Rode no terminal exatamente: python scripts\oi.py   e me diga a saida crua
+⣷  Generating...
+────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────
+esc to cancelGemini 3.8 Flash · low

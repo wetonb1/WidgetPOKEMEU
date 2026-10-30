@@ -1,0 +1,2 @@
+# scripts de shell precisam de fim de linha LF, senão o git não consegue executá-los no Windows
+tools/git-hooks/* text eol=lf

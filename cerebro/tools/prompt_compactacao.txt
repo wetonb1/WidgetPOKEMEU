@@ -1,0 +1,21 @@
+Vou guardar o resumo desta conversa no meu "cérebro" (memória em arquivos de texto) para não precisar explicar tudo de novo no futuro. Compacte TUDO o que conversamos aqui num resumo minúsculo.
+
+Guarde SÓ o que vale no futuro: decisões que EU tomei, o estado atual do trabalho, pendências, erros e a solução que funcionou, e comandos ou trechos de código essenciais (no máximo 15 linhas). Ignore cumprimentos, tentativas descartadas e explicações genéricas.
+
+Regras:
+- título: 3 a 6 palavras, descritivo (ex.: login com google no app).
+- palavras-chave: de 5 a 10, separadas por vírgula; inclua o projeto, a tecnologia e o tema.
+- corpo: no máximo 12 tópicos curtos, cada um começando com "- ", e no máximo 150 palavras no total. Frases curtas, sem enrolação.
+- Nunca inclua senhas, tokens, chaves de API, e-mails de terceiros nem dados pessoais: troque por [removido].
+- Responda SÓ com o bloco abaixo, dentro de um bloco de código, sem nenhum texto antes ou depois.
+
+Formato exato:
+```
+título: <3 a 6 palavras>
+palavras-chave: <termo1, termo2, termo3, termo4, termo5>
+data: AAAA-MM-DD | origem: <claude, chatgpt, gemini ou antigravity> | projeto: <nome-do-projeto-em-minusculas-com-hifens>
+
+- <tópico 1>
+- <tópico 2>
+```
+Em "data" ponha a data de hoje, se souber. Em "origem" ponha o nome da IA em que você está agora.

@@ -1,0 +1,66 @@
+{
+  "name": "meu-widget",
+  "version": "1.0.0",
+  "description": "Widget pessoal para Windows 10",
+  "main": "app/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable && node tools/finalizar-exe.js",
+    "icone": "electron tools/gerar-icone.js",
+    "medir": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/medir.ps1",
+    "testar-cerebro": "node tools/testar-cerebro.js",
+    "testar-abrir": "node tools/testar-abrir.js",
+    "testar-sessoes": "node tools/testar-sessoes.js",
+    "testar-pty": "node tools/testar-pty.js",
+    "testar-embutido": "node tools/testar-embutido.js",
+    "testar-lateral": "node tools/testar-lateral.js",
+    "testar-uso-tela": "node tools/testar-uso-tela.js && node tools/testar-uso-tela-agy.js",
+    "testar-catalogo": "node tools/testar-catalogo.js",
+    "testar-skills": "node tools/testar-skills.js",
+    "testar-conta": "node tools/testar-conta.js",
+    "testar-uso": "python -X utf8 cerebro/tools/test_uso.py",
+    "testar-importar": "python -X utf8 cerebro/tools/test_importar.py",
+    "testar-economia": "python -X utf8 cerebro/tools/test_economia.py",
+    "testar-manutencao": "python -X utf8 cerebro/tools/test_manutencao.py",
+    "testar-grafo": "python -X utf8 cerebro/tools/test_grafo.py"
+  },
+  "keywords": [],
+  "author": "weto",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0"
+  },
+  "build": {
+    "appId": "com.meu.widget",
+    "productName": "Meu Widget",
+    "win": {
+      "target": "portable",
+      "icon": "assets/icone.ico"
+    },
+    "asarUnpack": [
+      "app/media.ps1",
+      "app/helper.cs",
+      "app/pty.cs"
+    ],
+    "npmRebuild": false,
+    "files": [
+      "**/*",
+      "!tools/**",
+      "!dist/**",
+      "!docs/**",
+      "!*.md",
+      "!*.vbs",
+      "!*.bat",
+      "!*.exe",
+      "!assets/icone.png",
+      "!cerebro/**",
+      "!skills-biblioteca/**",
+      "!importacoes/**",
+      "!.claude/**",
+      "!.agents/**"
+    ],
+    "artifactName": "MeuWidget.${ext}"
+  }
+}

@@ -1,0 +1,81 @@
+{
+  "skills": [
+    {
+      "nome": "cerebro-buscar",
+      "titulo": "Cérebro: buscar (combinada)",
+      "descricao_curta": "Os 3 níveis numa skill só: estado, títulos e cabeçalhos; sugere o que abrir.",
+      "exemplo_de_uso": "lembra o que fizemos na busca em 3 níveis do cérebro?",
+      "categoria": "cerebro",
+      "versao": "1.0.0",
+      "autor": "eu",
+      "origem": "local",
+      "compativel": [
+        "claude",
+        "antigravity"
+      ],
+      "arquivos_extras": [],
+      "alternativa_a": [
+        "cerebro-titulos",
+        "cerebro-cabecalho",
+        "cerebro-ler"
+      ]
+    },
+    {
+      "nome": "cerebro-cabecalho",
+      "titulo": "Cérebro: cabeçalho",
+      "descricao_curta": "Nível 2: confere as palavras-chave dos candidatos (2 linhas de cada).",
+      "exemplo_de_uso": "lembra aquilo que fizemos sobre limites de uso? os títulos não ajudaram",
+      "categoria": "cerebro",
+      "versao": "1.0.0",
+      "autor": "eu",
+      "origem": "local",
+      "compativel": [
+        "claude"
+      ],
+      "arquivos_extras": []
+    },
+    {
+      "nome": "cerebro-compactar",
+      "titulo": "Cérebro: compactar",
+      "descricao_curta": "Resume a sessão atual num arquivo do cérebro (e o estado do projeto, se mudou).",
+      "exemplo_de_uso": "compacta esta sessão no cérebro",
+      "categoria": "cerebro",
+      "versao": "1.0.0",
+      "autor": "eu",
+      "origem": "local",
+      "compativel": [
+        "claude",
+        "antigravity"
+      ],
+      "arquivos_extras": []
+    },
+    {
+      "nome": "cerebro-ler",
+      "titulo": "Cérebro: ler",
+      "descricao_curta": "Nível 3: abre até 3 arquivos do cérebro e resume o achado em 1 linha.",
+      "exemplo_de_uso": "abre o que o cérebro tem sobre a aba Projetos e me resume",
+      "categoria": "cerebro",
+      "versao": "1.0.0",
+      "autor": "eu",
+      "origem": "local",
+      "compativel": [
+        "claude"
+      ],
+      "arquivos_extras": []
+    },
+    {
+      "nome": "cerebro-titulos",
+      "titulo": "Cérebro: títulos",
+      "descricao_curta": "Nível 1: procura no cérebro só pelos nomes dos arquivos, sem abrir nenhum.",
+      "exemplo_de_uso": "o que já decidimos sobre o cérebro do meu-widget?",
+      "categoria": "cerebro",
+      "versao": "1.0.0",
+      "autor": "eu",
+      "origem": "local",
+      "compativel": [
+        "claude"
+      ],
+      "arquivos_extras": []
+    }
+  ]
+}

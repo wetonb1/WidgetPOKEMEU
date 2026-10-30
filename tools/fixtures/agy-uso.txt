@@ -1,0 +1,32 @@
+└ Models & Quota
+
+  Account: <conta>
+
+GEMINI MODELS
+  Models within this group: Gemini Flash, Gemini Pro
+
+  Weekly Limit Remaining
+    [██████████████████████████████████████████████████] 99.04%
+    Refreshes in 165h 2m
+
+  Five Hour Limit Remaining
+    [████████████████████████████████████████████████░░] 96.79%
+    Refreshes in 2h 2m
+
+CLAUDE AND GPT MODELS
+  Models within this group: Claude Opus, Claude Sonnet, GPT-OSS
+
+  Weekly Limit Remaining
+    [█████████████████████████░░░░░░░░░░░░░░░░░░░░░░░░░] 49.67%
+    Refreshes in 165h 12m
+
+  Five Hour Limit Remaining
+    [░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░] 0.00%
+    Refreshes in 2h 12m
+
+GEMINI 4 ARGON
+  For paid Pro plans, Argon quota is separate. Higher Argon quota (included as part of the larger Ge
+
+  (1–27 of 38 lines)
+
+  ↑/↓ Scroll · pgup/pgdown Page · ctrl+end Bottom · ctrl+home Top · esc Close

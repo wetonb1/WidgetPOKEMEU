@@ -1,0 +1,61 @@
+{
+  "claude": {
+    "id": "claude",
+    "nome": "Claude Code",
+    "executavel": "claude",
+    "processo": "claude.exe",
+    "modelos": {
+      "sonnet": "dia a dia",
+      "opus": "planejamento e tarefas difíceis",
+      "haiku": "tarefas simples e baratas"
+    },
+    "modeloPadrao": "sonnet",
+    "docs": "https://code.claude.com/docs/en/setup",
+    "instalar": "irm https://claude.ai/install.ps1 | iex",
+    "instalarAlternativa": "winget install Anthropic.ClaudeCode",
+    "variavelChave": "ANTHROPIC_API_KEY",
+    "arquivoRegras": "CLAUDE.md",
+    "origemCerebro": "claude-code",
+    "comandosUteis": ["/usage"],
+    "suporta": { "continuar": true, "retomar": true, "promptPorArgumento": true, "pularPermissoes": true },
+    "titulos": {
+      "continuar": "claude --continue: a conversa mais recente desta pasta",
+      "retomar": "claude --resume: escolha numa lista no terminal"
+    }
+  },
+  "antigravity": {
+    "id": "antigravity",
+    "nome": "Antigravity",
+    "executavel": "agy",
+    "processo": "agy.exe",
+    "modelos": {
+      "gemini-3.8-flash-medium": "Gemini 3.8 Flash · dia a dia",
+      "gemini-3.8-flash-low": "Gemini 3.8 Flash · rápido e barato",
+      "gemini-3.8-flash-high": "Gemini 3.8 Flash · esforço alto",
+      "gemini-4-argon-low": "Gemini 4 Argon · esforço leve",
+      "gemini-4-argon-medium": "Gemini 4 Argon · planejamento e tarefas difíceis",
+      "gemini-4-argon-high": "Gemini 4 Argon · o mais forte, gasta mais cota",
+      "claude-sonnet-5-5-low": "Claude Sonnet 5.5 · esforço leve",
+      "claude-sonnet-5-5-medium": "Claude Sonnet 5.5 · dia a dia",
+      "claude-sonnet-5-5-high": "Claude Sonnet 5.5 · esforço alto",
+      "claude-opus-5-5-low": "Claude Opus 5.5 · esforço leve",
+      "claude-opus-5-5-medium": "Claude Opus 5.5 · planejamento e tarefas difíceis",
+      "claude-opus-5-5-high": "Claude Opus 5.5 · o mais forte, gasta mais cota",
+      "gpt-oss-120b-medium": "GPT-OSS 120B · dia a dia"
+    },
+    "modeloPadrao": "gemini-3.8-flash-medium",
+    "docs": "https://antigravity.google/docs/getting-started",
+    "instalar": "irm https://antigravity.google/cli/install.ps1 | iex",
+    "instalarAlternativa": "curl -fsSL https://antigravity.google/cli/install.cmd -o install.cmd && install.cmd && del install.cmd",
+    "variavelChave": "GEMINI_API_KEY",
+    "arquivoRegras": "AGENTS.md",
+    "origemCerebro": "antigravity",
+    "comandosUteis": ["/usage"],
+    "suporta": { "continuar": true, "retomar": false, "promptPorArgumento": true, "pularPermissoes": true },
+    "titulos": {
+      "continuar": "agy -c: a conversa mais recente desta pasta",
+      "retomar": "agy não tem lista de sessões na linha de comando"
+    },
+    "dicas": { "retomar": "o Antigravity não tem lista de sessões na linha de comando: abra a sessão e use /resume" }
+  }
+}

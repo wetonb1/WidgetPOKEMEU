@@ -1,0 +1,20 @@
+{
+  "nome": "cerebro-buscar",
+  "titulo": "Cérebro: buscar (combinada)",
+  "descricao_curta": "Os 3 níveis numa skill só: estado, títulos e cabeçalhos; sugere o que abrir.",
+  "exemplo_de_uso": "lembra o que fizemos na busca em 3 níveis do cérebro?",
+  "categoria": "cerebro",
+  "versao": "1.0.0",
+  "autor": "eu",
+  "origem": "local",
+  "compativel": [
+    "claude",
+    "antigravity"
+  ],
+  "arquivos_extras": [],
+  "alternativa_a": [
+    "cerebro-titulos",
+    "cerebro-cabecalho",
+    "cerebro-ler"
+  ]
+}

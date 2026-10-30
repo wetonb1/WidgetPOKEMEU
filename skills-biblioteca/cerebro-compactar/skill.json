@@ -1,0 +1,15 @@
+{
+  "nome": "cerebro-compactar",
+  "titulo": "Cérebro: compactar",
+  "descricao_curta": "Resume a sessão atual num arquivo do cérebro (e o estado do projeto, se mudou).",
+  "exemplo_de_uso": "compacta esta sessão no cérebro",
+  "categoria": "cerebro",
+  "versao": "1.0.0",
+  "autor": "eu",
+  "origem": "local",
+  "compativel": [
+    "claude",
+    "antigravity"
+  ],
+  "arquivos_extras": []
+}

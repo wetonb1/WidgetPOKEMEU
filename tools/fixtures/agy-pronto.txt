@@ -1,0 +1,13 @@
+      ▄▀▀▄        Antigravity CLI 1.4.9
+     ▀▀▀▀▀▀       <conta> (Google AI Pro)
+    ▀▀▀▀▀▀▀▀      Gemini 3.8 Flash (Low)
+   ▄▀▀    ▀▀▄     ~/<projeto>
+  ▄▀▀      ▀▀▄
+ ┃ Verbosity now defaults to medium
+ ┃ Verbosity is now medium by default, so tool calls and thoughts roll up into summaries. You can change
+ ┃ your preferred verbosity anytime in /config > Verbosity.
+ ┃ esc to dismiss
+────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────
+? for shortcutsGemini 3.8 Flash · low

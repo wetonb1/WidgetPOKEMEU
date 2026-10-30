@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <!-- CSP: scripts só locais; scripts inline bloqueados. Estilos inline liberados (a cor do
+       vidro e do tema entram por variáveis CSS no próprio <html>).
+       Sem 'unsafe-eval'. Rede só para a PokéAPI (dados) e sprites (GitHub),
+       favicons do Google e as franquias de anime (AniList e a CDN das imagens):
+       origens específicas, mais restritas que "https:". -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'none'; base-uri 'none'; form-action 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://www.google.com https://*.gstatic.com https://raw.githubusercontent.com https://s4.anilist.co; connect-src https://pokeapi.co https://graphql.anilist.co">
+  <title>Meu Widget</title>
+  <script src="estilo.js"></script>
+  <link rel="stylesheet" href="vendor/xterm/xterm.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- O widget inteiro é uma janela de CMD que o Pokémon "invadiu" -->
+  <div id="cartao" class="terminal">
+
+    <!-- Barra de título (arrasta a janela), como a de um console do Windows -->
+    <header id="cabecalho">
+      <span class="icone-cmd" aria-hidden="true">C:\</span>
+      <span id="titulo" class="titulo">C:\WINDOWS\system32\cmd.exe</span>
+      <nav id="abas" class="abas" role="tablist" aria-label="Abas">
+        <button type="button" class="aba" role="tab" data-aba="sys" title="System: gerenciador de tarefas (Alt+1)">1:sys</button>
+        <button type="button" class="aba" role="tab" data-aba="music" title="Music: player e volume (Alt+2)">2:music</button>
+        <button type="button" class="aba" role="tab" data-aba="apps" title="Apps: atalhos (Alt+3)">3:apps</button>
+        <button type="button" class="aba" role="tab" data-aba="cerebro" title="Brain: a memória dos seus projetos (Alt+4)">4:brain</button>
+        <button type="button" class="aba" role="tab" data-aba="projetos" title="Projects: abrir a IA nos seus projetos (Alt+5)">5:projects</button>
+        <button type="button" class="aba" role="tab" data-aba="skills" title="Skills: o que a IA sabe fazer e quanto custa (Alt+6)">6:skills</button>
+      </nav>
+      <div class="cab-botoes">
+        <button type="button" id="btn-config" class="cab-btn config" title="Settings: Pokémon, visual e ajustes (Alt+0)" aria-label="Settings">
+          <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+        </button>
+        <button type="button" id="btn-pin" class="cab-btn" title="Fixado no topo (clique para soltar)" aria-label="Fixar no topo">
+          <svg viewBox="0 0 24 24"><path d="M14 3l7 7-2 2-1-1-4 4 .5 4.5L13 21l-4-4-5 5-1-1 5-5-4-4 1.5-1.5L10 11l4-4-1-1z"/></svg>
+        </button>
+        <button type="button" id="btn-mini" class="cab-btn" title="Minimizar" aria-label="Minimizar">
+          <svg id="ico-mini" viewBox="0 0 24 24"><path d="M5 17h14v2H5z"/></svg>
+          <svg id="ico-restaurar" class="oculto" viewBox="0 0 24 24"><path d="M5 5h14v14H5zm2 4v8h10V9z"/></svg>
+        </button>
+        <button type="button" id="btn-power" class="cab-btn power" title="Desligar o PC (pede 2 confirmações)" aria-label="Desligar o PC">
+          <svg viewBox="0 0 24 24"><path d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42A6.92 6.92 0 0119 12c0 3.87-3.13 7-7 7A6.995 6.995 0 017.58 6.58L6.17 5.17A8.932 8.932 0 003 12a9 9 0 0018 0c0-2.74-1.23-5.18-3.17-6.83z"/></svg>
+        </button>
+        <button type="button" id="btn-fechar" class="cab-btn fechar" title="Fechar" aria-label="Fechar">
+          <svg viewBox="0 0 24 24"><path d="M6.4 5L12 10.6 17.6 5 19 6.4 13.4 12l5.6 5.6-1.4 1.4L12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Coluna do Pokémon: rosto grande, nome e a narração -->
+    <aside id="lado-poke" class="lado-poke">
+      <div id="poke-tela" class="poke-tela" title="">
+        <!-- o invólucro é que se move nas animações (camada própria) -->
+        <div id="poke-anim" class="poke-anim"><img id="poke-img" class="poke-img oculto" alt="" draggable="false"></div>
+        <div id="poke-vazio" class="poke-vazio">?</div>
+      </div>
+      <div class="poke-cabecalho">
+        <span id="poke-nome" class="poke-nome">???</span>
+        <span id="poke-num" class="poke-num">#???</span>
+      </div>
+      <div id="poke-tipos" class="poke-tipos"></div>
+      <div id="narracao" class="narracao" aria-live="polite"></div>
+    </aside>
+
+    <!-- Conteúdo das abas -->
+    <main id="conteudo" class="conteudo">
+      <!-- linha de comando: o Pokémon "digita" o comando de cada aba -->
+      <div class="prompt"><span id="ps1" class="ps1">C:\&gt;</span><span id="comando" class="comando"></span><span class="cursor-fixo">_</span></div>
+
+      <!-- Primeira vez: nenhum Pokémon ainda; tudo bloqueado até escolher -->
+      <section id="aba-bloqueio" class="painel" data-painel="bloqueio">
+        <pre class="invasao">[!] sinal desconhecido detectado no terminal...
+[!] uma criatura está tentando assumir o controle.
+[?] quem vai mandar aqui?</pre>
+        <!-- de onde vem o dono: Pokémon ou anime (o renderer.js preenche) -->
+        <div class="fonte-escolha" data-fontes role="radiogroup" aria-label="Fonte"></div>
+        <form id="bloq-form" class="linha-busca" autocomplete="off">
+          <label for="bloq-busca">pokémon&gt;</label>
+          <input id="bloq-busca" type="text" maxlength="30" spellcheck="false" placeholder="nome ou número + Enter">
+        </form>
+        <div class="sugestoes oculto" id="bloq-resultados"></div>
+        <div class="sugestoes" id="bloq-sugestoes">
+          <button type="button" data-poke="pikachu">pikachu</button>
+          <button type="button" data-poke="charmander">charmander</button>
+          <button type="button" data-poke="bulbasaur">bulbasaur</button>
+          <button type="button" data-poke="squirtle">squirtle</button>
+          <button type="button" data-poke="eevee">eevee</button>
+          <button type="button" data-poke="gengar">gengar</button>
+        </div>
+      </section>
+
+      <!-- 1: sistema -->
+      <section id="aba-sys" class="painel" data-painel="sys">
+        <!-- medidores numa linha só: CPU [████      ] 45%   RAM [██████    ] 62% -->
+        <div class="medidores">
+          <div class="medidor"><span class="rot">CPU</span><span class="colchete">[</span><span class="barra"><span id="cpu-barra" class="barra-cheia"></span></span><span class="colchete">]</span><span id="cpu-valor" class="valor">--%</span></div>
+          <div class="medidor"><span class="rot">RAM</span><span class="colchete">[</span><span class="barra"><span id="ram-barra" class="barra-cheia"></span></span><span class="colchete">]</span><span id="ram-valor" class="valor">--%</span></div>
+        </div>
+        <div id="ram-texto" class="sub">-- / -- GB em uso</div>
+        <!-- como o Gerenciador de Tarefas: Apps (janelas abertas) e Processes (tudo que está rodando) -->
+        <div class="tm-barra">
+          <div class="tm-vistas" role="tablist" aria-label="Lista">
+            <button type="button" class="tm-vista ativa" role="tab" data-vista="apps">Apps <span id="tm-n-apps" class="tm-n"></span></button>
+            <button type="button" class="tm-vista" role="tab" data-vista="procs">Processes <span id="tm-n-procs" class="tm-n"></span></button>
+          </div>
+          <input id="tm-busca" type="text" maxlength="40" spellcheck="false" placeholder="buscar" aria-label="Buscar na lista">
+          <button type="button" id="tm-fechar-todos" class="botao-cmd" title="Mostra os programas abertos que dá para fechar e pede para você confirmar">[fechar todos os apps]</button>
+        </div>
+        <div class="tm-cab">
+          <button type="button" class="tm-col nome" data-ordem="nome" title="Ordenar por nome">Name</button>
+          <button type="button" class="tm-col" data-ordem="cpu" title="Ordenar por CPU">CPU</button>
+          <button type="button" class="tm-col" data-ordem="ram" title="Ordenar por memória">Memory</button>
+          <span class="tm-acao"></span>
+        </div>
+        <ul id="tm-lista" class="tm-lista"><li class="tm-vazio">coletando…</li></ul>
+        <div id="tm-aviso" class="tm-aviso" role="status"></div>
+
+        <!-- fechar todos os apps: lista com caixas, só o que dá para fechar; o resultado diz o que ficou aberto -->
+        <div id="tm-dialogo" class="dialogo oculto" role="dialog" aria-modal="true" aria-labelledby="tm-titulo">
+          <div class="dialogo-caixa cc-caixa tm-caixa">
+            <h2 id="tm-titulo"></h2>
+            <div id="tm-texto" class="pj-nota"></div>
+            <div id="tm-itens" class="tm-itens"></div>
+            <div id="tm-dlg-erro" class="cc-erro" role="alert"></div>
+            <div id="tm-botoes" class="dialogo-botoes px-botoes"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2: música -->
+      <section id="aba-music" class="painel" data-painel="music">
+        <div class="mus-linha">
+          <div class="mus-capa-moldura"><img id="mus-capa" class="mus-capa oculto" alt=""></div>
+          <div class="mus-info">
+            <div id="mus-titulo" class="mus-titulo">nada tocando</div>
+            <div id="mus-artista" class="mus-artista"></div>
+          </div>
+          <div class="mus-botoes">
+            <button type="button" id="mus-prev" class="mus-btn" title="Anterior" aria-label="Anterior">
+              <svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg>
+            </button>
+            <button type="button" id="mus-play" class="mus-btn grande" title="Tocar / pausar" aria-label="Tocar / pausar">
+              <svg id="ico-play" viewBox="0 0 24 24"><path d="M7 4v16l13-8z"/></svg>
+              <svg id="ico-pause" class="oculto" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+            </button>
+            <button type="button" id="mus-next" class="mus-btn" title="Próxima" aria-label="Próxima">
+              <svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="mus-som">
+          <!-- Visualizador: colunas de blocos, como caracteres █ empilhados -->
+          <canvas id="visualizador" class="visualizador" width="440" height="64"></canvas>
+          <!-- Volume do Windows: barra vertical (arraste, rodinha do mouse ou setas) -->
+          <div id="vol" class="vol">
+            <button type="button" id="vol-icone" class="vol-icone" title="Mudo" aria-label="Ligar ou desligar o mudo">
+              <svg id="vol-alto" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+              <svg id="vol-mudo" class="oculto" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3z"/><path class="traco" d="M15 9.5l6 6m0-6l-6 6"/></svg>
+            </button>
+            <div id="vol-trilho" class="vol-trilho" role="slider" tabindex="0" aria-label="Volume"
+                 aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"
+                 title="Volume: arraste, use a rodinha do mouse ou as setas">
+              <div class="vol-fundo"><div id="vol-cheio" class="vol-cheio"></div></div>
+              <div class="vol-alca"></div>
+            </div>
+            <div id="vol-bolha" class="vol-bolha" aria-hidden="true">0%</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3: apps -->
+      <!-- Adicionar = 1 clique: busque na lista (apps instalados, abertos agora e
+           sites), cole um link/caminho e Enter, ou arraste um programa/atalho aqui -->
+      <section id="aba-apps" class="painel" data-painel="apps">
+        <form id="apps-form" class="linha-busca apps-busca" autocomplete="off">
+          <label for="apps-campo">add&gt;</label>
+          <input id="apps-campo" type="text" maxlength="400" spellcheck="false"
+                 placeholder="busque um app, cole um link ou arraste um arquivo aqui">
+          <button type="button" id="apps-loja-btn" class="botao-cmd" title="Ver tudo o que dá para adicionar">[+ adicionar]</button>
+        </form>
+        <div id="apps-grade" class="apps-grade"></div>
+        <div id="apps-loja" class="apps-loja oculto">
+          <div class="loja-topo">
+            <span class="sub" id="loja-dica">1 clique adiciona · clique de novo tira</span>
+            <button type="button" id="loja-fechar" class="botao-cmd">[pronto]</button>
+          </div>
+          <div id="loja-lista" class="loja-lista"></div>
+        </div>
+        <div id="apps-soltar" class="apps-soltar oculto">solte aqui para adicionar</div>
+      </section>
+
+      <!-- Settings (engrenagem): Pokémon, favoritos, ajustes e visual -->
+      <section id="aba-poke" class="painel" data-painel="poke">
+        <div class="cfg-topo"><button type="button" id="cfg-voltar" class="botao-cmd" title="Volta para a aba que estava aberta">[&lt; back]</button><h2>Settings</h2></div>
+        <div class="fonte-escolha" data-fontes role="radiogroup" aria-label="Fonte"></div>
+        <form id="poke-form" class="linha-busca" autocomplete="off">
+          <label for="poke-busca">trocar&gt;</label>
+          <input id="poke-busca" type="text" maxlength="30" spellcheck="false" placeholder="nome ou número + Enter">
+          <button type="button" id="poke-fav" class="icone-btn" title="Favoritar">☆</button>
+          <button type="button" id="poke-shiny" class="icone-btn" title="Alternar brilhante (shiny)">✦</button>
+        </form>
+        <!-- resultados da busca de anime: clique escolhe (sem nova requisição) -->
+        <div class="sugestoes oculto" id="poke-resultados"></div>
+        <div class="sub">favoritos <span class="dica">(clique troca · botão direito remove)</span></div>
+        <div id="poke-favs" class="poke-favs"></div>
+        <div class="sub">ajustes</div>
+        <div class="ajustes">
+          <label class="caixa"><input type="checkbox" id="cfg-autostart"> iniciar com o Windows</label>
+          <label class="caixa"><input type="checkbox" id="cfg-economico"> modo econômico</label>
+          <label class="caixa"><input type="checkbox" id="cfg-visualizador"> visualizador de áudio</label>
+          <label class="caixa"><input type="checkbox" id="cfg-animacoes"> animações do Pokémon</label>
+        </div>
+        <!-- visual do widget: CMD (padrão) ou iOS (vidro com desfoque) -->
+        <div class="estilo-escolha" role="radiogroup" aria-label="Visual">
+          <span>visual</span>
+          <button type="button" class="estilo-op" data-estilo="cmd" role="radio">CMD</button>
+          <button type="button" class="estilo-op" data-estilo="ios" role="radio">iOS</button>
+        </div>
+      </section>
+
+      <!-- 5: cérebro (memória em Markdown). Nada roda sozinho: cada clique chama o cerebro.py uma vez -->
+      <section id="aba-cerebro" class="painel" data-painel="cerebro">
+        <form id="cer-form" class="linha-busca" autocomplete="off">
+          <div class="cer-troca" role="group" aria-label="Tela do Brain">
+            <button type="button" class="cer-troca-btn" data-tela="grafo" title="O cérebro como um grafo 3D">Graph</button>
+            <button type="button" class="cer-troca-btn ativa" data-tela="busca" title="Buscar nas lembranças">Search</button>
+          </div>
+          <input id="cer-busca" type="text" maxlength="200" spellcheck="false" placeholder="o que lembrar? (Enter)" aria-label="Buscar no cérebro">
+          <select id="cer-projeto" class="cer-select" title="Projeto"><option value="">todos</option></select>
+          <button type="submit" id="cer-buscar" class="botao-cmd">[buscar]</button>
+          <div class="cer-mais">
+            <button type="button" id="cer-mais" class="botao-cmd" title="Compactar conversa, economia, manutenção e conferências" aria-haspopup="true" aria-expanded="false">[mais ▾]</button>
+            <div id="cer-menu" class="cer-menu oculto" role="menu">
+              <button type="button" id="cer-compactar" class="cer-menu-item" role="menuitem" title="Guardar no cérebro o resumo de um chat">Compactar conversa<small>guarda o resumo de um chat</small></button>
+              <button type="button" id="cer-prompt" class="cer-menu-item" role="menuitem" title="Copia um prompt para colar no fim de um chat do Claude.ai, ChatGPT ou Gemini">Copiar prompt de compactação<small>para colar no chat</small></button>
+              <div class="cer-menu-sep"></div>
+              <button type="button" id="cer-economia" class="cer-menu-item" role="menuitem" title="O cérebro está compensando? Consultas por semana, tokens evitados (estimado) e o teste A/B">Economia<small>o cérebro compensa?</small></button>
+              <button type="button" id="cer-manutencao" class="cer-menu-item" role="menuitem" title="Diagnóstico do cérebro, sinônimos, consolidação, índices por projeto e backup (só quando você clica)">Manutenção<small>diagnóstico e backup</small></button>
+              <div class="cer-menu-sep"></div>
+              <button type="button" id="cer-validar" class="cer-menu-item" role="menuitem" title="Confere o formato de todos os arquivos">Validar formato<small>confere os arquivos</small></button>
+              <button type="button" id="cer-reindexar" class="cer-menu-item" role="menuitem" title="Refaz o INDICE.md">Refazer índice<small>INDICE.md</small></button>
+            </div>
+          </div>
+        </form>
+        <!-- estado do projeto escolhido (e quando foi atualizado) -->
+        <div id="cer-estado" class="cer-estado sub"></div>
+        <!-- uma coisa por vez: resultados, leitura de um arquivo ou relatório do validar -->
+        <div id="cer-area" class="cer-area">
+          <div id="cer-lista" class="cer-lista"></div>
+          <div id="cer-leitor" class="cer-leitor oculto">
+            <div class="cer-leitor-topo">
+              <button type="button" id="cer-voltar" class="botao-cmd">[&lt; voltar]</button>
+              <span id="cer-leitor-nome" class="cer-leitor-nome"></span>
+              <button type="button" id="cer-copiar" class="botao-cmd">[copiar]</button>
+              <button type="button" id="cer-editor" class="botao-cmd" title="Abre no VS Code (code arquivo)">[abrir no editor]</button>
+            </div>
+            <pre id="cer-texto" class="cer-texto" tabindex="0"></pre>
+          </div>
+        </div>
+        <div class="cer-rodape">
+          <span id="cer-stats" class="sub">--</span>
+        </div>
+        <!-- tela 2: o cérebro em grafo 3D (canvas puro; só desenha quando você mexe; a simulação dura segundos e para) -->
+        <div id="cer-grafo" class="cer-grafo">
+          <div class="graf-topo">
+            <div class="cer-troca" role="group" aria-label="Tela do Brain">
+              <button type="button" class="cer-troca-btn ativa" data-tela="grafo" title="O cérebro como um grafo 3D">Graph</button>
+              <button type="button" class="cer-troca-btn" data-tela="busca" title="Buscar nas lembranças">Search</button>
+            </div>
+            <input id="graf-filtro" type="text" maxlength="60" spellcheck="false" placeholder="filtrar por nome, palavra ou projeto (Enter vai até ele)" aria-label="Filtrar o grafo">
+            <button type="button" id="graf-centro" class="botao-cmd" title="Enquadra o grafo inteiro de novo (tecla R). Dica: arraste para girar, roda para ampliar, botão direito para mover; uma bolinha pode ser arrastada; duplo clique abre o arquivo">[centralizar]</button>
+          </div>
+          <div id="graf-area" class="graf-area">
+            <canvas id="graf-canvas" class="graf-canvas" tabindex="0" aria-label="Grafo 3D do cérebro"
+                    title="Arrastar: girar · Roda: ampliar · Botão direito ou Shift+arrastar: mover a vista · Arrastar uma bolinha: mover o arquivo · Clique: detalhes · Duplo clique: abrir"></canvas>
+            <div id="graf-info" class="graf-info oculto" role="dialog" aria-label="Detalhes do arquivo"></div>
+            <div id="graf-status" class="graf-status"></div>
+          </div>
+        </div>
+
+        <!-- subaba Economia: o cérebro está compensando? (estimativas dos logs locais + o teste A/B manual) -->
+        <div id="cer-eco" class="cer-eco">
+          <div class="cc-topo">
+            <button type="button" id="eco-voltar" class="botao-cmd">[&lt; voltar]</button>
+            <h2>economia do cérebro</h2>
+            <button type="button" id="eco-atualizar" class="botao-cmd" title="Recalcula a partir dos logs (um Python curto)">[atualizar]</button>
+          </div>
+          <div class="pj-nota">Tudo aqui é <b>estimativa</b> feita dos logs locais (cerebro/.log/). Os únicos números reais são os do teste A/B (bloco 3), os que você mesmo digita.</div>
+          <div id="eco-erro" class="cc-erro" role="alert"></div>
+          <div class="pu-bloco">
+            <div class="pu-titulo">1. consultas por semana e tokens evitados (estimado)</div>
+            <div id="eco-cartoes" class="eco-cartoes"></div>
+            <canvas id="eco-semanal" class="eco-canvas" role="img"></canvas>
+            <div id="eco-legenda" class="pu-legenda"></div>
+            <div id="eco-prop" class="pj-nota"></div>
+          </div>
+          <div class="pu-bloco">
+            <div class="pu-titulo">2. tokens evitados por sessão (estimado)</div>
+            <div id="eco-nota" class="cer-nota"></div>
+            <div id="eco-sessoes" class="eco-lista"></div>
+          </div>
+          <div class="pu-bloco">
+            <div class="pu-titulo">3. teste A/B manual: com cérebro x sem cérebro</div>
+            <div class="pj-nota">Faça a MESMA tarefa duas vezes (roteiro em docs/teste-economia.md) e digite o que o <b>/usage</b> (apelidos /cost e /stats) mostrou ao fim de cada sessão.</div>
+            <form id="eco-form" class="eco-form" autocomplete="off">
+              <input id="eco-tarefa" class="eco-in eco-tarefa" type="text" list="eco-tarefas" maxlength="120" spellcheck="false" placeholder="tarefa (a mesma nas duas)" aria-label="Tarefa">
+              <datalist id="eco-tarefas"></datalist>
+              <select id="eco-variante" class="cer-select" aria-label="Variante"><option value="com">com cérebro</option><option value="sem">sem cérebro</option></select>
+              <input id="eco-entrada" class="eco-in eco-nume" type="text" inputmode="numeric" maxlength="14" placeholder="tokens entrada" aria-label="Tokens de entrada">
+              <input id="eco-saida" class="eco-in eco-nume" type="text" inputmode="numeric" maxlength="14" placeholder="tokens saída" aria-label="Tokens de saída">
+              <input id="eco-custo" class="eco-in eco-nume" type="text" inputmode="decimal" maxlength="12" placeholder="US$ (opcional)" aria-label="Custo em dólares, opcional">
+              <input id="eco-notas" class="eco-in eco-notas" type="text" maxlength="300" spellcheck="false" placeholder="notas (opcional)" aria-label="Notas">
+              <button type="submit" id="eco-registrar" class="botao-cmd">[registrar]</button>
+            </form>
+            <div id="eco-form-erro" class="cc-erro" role="alert"></div>
+            <canvas id="eco-ab" class="eco-canvas" role="img"></canvas>
+            <div id="eco-ab-resumo" class="pj-nota"></div>
+            <div id="eco-ab-lista" class="eco-lista"></div>
+          </div>
+        </div>
+
+        <!-- manutenção: diagnóstico sem IA, sinônimos, consolidação e estado (IA, com confirmação), índices e backup -->
+        <div id="cer-man" class="cer-man">
+          <div class="cc-topo">
+            <button type="button" id="man-voltar" class="botao-cmd">[&lt; voltar]</button>
+            <h2>manutenção do cérebro</h2>
+            <button type="button" id="man-atualizar" class="botao-cmd" title="Roda o diagnóstico de novo (um Python curto, sem IA)">[rodar diagnóstico]</button>
+          </div>
+          <div class="pj-nota">Nada roda em segundo plano. O diagnóstico, os sinônimos, os índices e o backup <b>não usam IA</b> (nenhum token). Só <b>consolidar</b> e <b>propor estado</b> chamam o Claude Code, e sempre perguntam antes, com a estimativa de tokens.</div>
+          <div id="man-erro" class="cc-erro" role="alert"></div>
+          <div id="man-feitos" class="man-feitos"></div>
+          <div class="pu-bloco">
+            <div class="pu-titulo">1. diagnóstico (sem IA)</div>
+            <div id="man-cartoes" class="eco-cartoes"></div>
+            <div id="man-detalhes" class="man-detalhes"></div>
+          </div>
+          <div class="pu-bloco">
+            <div class="pu-titulo">2. sinônimos (cerebro/sinonimos.json)</div>
+            <div class="pj-nota">A busca passa a procurar também os sinônimos, nos dois sentidos (pesquisar <b>bd</b> acha <b>banco-de-dados</b> e vice-versa). Marque o que quer aprovar: nada é gravado sem o seu clique.</div>
+            <div id="man-sugestoes" class="man-lista"></div>
+            <div id="man-sinonimos" class="man-lista"></div>
+            <form id="man-sin-form" class="eco-form" autocomplete="off">
+              <input id="man-sin-apelido" class="eco-in" type="text" maxlength="60" spellcheck="false" placeholder="apelido (ex.: bd)" aria-label="Apelido">
+              <span class="apagado">=</span>
+              <input id="man-sin-padrao" class="eco-in" type="text" maxlength="60" spellcheck="false" placeholder="termo padrão (ex.: banco-de-dados)" aria-label="Termo padrão">
+              <button type="submit" class="botao-cmd">[adicionar]</button>
+            </form>
+          </div>
+          <div class="pu-bloco">
+            <div class="pu-titulo">3. consolidação e estado (usa IA, pede confirmação)</div>
+            <div class="pj-nota">Arquivos parecidos do MESMO projeto viram 1 resumo no formato oficial e os originais vão para <b>cerebro/arquivo-morto/</b> (nada é apagado). Conversas antigas de um projeto podem gerar uma <b>proposta</b> de estado, que você revê antes de gravar.</div>
+            <div id="man-grupos" class="man-lista"></div>
+            <div id="man-estados" class="man-lista"></div>
+          </div>
+          <div class="pu-bloco">
+            <div class="pu-titulo">4. índice por tema</div>
+            <div id="man-indices" class="pj-nota"></div>
+            <div class="pu-linha"><button type="button" id="man-indices-gerar" class="botao-cmd" title="Refaz o INDICE.md e, com mais de 100 arquivos, cerebro/indices/{projeto}.md">[gerar índices agora]</button></div>
+          </div>
+          <div class="pu-bloco">
+            <div class="pu-titulo">5. backup</div>
+            <div class="pt-aviso man-pessoal">O cérebro pode conter <b>dados pessoais</b> (conversas, decisões, nomes, trechos de código e contas). Guarde o .zip só em lugar seu e <b>nunca o envie para um repositório público</b>.</div>
+            <div class="pu-linha"><button type="button" id="man-exportar" class="botao-cmd" title="Gera cerebro-AAAA-MM-DD.zip na pasta que você escolher (sem as suas buscas nem o código)">[exportar cérebro]</button></div>
+            <div id="man-backup" class="pj-nota"></div>
+          </div>
+        </div>
+        <!-- confirmações e propostas da manutenção -->
+        <div id="man-dialogo" class="dialogo oculto">
+          <div class="dialogo-caixa cc-caixa">
+            <div class="cc-topo"><h2 id="man-titulo"></h2></div>
+            <div id="man-texto" class="pj-nota"></div>
+            <pre id="man-pre" class="cer-texto pj-diff oculto"></pre>
+            <label id="man-modelo-linha" class="man-modelo">modelo
+              <select id="man-modelo" class="cer-select"><option value="haiku">haiku (barato)</option><option value="sonnet">sonnet</option></select>
+            </label>
+            <div id="man-dlg-erro" class="cc-erro" role="alert"></div>
+            <div id="man-botoes" class="dialogo-botoes px-botoes"></div>
+          </div>
+        </div>
+
+        <!-- compactar: guarda no cérebro o resumo colado de um chat feito em site ou app -->
+        <div id="cer-dialogo" class="dialogo oculto">
+          <form id="cc-form" class="dialogo-caixa cc-caixa" autocomplete="off">
+            <div class="cc-topo">
+              <h2>compactar conversa</h2>
+              <div class="dialogo-botoes">
+                <button type="button" id="cc-cancelar">cancelar</button>
+                <button type="submit" id="cc-salvar" class="principal">salvar</button>
+              </div>
+            </div>
+            <div class="cc-grade">
+              <label for="cc-titulo">título</label>
+              <input id="cc-titulo" type="text" maxlength="120" spellcheck="false" placeholder="3 a 6 palavras" class="cc-largo">
+              <label for="cc-palavras">palavras-chave</label>
+              <input id="cc-palavras" type="text" maxlength="300" spellcheck="false" placeholder="5 a 10, separadas por vírgula" class="cc-largo">
+              <label for="cc-projeto">projeto</label>
+              <input id="cc-projeto" type="text" maxlength="60" spellcheck="false" list="cc-projetos" placeholder="meu-widget">
+              <label for="cc-origem">origem</label>
+              <select id="cc-origem" class="cer-select">
+                <option value="claude-code">claude-code</option><option value="claude">claude</option><option value="chatgpt">chatgpt</option>
+                <option value="gemini">gemini</option><option value="antigravity">antigravity</option><option value="outro">outro</option>
+              </select>
+            </div>
+            <datalist id="cc-projetos"></datalist>
+            <textarea id="cc-resumo" class="cc-resumo" spellcheck="false" aria-label="resumo" placeholder="cole aqui o resumo que a IA gerou (o cabeçalho preenche os campos acima)&#10;- decisão...&#10;- pendência..."></textarea>
+            <div id="cc-erro" class="cc-erro" role="alert"></div>
+          </form>
+        </div>
+      </section>
+
+      <!-- 7: skills. Custos só ao abrir a aba ou em [atualizar]; nada roda sozinho -->
+      <section id="aba-skills" class="painel" data-painel="skills">
+        <div class="sk-controles">
+          <span class="sk-escopo sk-alvos" role="radiogroup" aria-label="IA">
+            <button type="button" class="estilo-op ativo" data-alvo="claude" role="radio" title="Custo e skills do Claude">Claude</button>
+            <button type="button" class="estilo-op" data-alvo="antigravity" role="radio" title="Custo e skills do Antigravity (a contagem de tokens dele é só estimada)">Antigravity</button>
+            <button type="button" class="estilo-op" data-alvo="ambos" role="radio" title="As duas IAs lado a lado">Ambos</button>
+          </span>
+          <select id="sk-projeto" class="cer-select" title="Projeto: a conversa cujo imposto fixo é medido"></select>
+          <span class="sk-escopo" role="radiogroup" aria-label="Escopo">
+            <button type="button" class="estilo-op ativo" data-escopo="projeto" role="radio" title="Instalar e remover no projeto: vale só quando a IA abre nele">projeto</button>
+            <button type="button" class="estilo-op" data-escopo="global" role="radio" title="Instalar e remover para todas as conversas">global</button>
+          </span>
+          <span class="dialogo-espaco"></span>
+          <button type="button" id="sk-online" class="botao-cmd sk-principal" title="Procura skills na internet (GitHub): as oficiais do Claude e do Codex, da comunidade ou de um repositório que você digitar">[buscar online]</button>
+          <button type="button" id="sk-importar" class="botao-cmd" title="Traz uma skill de uma pasta ou .zip seu, mostrando tudo antes">[importar]</button>
+        </div>
+        <!-- imposto fixo: tokens que TODA conversa paga só por ter essas skills e as instruções da IA (CLAUDE.md, AGENTS.md...). Um bloco por IA -->
+        <div class="sk-impostos">
+          <div id="sk-imposto-1" class="sk-imposto">
+            <div class="sk-num"><b id="sk-total">--</b><span>tokens fixos por conversa</span><span id="sk-rot" class="sk-ia"></span></div>
+            <div class="sk-barra-conj">
+              <div id="sk-barra" class="sk-barra" role="progressbar" aria-valuemin="0" aria-valuemax="3000" aria-valuenow="0">
+                <div id="sk-barra-cheia" class="sk-barra-cheia"></div><span class="sk-marca"></span>
+              </div>
+              <div class="sk-escala"><span>0</span><span>1.500</span><span>3.000</span></div>
+              <div id="sk-detalhe" class="sk-detalhe"></div>
+            </div>
+          </div>
+          <div id="sk-imposto-2" class="sk-imposto oculto">
+            <div class="sk-num"><b id="sk-total-2">--</b><span>tokens fixos por conversa</span><span id="sk-rot-2" class="sk-ia"></span></div>
+            <div class="sk-barra-conj">
+              <div id="sk-barra-2" class="sk-barra" role="progressbar" aria-valuemin="0" aria-valuemax="3000" aria-valuenow="0">
+                <div id="sk-barra-cheia-2" class="sk-barra-cheia"></div><span class="sk-marca"></span>
+              </div>
+              <div class="sk-escala"><span>0</span><span>1.500</span><span>3.000</span></div>
+              <div id="sk-detalhe-2" class="sk-detalhe"></div>
+            </div>
+          </div>
+        </div>
+        <div class="sk-filtro">
+          <select id="sk-categoria" class="cer-select" title="Categoria"><option value="">todas</option></select>
+          <input id="sk-busca" class="sk-busca" type="text" maxlength="60" spellcheck="false" placeholder="buscar skill...">
+          <button type="button" id="sk-comparar" class="botao-cmd" title="Gráfico com todas as skills, da mais cara para a mais barata">[comparar]</button>
+          <button type="button" id="sk-atualizar" class="botao-cmd" title="Recalcula (só relê o que mudou)">[atualizar]</button>
+          <button type="button" id="sk-ajuda" class="botao-cmd" title="Como as skills funcionam e como o custo é calculado">[como funciona]</button>
+        </div>
+        <div class="sk-area">
+          <div id="sk-lista" class="sk-lista"></div>
+          <div id="sk-comp" class="sk-comp oculto">
+            <div class="sk-comp-topo">
+              <button type="button" id="sk-comp-voltar" class="botao-cmd">[&lt; voltar]</button>
+              <span class="sk-legenda"><i class="sk-cor-fixo"></i>custo fixo (toda conversa)</span>
+              <span class="sk-legenda"><i class="sk-cor-uso"></i>ao usar (cada ativação)</span>
+            </div>
+            <div id="sk-comp-rolagem" class="sk-comp-rolagem"><canvas id="sk-canvas" class="sk-canvas"></canvas></div>
+          </div>
+          <!-- catálogo online: skills dos repositórios do GitHub (baixar leva ao mesmo fluxo seguro de importar: revisar antes de adicionar) -->
+          <div id="sk-cat" class="sk-cat oculto">
+            <div class="sk-cat-topo">
+              <button type="button" id="sk-cat-voltar" class="botao-cmd">[&lt; voltar]</button>
+              <select id="sk-cat-fonte" class="cer-select" title="De onde vêm as skills" aria-label="Fonte"></select>
+              <input id="sk-cat-busca" class="sk-busca" type="text" maxlength="80" spellcheck="false" placeholder="buscar (ex.: pdf, excel, design)" aria-label="Buscar skills">
+              <button type="button" id="sk-cat-buscar" class="botao-cmd">[buscar]</button>
+            </div>
+            <div id="sk-cat-status" class="sk-cat-status" role="status"></div>
+            <div id="sk-cat-lista" class="sk-cat-lista"></div>
+            <div class="sk-cat-nota">Vem da internet (GitHub). [baixar] traz só os arquivos da pasta da skill e mostra tudo para você revisar: nada é instalado nem executado sem o seu clique. O formato (SKILL.md) é o mesmo no Claude e no Antigravity, mas se a skill funciona em cada IA é você que confere na revisão.</div>
+          </div>
+          <div id="sk-leitor" class="cer-leitor oculto">
+            <div class="cer-leitor-topo">
+              <button type="button" id="sk-leitor-voltar" class="botao-cmd">[&lt; voltar]</button>
+              <span id="sk-leitor-nome" class="cer-leitor-nome"></span>
+            </div>
+            <pre id="sk-texto" class="cer-texto" tabindex="0"></pre>
+          </div>
+        </div>
+
+        <!-- janelinhas: confirmar (com a simulação), ajuda do cálculo e importar de fora -->
+        <div id="sk-dialogo" class="dialogo oculto">
+          <div id="sk-conf" class="dialogo-caixa cc-caixa">
+            <div class="cc-topo">
+              <h2 id="sk-conf-titulo"></h2>
+              <div class="dialogo-botoes">
+                <button type="button" id="sk-conf-nao">cancelar</button>
+                <button type="button" id="sk-conf-sim" class="principal">confirmar</button>
+              </div>
+            </div>
+            <div id="sk-conf-ia" class="sk-escopo sk-conf-ia" role="radiogroup" aria-label="Em qual IA"></div>
+            <div id="sk-conf-texto" class="pj-nota"></div>
+            <div id="sk-conf-aviso" class="sk-conf-aviso oculto"></div>
+            <div id="sk-conf-erro" class="cc-erro" role="alert"></div>
+          </div>
+          <div id="sk-info" class="dialogo-caixa cc-caixa oculto">
+            <div class="cc-topo"><h2>como o custo é calculado</h2><div class="dialogo-botoes"><button type="button" id="sk-info-ok" class="principal">ok</button></div></div>
+            <div id="sk-info-texto" class="pj-nota sk-info-texto"></div>
+          </div>
+          <div id="sk-imp" class="dialogo-caixa cc-caixa oculto">
+            <div class="cc-topo">
+              <h2 id="sk-imp-titulo">importar skill</h2>
+              <select id="sk-imp-categoria" class="cer-select sk-imp-categoria oculto" title="Categoria da skill na biblioteca"></select>
+              <div class="dialogo-botoes">
+                <button type="button" id="sk-imp-cancelar">cancelar</button>
+                <button type="button" id="sk-imp-ok" class="principal oculto">adicionar à biblioteca</button>
+              </div>
+            </div>
+            <div id="sk-imp-escolha" class="sk-imp-escolha">
+              <div class="pj-nota">De onde vem a skill? Nada dela será executado: primeiro você lê tudo.</div>
+              <div class="cer-acoes">
+                <button type="button" id="sk-imp-pasta" class="botao-cmd">[escolher pasta]</button>
+                <button type="button" id="sk-imp-zip" class="botao-cmd">[escolher .zip]</button>
+              </div>
+            </div>
+            <div id="sk-imp-revisao" class="sk-imp-revisao oculto">
+              <div id="sk-imp-resumo" class="pj-nota"></div>
+              <div id="sk-imp-alertas" class="sk-imp-alertas"></div>
+              <pre id="sk-imp-conteudo" class="cer-texto sk-imp-conteudo"></pre>
+            </div>
+            <div id="sk-imp-erro" class="cc-erro" role="alert"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 6: projetos (cadastro no projetos.json). Cada clique chama o projetos.py uma vez -->
+      <section id="aba-projetos" class="painel" data-painel="projetos">
+        <div class="proj-esq">
+        <div class="proj-topo">
+          <button type="button" id="proj-adicionar" class="botao-cmd" title="Cadastrar um projeto: você escolhe a pasta (Shift+clique: digitar o caminho)">[+ adicionar]</button>
+          <button type="button" id="proj-uso-abrir" class="botao-cmd" title="Como ver o uso, estimativa local, pausar ao chegar no limite, trocar de conta e economia">[uso e continuidade]</button>
+          <span id="proj-conta" class="sub"></span>
+          <span class="dialogo-espaco"></span>
+          <span id="ps-conta" class="sub" title="Sessões abertas pelo widget agora / máximo (max_sessoes)"></span>
+        </div>
+        <!-- sessões abertas pelo widget: atualiza só com a aba visível, a cada 10 s -->
+        <div id="proj-sessoes" class="proj-sessoes oculto">
+          <div class="ps-cab">sessões ativas</div>
+          <div id="ps-lista" class="ps-lista"></div>
+        </div>
+        <div id="proj-lista" class="proj-lista"></div>
+        </div>
+
+        <!-- uso e continuidade: só instruções e contagens locais (nenhum número de limite é inventado) -->
+        <div id="proj-uso" class="proj-uso">
+          <div class="cc-topo">
+            <button type="button" id="pu-voltar" class="botao-cmd">[&lt; voltar]</button>
+            <h2>uso e continuidade</h2>
+            <select id="pu-projeto" class="cer-select" title="Projeto usado pelos botões desta tela" aria-label="Projeto"></select>
+          </div>
+          <!-- 1: o uso de verdade. O botão abre o Claude aqui dentro e digita /usage; os números são lidos da tela dele -->
+          <div class="pu-bloco pu-real">
+            <div class="pu-real-topo">
+              <div class="pu-titulo">seu uso agora</div>
+              <span class="pu-real-acoes">
+                <select id="pu-ia" class="cer-select" title="De qual IA ler o /usage" aria-label="IA"></select>
+                <button type="button" id="pu-abrir-usage" class="botao-cmd pu-ver" title="Abre a IA aqui no widget e digita /usage sozinho">[ver agora: /usage]</button>
+              </span>
+            </div>
+            <div id="pu-ia-nota" class="pj-nota"></div>
+            <div id="pu-medidores" class="pu-medidores"></div>
+            <div id="pu-dica" class="pu-dica"></div>
+          </div>
+          <!-- 2: estimativa local, só do que o widget abriu -->
+          <div class="pu-bloco">
+            <div class="pu-titulo">sessões abertas pelo widget (7 dias)</div>
+            <div id="pu-resumo" class="pu-resumo"></div>
+            <div id="pu-grafico" class="pu-grafico" aria-label="Sessões por dia"></div>
+            <div id="pu-legenda" class="pu-legenda"></div>
+            <div id="pu-avisos" class="pu-avisos"></div>
+          </div>
+          <div class="pu-acoes">
+            <button type="button" id="pu-pausar" class="botao-cmd" title="Chegou no limite? Guia: compactar, atualizar o estado do projeto e anotar a pausa">[pausar com segurança]</button>
+            <button type="button" id="pu-trocar" class="botao-cmd" title="Só mostra os passos, por IA: o widget não troca contas sozinho">[trocar de conta]</button>
+          </div>
+        </div>
+
+        <!-- janelinhas: adicionar/editar, preencher o estado e confirmar (remover / preparar) -->
+        <!-- terminal embutido: as sessões do Claude rodam aqui dentro (xterm.js + app/pty.cs); uma aba por sessão -->
+        <div id="proj-term" class="proj-term">
+          <div class="et-topo">
+            <button type="button" id="et-voltar" class="botao-cmd" title="Esconde o terminal (as sessões continuam abertas; [abrir] em &quot;sessões ativas&quot; traz de volta)">[esconder]</button>
+            <div id="et-abas" class="et-abas" role="tablist" aria-label="Sessões abertas"></div>
+            <button type="button" id="et-ps" class="botao-cmd" title="Abre um PowerShell na pasta do projeto atual">[+ ps]</button>
+            <span class="dialogo-espaco"></span>
+            <button type="button" id="et-ampliar" class="botao-cmd" title="Esconde o Pokémon para o terminal ter mais espaço (em janela estreita ele já se esconde sozinho)">[ampliar]</button>
+            <button type="button" id="et-destacar" class="botao-cmd" title="Destaca somente o terminal/PowerShell numa janela própria com a borda característica do widget (para usar em outro monitor)">[↗ destacar]</button>
+          </div>
+          <div id="et-corpo" class="et-corpo"></div>
+          <div id="et-aviso" class="et-aviso oculto" role="status"></div>
+        </div>
+
+        <div id="proj-dialogo" class="dialogo oculto">
+          <form id="pj-form" class="dialogo-caixa cc-caixa" autocomplete="off">
+            <div class="cc-topo">
+              <h2 id="pj-titulo">adicionar projeto</h2>
+              <div class="dialogo-botoes">
+                <button type="button" id="pj-cancelar">cancelar</button>
+                <button type="submit" id="pj-salvar" class="principal">salvar</button>
+              </div>
+            </div>
+            <div class="cc-grade pj-grade">
+              <label for="pj-pasta">pasta</label>
+              <input id="pj-pasta" type="text" maxlength="500" spellcheck="false" class="pj-pasta" placeholder="C:\caminho\do\projeto">
+              <button type="button" id="pj-escolher" class="botao-cmd">[escolher]</button>
+              <label for="pj-nome">nome</label>
+              <input id="pj-nome" type="text" maxlength="40" spellcheck="false">
+              <label for="pj-id">id</label>
+              <input id="pj-id" type="text" maxlength="30" spellcheck="false" placeholder="automático" title="O id liga o projeto ao cérebro (estado/id.md). Não muda depois.">
+              <label for="pj-descricao">descrição</label>
+              <input id="pj-descricao" type="text" maxlength="200" spellcheck="false" class="cc-largo" placeholder="uma linha">
+              <label for="pj-ia">IA</label>
+              <select id="pj-ia" class="cer-select" title="A IA que abre neste projeto (as outras ficam disponíveis no cartão)"></select>
+              <label for="pj-modelo">modelo</label>
+              <select id="pj-modelo" class="cer-select" title="O modelo padrão desta IA neste projeto"></select>
+              <label for="pj-ia-reserva">reserva</label>
+              <select id="pj-ia-reserva" class="cer-select" title="Outra IA para continuar quando a principal não puder (opcional)"></select>
+              <label for="pj-cor">cor</label>
+              <input id="pj-cor" type="color" class="pj-cor" value="#4f9dff">
+              <label for="pj-tags">tags</label>
+              <input id="pj-tags" type="text" maxlength="200" spellcheck="false" class="cc-largo" placeholder="separadas por vírgula">
+              <span>permissões</span>
+              <label class="caixa cc-largo pj-pular"><input type="checkbox" id="pj-pular"> pular todas as permissões (perigoso)</label>
+            </div>
+            <div class="cc-grade pj-grade pj-grade-chave">
+              <span>cobrança</span>
+              <label class="caixa cc-largo pj-pular"><input type="checkbox" id="pj-chave"> <span id="pj-chave-rotulo">usar chave de API (variável ANTHROPIC_API_KEY do Windows)</span></label>
+            </div>
+            <div id="pj-chave-nota" class="pj-nota"></div>
+            <div id="pj-perigo" class="cc-erro oculto">A IA vai rodar comandos e mudar arquivos sem pedir licença. A própria documentação recomenda isso só em ambientes isolados, sem internet.</div>
+            <div id="pj-erro" class="cc-erro" role="alert"></div>
+          </form>
+
+          <!-- abrir a IA: tarefa opcional (o tema da busca no cérebro sai dela) -->
+          <form id="pa-form" class="dialogo-caixa cc-caixa oculto" autocomplete="off">
+            <div class="cc-topo">
+              <h2 id="pa-titulo">abrir a IA</h2>
+              <div class="dialogo-botoes">
+                <button type="button" id="pa-cancelar">cancelar</button>
+                <button type="submit" id="pa-abrir" class="principal">abrir</button>
+              </div>
+            </div>
+            <div id="pa-info" class="pj-nota"></div>
+            <textarea id="pa-tarefa" class="cc-resumo" maxlength="500" spellcheck="false" aria-label="Tarefa desta sessão"
+                      placeholder="Tarefa desta sessão (opcional). Ex.: arrumar a física do carro. O tema da busca no cérebro sai daqui. Ctrl+Enter abre."></textarea>
+            <div id="pa-perigo" class="cc-erro oculto">Atenção: este projeto abre com TODAS as permissões puladas (--dangerously-skip-permissions).</div>
+            <div id="pa-erro" class="cc-erro" role="alert"></div>
+          </form>
+
+          <!-- escolha com vários botões: trava por pasta, limite, worktree, encerrar -->
+          <!-- pausar com segurança (limite de uso): 3 passos -->
+          <div id="pz-caixa" class="dialogo-caixa cc-caixa oculto">
+            <div class="cc-topo">
+              <h2 id="pz-titulo">pausar com segurança</h2>
+              <div class="dialogo-botoes"><button type="button" id="pz-fechar">fechar</button></div>
+            </div>
+            <div id="pz-passos" class="pz-passos"></div>
+            <div id="pz-corpo" class="pz-corpo"></div>
+            <div id="pz-erro" class="cc-erro" role="alert"></div>
+            <div id="pz-botoes" class="dialogo-botoes px-botoes"></div>
+          </div>
+
+          <!-- trocar conta: só passos escritos, nada é executado pelo widget -->
+          <div id="pt-caixa" class="dialogo-caixa cc-caixa oculto">
+            <div class="cc-topo">
+              <h2>trocar conta</h2>
+              <div class="dialogo-botoes"><button type="button" id="pt-ok" class="principal">entendi</button></div>
+            </div>
+            <div id="pt-aviso" class="cc-erro pt-aviso oculto">Trocar de conta é permitido, mas alternar só para contornar limites pode violar os termos e bloquear a conta.</div>
+            <label id="pt-lembrar" class="caixa oculto"><input type="checkbox" id="pt-nao-mostrar"> não mostrar este aviso novamente</label>
+            <div id="pt-ias" class="sk-escopo pt-ias" role="radiogroup" aria-label="Trocar a conta de qual IA"></div>
+            <ol id="pt-passos" class="pt-passos"></ol>
+            <div id="pt-nota" class="pj-nota"></div>
+          </div>
+
+          <div id="px-caixa" class="dialogo-caixa cc-caixa oculto">
+            <h2 id="px-titulo"></h2>
+            <div id="px-texto" class="pj-nota"></div>
+            <pre id="px-pre" class="cer-texto pi-comando oculto"></pre>
+            <div id="px-botoes" class="dialogo-botoes px-botoes"></div>
+          </div>
+
+          <!-- seletor rápido (Ctrl+Alt+A): filtra, Enter abre a IA padrão do projeto -->
+          <div id="pq-caixa" class="dialogo-caixa cc-caixa oculto">
+            <h2>abrir IA em... <span class="dica">(Ctrl+Alt+A)</span></h2>
+            <input id="pq-filtro" type="text" maxlength="40" spellcheck="false" placeholder="digite para filtrar · setas escolhem · Enter abre · Esc fecha">
+            <div id="pq-lista" class="pq-lista"></div>
+          </div>
+
+          <!-- a IA não está instalada: explica como instalar (o widget não instala sozinho) -->
+          <div id="pi-caixa" class="dialogo-caixa cc-caixa oculto">
+            <div class="cc-topo">
+              <h2 id="pi-titulo">IA não encontrada</h2>
+              <div class="dialogo-botoes"><button type="button" id="pi-fechar">fechar</button></div>
+            </div>
+            <div class="pj-nota">Instale com o comando oficial no PowerShell e depois reabra o widget:</div>
+            <pre id="pi-comando" class="cer-texto pi-comando"></pre>
+            <div id="pi-alternativa" class="pj-nota"></div>
+            <div class="cer-acoes">
+              <button type="button" id="pi-copiar" class="botao-cmd">[copiar comando]</button>
+              <button type="button" id="pi-docs" class="botao-cmd">[abrir a documentação]</button>
+            </div>
+          </div>
+
+          <form id="pe-form" class="dialogo-caixa cc-caixa oculto" autocomplete="off">
+            <h2 id="pe-titulo">estado criado</h2>
+            <div class="sub pj-nota">Quer preencher agora? O agente pode preencher o resto depois, lendo a pasta do projeto.</div>
+            <div class="cc-grade pj-grade">
+              <label for="pe-objetivo">objetivo</label>
+              <input id="pe-objetivo" type="text" maxlength="200" spellcheck="false" class="cc-largo" placeholder="o que este projeto quer alcançar">
+              <label for="pe-stack">stack</label>
+              <input id="pe-stack" type="text" maxlength="200" spellcheck="false" class="cc-largo" placeholder="linguagens e ferramentas">
+            </div>
+            <div id="pe-erro" class="cc-erro" role="alert"></div>
+            <div class="dialogo-botoes">
+              <span class="dialogo-espaco"></span>
+              <button type="button" id="pe-depois">deixar para o agente</button>
+              <button type="submit" id="pe-salvar" class="principal">preencher agora</button>
+            </div>
+          </form>
+
+          <div id="pc-caixa" class="dialogo-caixa cc-caixa oculto">
+            <div class="cc-topo">
+              <h2 id="pc-titulo">confirmar</h2>
+              <div class="dialogo-botoes">
+                <button type="button" id="pc-nao">cancelar</button>
+                <button type="button" id="pc-sim" class="principal">confirmar</button>
+              </div>
+            </div>
+            <div id="pc-texto" class="pj-nota"></div>
+            <pre id="pc-diff" class="cer-texto pj-diff oculto"></pre>
+            <div id="pc-erro" class="cc-erro" role="alert"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Janelinha por cima das abas: editar um app (nome e ícone) e confirmar a remoção -->
+      <div id="dialogo" class="dialogo oculto">
+        <div id="dialogo-editar" class="dialogo-caixa">
+          <h2>editar app</h2>
+          <div class="editar-linha">
+            <button type="button" id="e-icone" class="editar-icone" title="Trocar o ícone"></button>
+            <div class="editar-campos">
+              <label>nome <input id="e-nome" type="text" maxlength="30" spellcheck="false"></label>
+              <div class="editar-acoes">
+                <button type="button" id="e-trocar" class="botao-cmd">[trocar ícone]</button>
+                <button type="button" id="e-original" class="botao-cmd">[ícone original]</button>
+              </div>
+            </div>
+          </div>
+          <input id="e-arquivo" type="file" accept="image/*,.ico" class="oculto">
+          <div class="dialogo-botoes">
+            <button type="button" id="e-remover" class="perigo">remover</button>
+            <span class="dialogo-espaco"></span>
+            <button type="button" id="e-cancelar">cancelar</button>
+            <button type="button" id="e-salvar" class="principal">salvar</button>
+          </div>
+        </div>
+        <div id="dialogo-confirma" class="dialogo-caixa oculto">
+          <h2 id="c-texto">remover?</h2>
+          <div class="dialogo-botoes">
+            <button type="button" id="c-nao">cancelar</button>
+            <button type="button" id="c-sim" class="principal">remover</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Desligar o PC: 2 confirmações em sequência (a ordem é conferida no main.js) e uma contagem que dá para cancelar -->
+    <div id="power-dialogo" class="dialogo oculto" role="dialog" aria-modal="true" aria-labelledby="power-titulo">
+      <div class="dialogo-caixa power-caixa">
+        <h2 id="power-titulo"></h2>
+        <div id="power-texto" class="pj-nota"></div>
+        <div id="power-contagem" class="power-contagem oculto"></div>
+        <div id="power-erro" class="cc-erro" role="alert"></div>
+        <div id="power-botoes" class="dialogo-botoes"></div>
+      </div>
+    </div>
+
+    <!-- Tela de carregamento: a pokébola cúbica gira enquanto a barra enche -->
+    <div id="carregando" class="carregando" aria-live="polite">
+      <div class="cubo-cena">
+        <div class="cubo">
+          <div class="miolo"><div class="face frente"></div><div class="face tras"></div><div class="face direita"></div><div class="face esquerda"></div><div class="face topo"></div><div class="face base"></div></div>
+          <div class="face frente"><i class="botao"></i></div>
+          <div class="face tras"><i class="botao"></i></div>
+          <div class="face direita"></div>
+          <div class="face esquerda"></div>
+          <div class="face topo"></div>
+          <div class="face base"></div>
+        </div>
+        <div class="cubo-sombra"></div>
+      </div>
+      <div class="carregando-barra"><div id="carregando-progresso" class="carregando-progresso"></div></div>
+      <div id="carregando-texto" class="carregando-texto">C:\&gt; iniciando...</div>
+    </div>
+
+    <!-- Linha de status (estilo tmux) -->
+    <footer id="status" class="status">
+      <span id="st-cpu" class="st">cpu --%</span>
+      <span id="st-ram" class="st">ram --</span>
+      <span id="st-widget" class="st" title="RAM usada pelo próprio widget (todos os processos dele)">widget --</span>
+      <span id="st-musica" class="st st-musica">♪ --</span>
+      <span id="st-modo" class="st st-modo oculto">eco</span>
+      <span id="st-hora" class="st st-hora">--:--</span>
+    </footer>
+  </div>
+  <script src="uso-tela.js"></script>
+  <script src="uso-tela-agy.js"></script>
+  <script src="temas.js"></script>
+  <script src="franquias.js"></script>
+  <script src="falas.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

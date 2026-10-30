@@ -1,0 +1,14 @@
+Requesting permission for:
+   echo $PSVersionTable.PSEdition; echo %COMSPEC%
+Run this command?
+> 1. Yes, run command
+  4. No, cancel
+esc to cancelGemini 3.8 Flash · low
+⣷  Running command...
+  Saída do comando executado:
+    Desktop
+    %COMSPEC%
+────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────
+? for shortcutsGemini 3.8 Flash · low

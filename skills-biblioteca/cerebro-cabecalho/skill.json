@@ -1,0 +1,14 @@
+{
+  "nome": "cerebro-cabecalho",
+  "titulo": "Cérebro: cabeçalho",
+  "descricao_curta": "Nível 2: confere as palavras-chave dos candidatos (2 linhas de cada).",
+  "exemplo_de_uso": "lembra aquilo que fizemos sobre limites de uso? os títulos não ajudaram",
+  "categoria": "cerebro",
+  "versao": "1.0.0",
+  "autor": "eu",
+  "origem": "local",
+  "compativel": [
+    "claude"
+  ],
+  "arquivos_extras": []
+}

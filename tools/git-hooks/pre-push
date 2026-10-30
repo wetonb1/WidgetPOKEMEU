@@ -1,0 +1,13 @@
+#!/bin/sh
+# Protege a privacidade: o projeto (com o cérebro, que pode ter dados pessoais) só vai para o repositório PRIVADO
+# https://github.com/wetonb1/Widget-brain (remoto "brain"). Este hook recusa push para o repositório público WidgetPOKEMEU.
+# Ativado por: git config core.hooksPath tools/git-hooks   (vale para este clone; em outro clone, rode o mesmo comando)
+# Se um dia precisar mesmo (ex.: publicar só o widget), use: git push --no-verify
+url="$2"
+case "$url" in
+  *WidgetPOKEMEU*)
+    echo "PUSH BLOQUEADO: $url é um repositório PÚBLICO." >&2
+    echo "O cérebro pode ter dados pessoais. Envie só para o privado: git push brain main" >&2
+    exit 1 ;;
+esac
+exit 0

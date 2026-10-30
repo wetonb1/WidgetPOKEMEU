@@ -1,0 +1,14 @@
+{
+  "nome": "cerebro-ler",
+  "titulo": "Cérebro: ler",
+  "descricao_curta": "Nível 3: abre até 3 arquivos do cérebro e resume o achado em 1 linha.",
+  "exemplo_de_uso": "abre o que o cérebro tem sobre a aba Projetos e me resume",
+  "categoria": "cerebro",
+  "versao": "1.0.0",
+  "autor": "eu",
+  "origem": "local",
+  "compativel": [
+    "claude"
+  ],
+  "arquivos_extras": []
+}
