@@ -123,6 +123,18 @@ try {
     assert.ok(sAvaliar.compativel.includes('antigravity'), 'cerebro-avaliar deve ser compatível com antigravity');
     console.log('ok   Skill oficial cerebro-avaliar registrada e compatível');
 
+    // 5. Teste Busca Online com --online
+    const rOnline = await projetos.avaliarSkills('teste-web', true);
+    if (!rOnline.ok) console.error('rOnline erro:', rOnline);
+    assert.strictEqual(rOnline.ok, true, 'busca online deve retornar ok');
+    const dadosOnline = rOnline.dados || rOnline;
+    assert.ok(dadosOnline.resumo.online > 0, 'deve conter skills online');
+    const fe = dadosOnline.skills.find((s) => s.nome === 'frontend-design');
+    assert.ok(fe, 'frontend-design (Anthropic) deve estar presente na busca online');
+    assert.strictEqual(fe.origem, 'online');
+    assert.strictEqual(fe.nivel, 'essencial', 'frontend-design deve ser essencial para projeto web');
+    console.log('ok   Busca online (--online) encontra e classifica skills da Anthropic e OpenAI');
+
     // Limpa pasta temporária
     fs.rmSync(tempDir, { recursive: true, force: true });
     console.log('\nTodos os testes do avaliador de skills passaram!');

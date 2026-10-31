@@ -1075,7 +1075,7 @@ ipcMain.handle('projetos:editar', (e, id, dados) => (daJanela(e) && textoCurto(i
 ipcMain.handle('projetos:remover', (e, id) => (daJanela(e) && textoCurto(id) ? projetos.remover(id) : RECUSADO));
 ipcMain.handle('projetos:preparar', (e, id, confirmar) => (daJanela(e) && textoCurto(id) ? projetos.preparar(id, confirmar === true) : RECUSADO));
 ipcMain.handle('projetos:preencher-estado', (e, id, dados) => (daJanela(e) && textoCurto(id) && dados && typeof dados === 'object' ? projetos.preencherEstado(id, dados) : RECUSADO));
-ipcMain.handle('projetos:avaliar-skills', (e, id) => (daJanela(e) && textoCurto(id) ? projetos.avaliarSkills(id) : RECUSADO));
+ipcMain.handle('projetos:avaliar-skills', (e, id, online) => (daJanela(e) && textoCurto(id) ? projetos.avaliarSkills(id, online === true) : RECUSADO));
 // Abrir a IA do projeto num terminal novo (o widget não espera a sessão terminar). As opções de cada IA
 // ficam em app/ias.js; a janela em app/terminal.js; o prompt e o registro no projetos.py.
 const ias = require('./ias');

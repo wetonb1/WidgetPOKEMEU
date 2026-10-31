@@ -13,6 +13,10 @@ const os = require('os');
 // junto), na pasta do cérebro escolhida (CEREBRO_DIR ou "cerebro_dir" do ~/.cerebro.json).
 // Onde o widget está instalado/extraído (raiz do projeto ou pasta do .exe portátil)
 function pastaRaizWidget() {
+  const dirPai = path.resolve(__dirname, '..');
+  if (fs.existsSync(path.join(dirPai, 'cerebro', 'tools', 'cerebro.py'))) {
+    return dirPai;
+  }
   if (process.env.PORTABLE_EXECUTABLE_DIR && fs.existsSync(process.env.PORTABLE_EXECUTABLE_DIR)) {
     return process.env.PORTABLE_EXECUTABLE_DIR;
   }
@@ -54,6 +58,9 @@ function pastaTools() {
     path.join(raiz, 'cerebro', 'tools'),
     path.join(__dirname, '..', 'cerebro', 'tools'),
   ];
+  const achado = candidatos.find((p) => fs.existsSync(path.join(p, 'cerebro.py')));
+  if (achado) return achado;
+
   const pastas = [process.env.CEREBRO_DIR];
   try {
     const arquivo = process.env.CEREBRO_CONFIG || path.join(os.homedir(), '.cerebro.json');
@@ -79,7 +86,7 @@ function pastaTools() {
       if (fs.existsSync(path.join(p, 'tools', 'cerebro.py'))) return path.join(p, 'tools');
     }
   }
-  return candidatos.find((p) => fs.existsSync(path.join(p, 'cerebro.py'))) || candidatos[0];
+  return candidatos[0];
 }
 const caminhoScript = (nome = 'cerebro.py') => path.join(pastaTools(), nome);
 // Se "python" não existir (ou for o atalho da Microsoft Store), tenta o "py -3" do Windows

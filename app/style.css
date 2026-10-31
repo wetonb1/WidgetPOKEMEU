@@ -1264,6 +1264,44 @@ button { font-family: var(--font); }
   border-color: rgba(255, 202, 40, 0.4) !important;
   background: rgba(255, 202, 40, 0.1) !important;
 }
+.pks-btn-buscar-online {
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.4) !important;
+  background: rgba(56, 189, 248, 0.08) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  padding: 2px 7px !important;
+  margin-left: auto;
+}
+.pks-btn-buscar-online:hover {
+  background: rgba(56, 189, 248, 0.22) !important;
+  color: #7dd3fc !important;
+}
+.pks-filtro-online.ativo {
+  border-color: #38bdf8 !important;
+  color: #38bdf8 !important;
+  background: rgba(56, 189, 248, 0.15) !important;
+}
+.pks-badge-fonte {
+  font-size: 9.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(56, 189, 248, 0.15);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+.pks-btn-baixar {
+  color: #38bdf8 !important;
+  border-color: rgba(56, 189, 248, 0.5) !important;
+  background: rgba(56, 189, 248, 0.12) !important;
+}
+.pks-btn-baixar:hover {
+  background: #38bdf8 !important;
+  color: #0b0b0d !important;
+}
 
 /* ---------- Uso e continuidade (sub-tela da aba projetos) ---------- */
 :root { --pu-sonnet: #3ddc84; --pu-opus: #c792ea; --pu-haiku: #5ce1e6; --pu-outro: #6e6e6e; --pu-agy-0: #4f9dff; --pu-agy-1: #8ab8ff; --pu-agy-2: #2f6fd1; --pu-agy-3: #1d4a96; }

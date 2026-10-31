@@ -796,7 +796,7 @@ def _cmd_worktree(args):
 
 def _cmd_avaliar_skills(args):
     import avaliar_skills
-    r = avaliar_skills.avaliar_skills_projeto(args.id)
+    r = avaliar_skills.avaliar_skills_projeto(args.id, online=getattr(args, "online", False))
     if args.json:
         print(json.dumps(r, ensure_ascii=False, indent=2))
     else:
@@ -836,6 +836,8 @@ def montar_parser():
             p.add_argument("--ia", choices=list(IAS), help="a IA da sessão pausada (padrão: a IA do projeto)")
         if nome == "preparar":
             p.add_argument("--confirmar", action="store_true", help="grava (sem isso só mostra o diff)")
+        if nome == "avaliar-skills":
+            p.add_argument("--online", "--buscar-online", dest="online", action="store_true", help="avalia também em repositórios online (GitHub, Anthropic, OpenAI)")
         p.set_defaults(func=func)
     return parser
 

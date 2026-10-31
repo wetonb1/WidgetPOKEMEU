@@ -123,7 +123,7 @@ const registrarPausa = async (id, motivo = 'limite', ia = '') => {
 // git worktree em {pasta}-sessao2 (branch nova) para uma 2a sessão no mesmo projeto
 const criarWorktree = (id) => (ID.test(id) ? rodar(['worktree', id, '--json']) : falhou('id inválido'));
 
-// Avalia a aderência de skills para o projeto com base no cérebro e stack (0 tokens)
-const avaliarSkills = (id) => (ID.test(id) ? rodar(['avaliar-skills', id, '--json']) : falhou('id inválido'));
+// Avalia a aderência de skills para o projeto com base no cérebro e stack (opcionalmente incluindo repositórios online)
+const avaliarSkills = (id, online = false) => (ID.test(id) ? rodar(['avaliar-skills', id, ...(online === true ? ['--online'] : []), '--json']) : falhou('id inválido'));
 
 module.exports = { criarWorktree, avaliarSkills, listar, adicionar, editar, remover, validar, marcarAbertura, preparar, preencherEstado, montarPrompt, registrarSessao, estadoDaPausa, salvarEstadoDaPausa, registrarPausa };
