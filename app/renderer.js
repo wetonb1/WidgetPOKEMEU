@@ -4638,26 +4638,33 @@ const projetos = (() => {
   }
 
   // ----- Modal de avaliação de skills do projeto -----
-  async function abrirSkillsModal(p) {
+  async function abrirSkillsModal(p, buscarOnline = false) {
     if (!p) return;
     modalProjetoSkills = p;
-    filtroSkills = 'todos';
+    filtroSkills = buscarOnline ? 'online' : 'todos';
     $('pks-titulo').textContent = `skills para ${p.nome}`;
-    $('pks-stack').textContent = 'Analisando cérebro e stack em 0 tokens...';
-    $('pks-lista').replaceChildren(el('div', 'cer-aviso', 'Calculando aderência das skills com base no cérebro...'));
-    document.querySelectorAll('.pks-filtro-btn').forEach((b) => b.classList.toggle('ativo', b.dataset.filtro === 'todos'));
+    $('pks-stack').textContent = buscarOnline
+      ? 'Consultando repositórios online (GitHub, Anthropic, OpenAI)...'
+      : 'Analisando cérebro e stack em 0 tokens...';
+    $('pks-lista').replaceChildren(el('div', 'cer-aviso', buscarOnline
+      ? 'Buscando skills online relevantes ao stack nos repositórios oficiais e da comunidade...'
+      : 'Calculando aderência das skills com base no cérebro...'));
+    document.querySelectorAll('.pks-filtro-btn').forEach((b) => b.classList.toggle('ativo', b.dataset.filtro === filtroSkills));
     mostrarCaixa('skills');
 
     try {
-      const res = await chamar(() => window.widget.projetosAvaliarSkills(p.id));
+      const res = await chamar(() => window.widget.projetosAvaliarSkills(p.id, buscarOnline));
       if (!res.ok) {
         $('pks-lista').replaceChildren(el('div', 'cer-erro-texto', res.erro || 'Não consegui avaliar as skills deste projeto.'));
         return;
       }
       const dados = res.dados || res;
       avaliacaoSkillsAtual = dados;
-      $('pks-stack').textContent = `Stack: ${dados.projeto.stack || 'Geral'}`;
+      $('pks-stack').textContent = `Stack: ${dados.projeto.stack || 'Geral'}${dados.projeto.online ? ' · com busca online' : ''}`;
       desenharSkillsModal();
+      if (buscarOnline && dados.resumo && dados.resumo.online) {
+        dizer(`Encontrei ${dados.resumo.online} skill(s) online relevante(s) para este projeto!`);
+      }
     } catch (e) {
       $('pks-lista').replaceChildren(el('div', 'cer-erro-texto', 'Erro ao carregar skills: ' + e.message));
     }
@@ -4667,33 +4674,49 @@ const projetos = (() => {
     if (!avaliacaoSkillsAtual || !avaliacaoSkillsAtual.skills) return;
     const { resumo, skills: lista } = avaliacaoSkillsAtual;
 
-    $('pks-cnt-todos').textContent = resumo.total;
-    $('pks-cnt-essenciais').textContent = resumo.essenciais;
-    $('pks-cnt-uteis').textContent = resumo.uteis;
-    $('pks-cnt-instaladas').textContent = resumo.instaladas_projeto;
+    $('pks-cnt-todos').textContent = resumo.total || 0;
+    $('pks-cnt-essenciais').textContent = resumo.essenciais || 0;
+    $('pks-cnt-uteis').textContent = resumo.uteis || 0;
+    $('pks-cnt-instaladas').textContent = resumo.instaladas_projeto || 0;
+    const cntOnline = $('pks-cnt-online');
+    if (cntOnline) cntOnline.textContent = resumo.online || 0;
 
     const filtradas = lista.filter((s) => {
       if (filtroSkills === 'essencial') return s.nivel === 'essencial';
       if (filtroSkills === 'util') return s.nivel === 'util';
       if (filtroSkills === 'instaladas') return s.instalada_projeto;
+      if (filtroSkills === 'online') return s.origem === 'online';
       return true;
     });
 
     if (!filtradas.length) {
-      $('pks-lista').replaceChildren(el('div', 'cer-aviso', 'Nenhuma skill encontrada neste filtro.'));
+      const aviso = filtroSkills === 'online'
+        ? 'Nenhuma skill online na lista ainda. Clique em "[🌐 buscar online]" acima para consultar os repositórios.'
+        : 'Nenhuma skill encontrada neste filtro.';
+      $('pks-lista').replaceChildren(el('div', 'cer-aviso', aviso));
       return;
     }
 
     const items = filtradas.map((s) => {
-      const item = el('div', `pks-item ${s.nivel}`);
+      const item = el('div', `pks-item ${s.nivel}${s.origem === 'online' ? ' pks-item-online' : ''}`);
       const cab = el('div', 'pks-item-cab');
+
+      const badgeFonte = s.origem === 'online'
+        ? el('span', 'pks-badge-fonte', s.fonte || 'Online')
+        : el('span', 'pks-item-cat', s.categoria || 'local');
+
       cab.append(
         el('span', 'pks-item-nome', s.nome),
-        el('span', 'pks-item-cat', s.categoria),
+        badgeFonte,
         el('span', `pks-item-badge pks-badge-${s.nivel}`, s.nivel_rotulo)
       );
 
       const razao = el('div', 'pks-item-razao', s.razao);
+      let descRepo = null;
+      if (s.origem === 'online' && s.repo) {
+        descRepo = el('div', 'pj-nota pks-item-sub', `${s.repo}${s.caminho ? ' · ' + s.caminho : ''}${s.descricao ? ' — ' + s.descricao : ''}`);
+      }
+
       const rodape = el('div', 'pks-item-rodape');
       const eco = el('span', 'pks-item-eco', `🌱 ${s.economia_estimada}`);
       const acoes = el('div', 'pks-item-acoes');
@@ -4706,7 +4729,7 @@ const projetos = (() => {
           try {
             await window.widget.skillsRemover(s.nome, 'projeto', modalProjetoSkills.id, 'ambos');
             dizer(`Skill ${s.nome} removida do projeto ${modalProjetoSkills.nome}.`);
-            await abrirSkillsModal(modalProjetoSkills);
+            await abrirSkillsModal(modalProjetoSkills, !!avaliacaoSkillsAtual.projeto.online);
           } catch (e) {
             console.error('Erro ao remover skill:', e);
             btnRemover.disabled = false;
@@ -4714,6 +4737,31 @@ const projetos = (() => {
           }
         }, 'Remover esta skill do projeto');
         acoes.append(btnRemover);
+      } else if (s.origem === 'online') {
+        const btnBaixar = el('button', 'botao-cmd pks-btn-instalar pks-btn-baixar', '+ baixar e instalar');
+        btnBaixar.type = 'button';
+        btnBaixar.title = `Baixar ${s.nome} do repositório ${s.repo} e instalar no projeto`;
+        btnBaixar.addEventListener('click', async () => {
+          btnBaixar.disabled = true;
+          btnBaixar.textContent = 'baixando do GitHub...';
+          try {
+            const bx = await window.widget.skillsCatalogoBaixar(s.repo, s.caminho || '');
+            if (!bx || !bx.ok) throw new Error(bx && bx.erro ? bx.erro : 'falha ao baixar');
+            btnBaixar.textContent = 'importando...';
+            const imp = await window.widget.skillsImportar(true, 'ferramentas');
+            if (!imp || !imp.ok) throw new Error(imp && imp.erro ? imp.erro : 'falha ao importar');
+            btnBaixar.textContent = 'instalando no projeto...';
+            await window.widget.skillsInstalar(s.nome, 'projeto', modalProjetoSkills.id, 'ambos');
+            dizer(`Skill online ${s.nome} baixada e instalada no projeto ${modalProjetoSkills.nome}!`);
+            await abrirSkillsModal(modalProjetoSkills, true);
+          } catch (e) {
+            console.error('Erro ao baixar e instalar skill online:', e);
+            btnBaixar.disabled = false;
+            btnBaixar.textContent = '+ baixar e instalar';
+            dizer('Não consegui baixar a skill online: ' + e.message);
+          }
+        });
+        acoes.append(btnBaixar);
       } else {
         const btnInstalar = el('button', 'botao-cmd pks-btn-instalar', '+ instalar no projeto');
         btnInstalar.type = 'button';
@@ -4723,7 +4771,7 @@ const projetos = (() => {
           try {
             await window.widget.skillsInstalar(s.nome, 'projeto', modalProjetoSkills.id, 'ambos');
             dizer(`Skill ${s.nome} instalada no projeto ${modalProjetoSkills.nome}!`);
-            await abrirSkillsModal(modalProjetoSkills);
+            await abrirSkillsModal(modalProjetoSkills, !!avaliacaoSkillsAtual.projeto.online);
           } catch (e) {
             console.error('Erro ao instalar skill:', e);
             btnInstalar.disabled = false;
@@ -4734,7 +4782,8 @@ const projetos = (() => {
       }
 
       rodape.append(eco, acoes);
-      item.append(cab, razao, rodape);
+      if (descRepo) item.append(cab, descRepo, razao, rodape);
+      else item.append(cab, razao, rodape);
       return item;
     });
 
@@ -5607,11 +5656,26 @@ const projetos = (() => {
 
   // Ações do modal de skills do projeto
   $('pks-fechar').addEventListener('click', fechar);
+  const btnPksOnline = $('pks-btn-online');
+  if (btnPksOnline) {
+    btnPksOnline.addEventListener('click', async () => {
+      if (!modalProjetoSkills || btnPksOnline.disabled) return;
+      btnPksOnline.disabled = true;
+      btnPksOnline.textContent = '[🌐 consultando GitHub...]';
+      dizer('Consultando repositórios online (GitHub, Anthropic, OpenAI)...');
+      try {
+        await abrirSkillsModal(modalProjetoSkills, true);
+      } finally {
+        btnPksOnline.disabled = false;
+        btnPksOnline.textContent = '[🌐 buscar online]';
+      }
+    });
+  }
   $('pks-copiar-cmd').addEventListener('click', async () => {
     if (modalProjetoSkills) {
-      await chamar(() => window.widget.cerebroCopiar(`/avaliar ${modalProjetoSkills.id}`));
+      await chamar(() => window.widget.cerebroCopiar(`/avaliar ${modalProjetoSkills.id} online`));
       $('pks-copiar-cmd').textContent = 'copiado!';
-      dizer(`Comando "/avaliar ${modalProjetoSkills.id}" copiado! Cole na sua sessão.`);
+      dizer(`Comando "/avaliar ${modalProjetoSkills.id} online" copiado! Cole na sua sessão.`);
       setTimeout(() => { $('pks-copiar-cmd').textContent = '[copiar /avaliar]'; }, 2000);
     }
   });

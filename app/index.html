@@ -735,10 +735,13 @@
               <button type="button" class="pks-filtro-btn pks-filtro-essencial" data-filtro="essencial">🟢 essenciais (<span id="pks-cnt-essenciais">0</span>)</button>
               <button type="button" class="pks-filtro-btn pks-filtro-util" data-filtro="util">🟡 úteis (<span id="pks-cnt-uteis">0</span>)</button>
               <button type="button" class="pks-filtro-btn" data-filtro="instaladas">instaladas (<span id="pks-cnt-instaladas">0</span>)</button>
+              <button type="button" class="pks-filtro-btn pks-filtro-online" data-filtro="online">🌐 online (<span id="pks-cnt-online">0</span>)</button>
+              <span class="dialogo-espaco"></span>
+              <button type="button" id="pks-btn-online" class="botao-cmd pks-btn-buscar-online" title="Buscar repositórios online (GitHub, Anthropic, OpenAI)">[🌐 buscar online]</button>
             </div>
             <div id="pks-lista" class="pks-lista"></div>
             <div class="pks-rodape">
-              <span class="pks-dica">💡 Dica: Digite <code>/avaliar</code> na sua sessão para diagnóstico via IA (&lt; 250 tokens).</span>
+              <span class="pks-dica">💡 Dica: Digite <code>/avaliar</code> (local) ou <code>/avaliar online</code> (GitHub/Anthropic/OpenAI) na sua sessão (&lt; 250 tokens).</span>
               <button type="button" id="pks-copiar-cmd" class="botao-cmd" title="Copiar comando /avaliar">[copiar /avaliar]</button>
             </div>
           </div>

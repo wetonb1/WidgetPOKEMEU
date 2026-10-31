@@ -46,7 +46,7 @@ contextBridge.exposeInMainWorld('widget', {
   projetosRemover: (id) => ipcRenderer.invoke('projetos:remover', String(id)),
   projetosPreparar: (id, confirmar) => ipcRenderer.invoke('projetos:preparar', String(id), confirmar === true),
   projetosPreencherEstado: (id, dados) => ipcRenderer.invoke('projetos:preencher-estado', String(id), dados),
-  projetosAvaliarSkills: (id) => ipcRenderer.invoke('projetos:avaliar-skills', String(id)),
+  projetosAvaliarSkills: (id, online) => ipcRenderer.invoke('projetos:avaliar-skills', String(id), online === true),
   projetosEscolherPasta: (inicial) => ipcRenderer.invoke('projetos:escolher-pasta', inicial ? String(inicial) : ''),
   // abrir a IA de um projeto: modo novo | continuar | retomar; ou abrir um PowerShell na pasta do projeto
   projetosAbrirIA: (id, opcoes) => ipcRenderer.invoke('projetos:abrir-ia', String(id), opcoes),
