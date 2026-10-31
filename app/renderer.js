@@ -2626,11 +2626,11 @@ const grafoCer = (() => {
   const canvas = $('graf-canvas');
   const area = $('graf-area');
   const INTERVALO = 15000; // reabrir em menos de 15 s não recarrega os dados
-  const RAIO = { p: 8.5, e: 5.2, c: 3.8 };
+  const RAIO = { p: 7.5, e: 4.8, c: 3.6 };
   let passoMs = 0;
   let ultimoMovido = -1; // a última bolinha que você arrastou (diagnóstico)
   let passosFeitos = 0;
-  let quadros = 0; // quantos quadros o grafo desenhou (diagnóstico)
+  let quadros = 0; // quantos quadros o grafo desenhou (diagnóstico: parado, não sobe)
   const CELULA = 55; // grade da repulsão (só bolinhas próximas se empurram)
 
   let aberto = false;
@@ -2646,11 +2646,7 @@ const grafoCer = (() => {
   let proj = []; // projeção da última imagem: {x, y, z, s, r, vis}
   let ordem = [];
   const cam = { yaw: 0.7, pitch: -0.32, dist: 900, panX: 0, panY: 0 };
-  let alvoDist = 900;
-  let zoomX = 0, zoomY = 0;
-  let zoomAnimando = false;
   let velYaw = 0, velPitch = 0;
-  let ultimaInteracao = Date.now();
   let foco = 500;
   let camAnim = null; // {de, para, t0, dur}
   let alpha = 0;
@@ -2667,28 +2663,6 @@ const grafoCer = (() => {
   let H = 0;
   let ctx = null;
   let ultimoMs = 0;
-
-  // Pulsos sinápticos de energia que viajam pelas ligações
-  const pulsos = [];
-  // Partículas 3D do cosmos estelar (poeira estelar de fundo)
-  const ESTRELAS_TOTAL = 90;
-  const estrelas = [];
-  for (let i = 0; i < ESTRELAS_TOTAL; i++) {
-    const u = Math.random();
-    const v = Math.random();
-    const th = u * 2.0 * Math.PI;
-    const phi = Math.acos(2.0 * v - 1.0);
-    const r = 850 + Math.random() * 950;
-    estrelas.push({
-      x: r * Math.sin(phi) * Math.cos(th),
-      y: r * Math.sin(phi) * Math.sin(th),
-      z: r * Math.cos(phi),
-      alfaBase: 0.22 + Math.random() * 0.48,
-      cintilaFreq: 0.001 + Math.random() * 0.002,
-      fase: Math.random() * Math.PI * 2,
-      tam: 0.8 + Math.random() * 1.5,
-    });
-  }
 
   const el = (tag, classe, conteudo) => {
     const e = document.createElement(tag);
@@ -2716,26 +2690,9 @@ const grafoCer = (() => {
   const corDe = (n) => (n && n.cor && /^#[0-9a-f]{3,6}$/i.test(n.cor) ? n.cor : '#9aa4b2');
   const claras = new Map();
   const clara = (hex) => {
-    if (!claras.has(hex)) claras.set(hex, 'rgb(' + rgb(hex).map((v) => Math.round(v + (255 - v) * 0.35)).join(',') + ')');
+    if (!claras.has(hex)) claras.set(hex, 'rgb(' + rgb(hex).map((v) => Math.round(v + (255 - v) * 0.28)).join(',') + ')');
     return claras.get(hex);
   };
-
-  function dispararPulsoSinaptico(origem) {
-    if (origem < 0 || !viz[origem] || !viz[origem].length) return;
-    const cor = corDe(nos[origem]);
-    const maxP = Math.min(viz[origem].length, 8);
-    for (let k = 0; k < maxP; k++) {
-      const dest = viz[origem][k];
-      pulsos.push({
-        de: origem,
-        para: dest,
-        progresso: 0,
-        vel: 0.022 + Math.random() * 0.02,
-        cor,
-      });
-    }
-    pedir();
-  }
 
   // ----- dados -----
   async function carregar(forcar) {
@@ -2874,7 +2831,7 @@ const grafoCer = (() => {
     }
   }
 
-  // ----- laço: fluidez suave, inércia e repouso automático -----
+  // ----- laço: 100% liso, sem overhead, dorme quando parado (0% CPU) -----
   function pedir() {
     if (!quadro && emTela && aberto) quadro = requestAnimationFrame(animar);
   }
@@ -2909,61 +2866,23 @@ const grafoCer = (() => {
       precisaProximoQuadro = true;
     }
 
-    // 3. Zoom fluido com interpolação easing
-    if (zoomAnimando) {
-      const diff = alvoDist - cam.dist;
-      if (Math.abs(diff) > 0.4) {
-        const antes = cam.dist;
-        cam.dist += diff * 0.18;
-        const razao = antes / cam.dist;
-        cam.panX = (zoomX - W / 2) - (zoomX - W / 2 - cam.panX) * razao;
-        cam.panY = (zoomY - H / 2) - (zoomY - H / 2 - cam.panY) * razao;
-        precisaProximoQuadro = true;
-      } else {
-        cam.dist = alvoDist;
-        zoomAnimando = false;
-      }
-    }
-
-    // 4. Inércia física de rotação (momentum glide)
-    if (!arraste && (Math.abs(velYaw) > 0.00003 || Math.abs(velPitch) > 0.00003)) {
-      cam.yaw += velYaw * 16;
-      cam.pitch = limitar(cam.pitch + velPitch * 16, -1.45, 1.45);
-      velYaw *= 0.93;
-      velPitch *= 0.93;
+    // 3. Inércia física suave ao soltar
+    if (!arraste && (Math.abs(velYaw) > 0.0001 || Math.abs(velPitch) > 0.0001)) {
+      cam.yaw += velYaw * 14;
+      cam.pitch = limitar(cam.pitch + velPitch * 14, -1.45, 1.45);
+      velYaw *= 0.88;
+      velPitch *= 0.88;
       mexeuNaCamera = true;
       precisaProximoQuadro = true;
+    } else {
+      velYaw = 0;
+      velPitch = 0;
     }
 
-    // 5. Deriva cósmica lenta no modo ocioso (universo vivo)
-    const ocioso = !arraste && !simulando && !camAnim && !zoomAnimando && Math.abs(velYaw) < 0.0001 && Math.abs(velPitch) < 0.0001;
-    if (ocioso && Date.now() - ultimaInteracao > 3000) {
-      cam.yaw += 0.00032;
-      precisaProximoQuadro = true;
-    }
+    desenhar();
 
-    // 6. Atualização dos pulsos sinápticos
-    if (pulsos.length > 0) {
-      for (let p = pulsos.length - 1; p >= 0; p--) {
-        pulsos[p].progresso += pulsos[p].vel;
-        if (pulsos[p].progresso >= 1) pulsos.splice(p, 1);
-      }
-      precisaProximoQuadro = true;
-    }
-
-    // 7. Pulso orgânico esporádico (respiração neural)
-    if (ocioso && hubs.length > 0 && Math.random() < 0.007 && pulsos.length < 4) {
-      const hAleat = hubs[Math.floor(Math.random() * hubs.length)];
-      if (viz[hAleat] && viz[hAleat].length > 0) {
-        const dest = viz[hAleat][Math.floor(Math.random() * viz[hAleat].length)];
-        pulsos.push({ de: hAleat, para: dest, progresso: 0, vel: 0.016 + Math.random() * 0.014, cor: corDe(nos[hAleat]) });
-        precisaProximoQuadro = true;
-      }
-    }
-
-    desenhar(agora);
-
-    if (precisaProximoQuadro || (emTela && aberto && ocioso && Date.now() - ultimaInteracao > 3000)) {
+    // Se a física e a câmera pararam, dorme! Zero consumo de CPU.
+    if (precisaProximoQuadro) {
       pedir();
     }
   }
@@ -2982,11 +2901,9 @@ const grafoCer = (() => {
     const raio = Math.max(60, ds[Math.floor(ds.length * 0.96)] || 60);
     if (W) medir();
     const dist = (raio * foco) / (0.6 * Math.max(120, Math.min(W, H))) + raio;
-    alvoDist = dist;
-    irPara({ dist, panX: 0, panY: 0 }, animado ? 600 : 0);
+    irPara({ dist, panX: 0, panY: 0 }, animado ? 500 : 0);
   }
   function irPara(para, dur) {
-    if (para.dist !== undefined) alvoDist = para.dist;
     if (!dur) { Object.assign(cam, para); camAnim = null; pedir(); return; }
     camAnim = { de: { ...cam }, para, t0: performance.now(), dur };
     pedir();
@@ -3001,12 +2918,11 @@ const grafoCer = (() => {
   function centrarEm(i) {
     const p = girarPonto(nos[i]);
     const dist = limitar(cam.dist * 0.55, 120, cam.dist);
-    alvoDist = dist;
     const s = foco / (p.z + dist);
-    irPara({ dist, panX: -p.x * s, panY: -p.y * s }, 650);
+    irPara({ dist, panX: -p.x * s, panY: -p.y * s }, 550);
   }
 
-  // ----- projeção e renderização Liquid Glass -----
+  // ----- projeção e desenho limpo estilo Obsidian -----
   function projetar() {
     const cyw = Math.cos(cam.yaw); const syw = Math.sin(cam.yaw);
     const cp = Math.cos(cam.pitch); const sp = Math.sin(cam.pitch);
@@ -3024,225 +2940,109 @@ const grafoCer = (() => {
       P.s = foco / Math.max(z2, 8);
       P.x = ox + x1 * P.s;
       P.y = oy + y2 * P.s;
-      const base = N.t === 'p' ? RAIO.p + 1.4 * Math.sqrt(N.grau) : RAIO[N.t];
-      P.r = Math.max(N.t === 'p' ? 3.4 : 2.0, base * P.s * 0.58);
+      const base = N.t === 'p' ? RAIO.p + 1.3 * Math.sqrt(N.grau) : RAIO[N.t];
+      P.r = Math.max(N.t === 'p' ? 3.2 : 1.8, base * P.s * 0.55);
     }
   }
 
-  function desenhar(agora = performance.now()) {
+  function desenhar() {
     const t0 = performance.now();
     if (!ctx || canvas.clientWidth !== W || canvas.clientHeight !== H) medir();
     ctx.clearRect(0, 0, W, H);
     if (!nos.length) { status(carregando ? 'carregando...' : 'o cérebro está vazio'); return; }
     projetar();
 
-    // 1. Poeira estelar 3D no cosmos (profundidade espacial e cintilação)
-    const cyw = Math.cos(cam.yaw); const syw = Math.sin(cam.yaw);
-    const cp = Math.cos(cam.pitch); const sp = Math.sin(cam.pitch);
-    const oxEst = W / 2 + cam.panX * 0.25;
-    const oyEst = H / 2 + cam.panY * 0.25;
-    for (let e = 0; e < ESTRELAS_TOTAL; e++) {
-      const est = estrelas[e];
-      const x1 = est.x * cyw + est.z * syw;
-      const z1 = -est.x * syw + est.z * cyw;
-      const y2 = est.y * cp - z1 * sp;
-      const z2 = est.y * sp + z1 * cp + cam.dist * 1.25;
-      if (z2 <= 20) continue;
-      const s = foco / z2;
-      const sx = oxEst + x1 * s;
-      const sy = oyEst + y2 * s;
-      if (sx < 0 || sy < 0 || sx > W || sy > H) continue;
-      const cintila = 0.8 + 0.2 * Math.sin(agora * est.cintilaFreq + est.fase);
-      const aEst = limitar(est.alfaBase * cintila * (1 - z2 / 3200), 0.08, 0.7);
-      ctx.fillStyle = `rgba(215, 230, 255, ${aEst})`;
-      ctx.beginPath();
-      ctx.arc(sx, sy, est.tam * Math.min(1.8, s * 1.2), 0, Math.PI * 2);
-      ctx.fill();
-    }
-
     let zmin = Infinity; let zmax = -Infinity;
     for (const P of proj) if (P.vis) { if (P.z < zmin) zmin = P.z; if (P.z > zmax) zmax = P.z; }
     const faixa = Math.max(1, zmax - zmin);
-    const nevoa = (z) => limitar(1.1 - ((z - zmin) / faixa) * 0.62, 0.42, 1);
+    const nevoa = (z) => limitar(1.08 - ((z - zmin) / faixa) * 0.55, 0.35, 1);
+
     const foco_ = selecionado >= 0 ? selecionado : hover;
     const vizFoco = foco_ >= 0 ? new Set([foco_, ...viz[foco_]]) : null;
     const vizSel = selecionado >= 0 ? vizFoco : null;
-    const apagado = (i) => (casam && !casam.has(i)) || (vizSel && !vizSel.has(i));
+    // No Obsidian: quando tem foco, todo o resto do grafo atenua suavemente
+    const apagado = (i) => (casam && !casam.has(i)) || (foco_ >= 0 && !vizFoco.has(i));
 
-    // 2. Conexões de fundo (sinapses normais com profundidade e nevoa)
+    // 1. Ligações normais/atenuadas (em uma única passada ultra-rápida)
     ctx.lineWidth = 1;
-    ctx.strokeStyle = 'rgba(140, 168, 215, 0.15)';
+    ctx.strokeStyle = foco_ >= 0 ? 'rgba(150, 165, 190, 0.05)' : 'rgba(150, 165, 190, 0.16)';
     ctx.beginPath();
     for (const [a, b] of ligs) {
       const A = proj[a]; const B = proj[b];
-      if (!A.vis || !B.vis || apagado(a) || apagado(b)) continue;
+      if (!A.vis || !B.vis) continue;
+      if (casam && (!casam.has(a) || !casam.has(b))) continue;
+      if (foco_ >= 0 && (vizFoco.has(a) && vizFoco.has(b))) continue; // desenhadas depois no destaque
       ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y);
     }
     ctx.stroke();
 
-    if (vizSel || casam) {
-      ctx.strokeStyle = 'rgba(140, 168, 215, 0.04)';
-      ctx.beginPath();
-      for (const [a, b] of ligs) {
-        const A = proj[a]; const B = proj[b];
-        if (!A.vis || !B.vis || !(apagado(a) || apagado(b))) continue;
-        ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y);
-      }
-      ctx.stroke();
-    }
-
-    // 3. Conexões em foco: feixe luminoso com brilho difuso
+    // 2. Ligações destacadas do nó em foco (Obsidian style)
     if (foco_ >= 0 && proj[foco_] && proj[foco_].vis) {
-      const corBase = corDe(nos[foco_]);
-      const [r, g, b] = rgb(corBase);
-      // Passada 1: Aura difusa suave
-      ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, 0.32)`;
-      ctx.lineWidth = 3.8;
-      ctx.beginPath();
-      for (const j of viz[foco_]) {
-        const B = proj[j];
-        if (B && B.vis) { ctx.moveTo(proj[foco_].x, proj[foco_].y); ctx.lineTo(B.x, B.y); }
-      }
-      ctx.stroke();
-
-      // Passada 2: Núcleo brilhante da sinapse
-      ctx.strokeStyle = `rgba(${Math.min(255, r + 75)}, ${Math.min(255, g + 75)}, ${Math.min(255, b + 75)}, 0.95)`;
+      const corFoco = corDe(nos[foco_]);
+      ctx.strokeStyle = corFoco;
       ctx.lineWidth = 1.6;
+      ctx.globalAlpha = 0.9;
       ctx.beginPath();
       for (const j of viz[foco_]) {
         const B = proj[j];
-        if (B && B.vis) { ctx.moveTo(proj[foco_].x, proj[foco_].y); ctx.lineTo(B.x, B.y); }
+        if (B && B.vis) {
+          ctx.moveTo(proj[foco_].x, proj[foco_].y);
+          ctx.lineTo(B.x, B.y);
+        }
       }
       ctx.stroke();
+      ctx.globalAlpha = 1;
     }
 
-    // 4. Fótons sinápticos viajando pelas ligações
-    if (pulsos.length > 0) {
-      for (const p of pulsos) {
-        const A = proj[p.de];
-        const B = proj[p.para];
-        if (!A || !B || !A.vis || !B.vis) continue;
-        const t = p.progresso;
-        const px = A.x + (B.x - A.x) * t;
-        const py = A.y + (B.y - A.y) * t;
-        const raioP = Math.max(2.4, 4.0 * ((A.s + B.s) * 0.5));
-        const [r, g, b] = rgb(p.cor);
-        const gr = ctx.createRadialGradient(px, py, 0, px, py, raioP * 2.8);
-        gr.addColorStop(0, 'rgba(255, 255, 255, 1)');
-        gr.addColorStop(0.35, `rgba(${r}, ${g}, ${b}, 0.88)`);
-        gr.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-        ctx.fillStyle = gr;
-        ctx.beginPath();
-        ctx.arc(px, py, raioP * 2.8, 0, Math.PI * 2);
-        ctx.fill();
-      }
+    // 3. Halos suaves dos Hubs de Projeto (estilo Obsidian)
+    for (const i of hubs) {
+      const P = proj[i];
+      if (!P.vis || P.x < -30 || P.y < -30 || P.x > W + 30 || P.y > H + 30) continue;
+      const a = apagado(i) ? 0.08 : nevoa(P.z);
+      if (a <= 0.15) continue;
+      const [r, g, b] = rgb(corDe(nos[i]));
+      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.2 * a})`;
+      ctx.beginPath();
+      ctx.arc(P.x, P.y, P.r * 2.3, 0, Math.PI * 2);
+      ctx.fill();
     }
 
-    // 5. Esferas de Vidro Líquido (Liquid Glass Orbs)
+    // 4. Bolinhas / Nós (do fundo para a frente, renderização direta sem garbage collection)
     ordem.sort((a, b) => proj[b].z - proj[a].z);
     for (const i of ordem) {
       const P = proj[i];
-      if (!P.vis || P.x < -80 || P.y < -80 || P.x > W + 80 || P.y > H + 80) continue;
+      if (!P.vis || P.x < -40 || P.y < -40 || P.x > W + 40 || P.y > H + 40) continue;
       const N = nos[i];
       const cor = corDe(N);
+      const ehFoco = (i === foco_);
       const a = apagado(i) ? 0.12 : nevoa(P.z);
-      const [r, g, b] = rgb(cor);
+      const r = ehFoco ? P.r * 1.35 : P.r;
 
-      const ehHover = (i === hover);
-      const ehSel = (i === selecionado);
-      const multEscala = ehHover ? 1.34 : ehSel ? 1.25 : 1.0;
-      const rEfetivo = P.r * multEscala;
-
-      // Halo / Glow estelar externo para projetos ou nós focados
-      if ((N.t === 'p' || ehHover || ehSel) && a > 0.16) {
-        const haloR = rEfetivo * (N.t === 'p' ? 4.4 : 3.0);
-        const grAura = ctx.createRadialGradient(P.x, P.y, rEfetivo * 0.25, P.x, P.y, haloR);
-        grAura.addColorStop(0, `rgba(${r}, ${g}, ${b}, ${0.52 * a})`);
-        grAura.addColorStop(0.45, `rgba(${r}, ${g}, ${b}, ${0.16 * a})`);
-        grAura.addColorStop(1, `rgba(${r}, ${g}, ${b}, 0)`);
-        ctx.fillStyle = grAura;
-        ctx.beginPath();
-        ctx.arc(P.x, P.y, haloR, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Anel orbital elegante girando nos hubs de projetos
-      if (N.t === 'p' && a > 0.22) {
-        const anguloOrbita = (agora * 0.0006 + i * 1.5) % (Math.PI * 2);
-        ctx.save();
-        ctx.translate(P.x, P.y);
-        ctx.rotate(anguloOrbita);
-        ctx.strokeStyle = `rgba(${r}, ${g}, ${b}, ${0.38 * a})`;
-        ctx.lineWidth = Math.max(0.9, rEfetivo * 0.11);
-        ctx.setLineDash([4, 6]);
-        ctx.beginPath();
-        ctx.ellipse(0, 0, rEfetivo * 1.9, rEfetivo * 1.05, 0, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-        ctx.restore();
-      }
-
-      // Shading volumétrico estilo esfera de vidro Apple (Liquid Glass Core)
-      const lx = P.x - rEfetivo * 0.34;
-      const ly = P.y - rEfetivo * 0.34;
-      const rClaro = Math.min(255, Math.round(r + (255 - r) * 0.65));
-      const gClaro = Math.min(255, Math.round(g + (255 - g) * 0.65));
-      const bClaro = Math.min(255, Math.round(b + (255 - b) * 0.65));
-      const rEscuro = Math.max(0, Math.round(r * 0.32));
-      const gEscuro = Math.max(0, Math.round(g * 0.32));
-      const bEscuro = Math.max(0, Math.round(b * 0.32));
-
-      const grEsfera = ctx.createRadialGradient(lx, ly, Math.max(0.5, rEfetivo * 0.05), P.x, P.y, rEfetivo);
-      grEsfera.addColorStop(0, `rgba(255, 255, 255, ${0.98 * a})`);
-      grEsfera.addColorStop(0.22, `rgba(${rClaro}, ${gClaro}, ${bClaro}, ${0.92 * a})`);
-      grEsfera.addColorStop(0.65, `rgba(${r}, ${g}, ${b}, ${0.88 * a})`);
-      grEsfera.addColorStop(1.0, `rgba(${rEscuro}, ${gEscuro}, ${bEscuro}, ${0.96 * a})`);
-
-      ctx.fillStyle = grEsfera;
+      ctx.globalAlpha = a;
+      ctx.fillStyle = N.t === 'e' ? '#ffffff' : N.t === 'c' ? clara(cor) : cor;
       ctx.beginPath();
-      ctx.arc(P.x, P.y, rEfetivo, 0, Math.PI * 2);
+      ctx.arc(P.x, P.y, r, 0, Math.PI * 2);
       ctx.fill();
 
-      // Borda de vidro refrativa (Fresnel glass rim)
-      ctx.strokeStyle = `rgba(255, 255, 255, ${0.45 * a})`;
-      ctx.lineWidth = Math.max(0.8, rEfetivo * 0.14);
-      ctx.beginPath();
-      ctx.arc(P.x, P.y, rEfetivo, 0, Math.PI * 2);
-      ctx.stroke();
-
-      // Reflexo especular curvo (Apple Liquid Glass Glare)
-      if (rEfetivo >= 3.2) {
-        ctx.fillStyle = `rgba(255, 255, 255, ${0.82 * a})`;
-        ctx.beginPath();
-        ctx.ellipse(P.x - rEfetivo * 0.30, P.y - rEfetivo * 0.32, rEfetivo * 0.32, rEfetivo * 0.16, -Math.PI / 4, 0, Math.PI * 2);
-        ctx.fill();
-      }
-
-      // Detalhes de estado e seleção
       if (N.t === 'e') {
-        ctx.strokeStyle = `rgba(${rClaro}, ${gClaro}, ${bClaro}, ${0.85 * a})`;
-        ctx.lineWidth = Math.max(1, rEfetivo * 0.28);
-        ctx.beginPath();
-        ctx.arc(P.x, P.y, rEfetivo + 1.8, 0, Math.PI * 2);
+        ctx.strokeStyle = cor;
+        ctx.lineWidth = Math.max(1, r * 0.45);
         ctx.stroke();
       }
       if (N.preso) {
-        ctx.strokeStyle = 'rgba(255, 255, 255, 0.75)';
-        ctx.lineWidth = 1;
-        ctx.setLineDash([2, 3]);
-        ctx.beginPath();
-        ctx.arc(P.x, P.y, rEfetivo + 2.5, 0, Math.PI * 2);
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      if (ehSel) {
-        const pulso = 1 + 0.08 * Math.sin(agora * 0.007);
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2.2;
-        ctx.beginPath();
-        ctx.arc(P.x, P.y, (rEfetivo + 4.2) * pulso, 0, Math.PI * 2);
+        ctx.lineWidth = 1;
         ctx.stroke();
       }
+      if (i === selecionado) {
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, r + 3, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
     }
 
     rotulos(vizFoco, apagado);
@@ -3261,43 +3061,45 @@ const grafoCer = (() => {
   }
 
   function rotulos(vizFoco, apagado) {
-    ctx.font = IOS ? '600 11px -apple-system, "Segoe UI Variable", "Segoe UI", sans-serif' : '600 11px "Segoe UI Variable", "Segoe UI", Inter, sans-serif';
+    ctx.font = IOS ? '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' : '11px "Segoe UI", -apple-system, sans-serif';
     ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    const desenharTag = (i, forte) => {
+    ctx.textBaseline = 'top';
+
+    const escrever = (i, forte) => {
       const P = proj[i];
       const N = nos[i];
       let txt = N.n;
       if (txt.length > 32) txt = txt.slice(0, 30) + '…';
-      const a = forte ? 1 : Math.min(0.92, Math.max(0.42, P.r / 5.2));
+      const a = forte ? 1 : Math.min(0.85, Math.max(0.35, P.r / 6));
       ctx.globalAlpha = a;
-      const w = ctx.measureText(txt).width + 12;
-      const h = 18;
-      const rx = P.x - w / 2;
-      const ry = P.y + P.r + 5;
 
-      ctx.fillStyle = forte ? 'rgba(12, 16, 26, 0.88)' : 'rgba(8, 11, 18, 0.74)';
-      ctx.beginPath();
-      if (ctx.roundRect) ctx.roundRect(rx, ry, w, h, 9);
-      else ctx.rect(rx, ry, w, h);
-      ctx.fill();
+      const w = ctx.measureText(txt).width;
+      const rx = P.x - w / 2 - 4;
+      const ry = P.y + P.r + 3;
 
-      ctx.strokeStyle = forte ? corDe(N) : 'rgba(255, 255, 255, 0.22)';
-      ctx.lineWidth = forte ? 1.5 : 0.8;
-      ctx.stroke();
+      ctx.fillStyle = 'rgba(14, 16, 22, 0.76)';
+      if (ctx.roundRect) {
+        ctx.beginPath();
+        ctx.roundRect(rx, ry, w + 8, 14, 4);
+        ctx.fill();
+      } else {
+        ctx.fillRect(rx, ry, w + 8, 14);
+      }
 
-      ctx.fillStyle = N.t === 'p' ? clara(corDe(N)) : '#ffffff';
-      ctx.fillText(txt, P.x, ry + h / 2);
+      ctx.fillStyle = N.t === 'p' ? corDe(N) : '#e6e6e6';
+      ctx.fillText(txt, P.x, ry + 2);
       ctx.globalAlpha = 1;
     };
+
     const ja = new Set();
-    for (const i of hubs) if (proj[i].vis && !apagado(i)) { desenharTag(i, true); ja.add(i); }
-    if (vizFoco) for (const i of vizFoco) if (!ja.has(i) && proj[i].vis && vizFoco.size <= 40) { desenharTag(i, i === hover || i === selecionado); ja.add(i); }
+    for (const i of hubs) if (proj[i].vis && !apagado(i)) { escrever(i, true); ja.add(i); }
+    if (vizFoco) for (const i of vizFoco) if (!ja.has(i) && proj[i].vis && vizFoco.size <= 40) { escrever(i, i === hover || i === selecionado); ja.add(i); }
+
     let n = 0;
-    for (let k = ordem.length - 1; k >= 0 && n < 42; k--) {
+    for (let k = ordem.length - 1; k >= 0 && n < 45; k--) {
       const i = ordem[k];
-      if (ja.has(i) || !proj[i].vis || proj[i].r < 4.6 || apagado(i)) continue;
-      desenharTag(i, false);
+      if (ja.has(i) || !proj[i].vis || proj[i].r < 4.5 || apagado(i)) continue;
+      escrever(i, false);
       n++;
     }
   }
@@ -3307,44 +3109,32 @@ const grafoCer = (() => {
     const N = nos[i];
     const tipo = N.t === 'p' ? 'projeto' : N.t === 'e' ? 'estado' : 'conversa';
     const linhas = [N.n, N.t === 'p' ? `projeto · ${viz[i].length} arquivo(s)` : `${tipo} · ${N.p}${N.d ? ' · ' + N.d : ''}`];
-    ctx.font = IOS ? '11px -apple-system, "Segoe UI Variable", "Segoe UI", sans-serif' : '11px "Segoe UI Variable", "Segoe UI", Inter, sans-serif';
+    ctx.font = IOS ? '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' : '11px "Segoe UI", -apple-system, sans-serif';
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    const w = Math.max(...linhas.map((l) => ctx.measureText(l).width)) + 20;
-    const h = 38;
-    let x = P.x + P.r + 10;
-    let y = P.y - 12;
-    if (x + w > W - 6) x = P.x - P.r - 10 - w;
-    if (y + h > H - 6) y = H - h - 6;
+    const w = Math.max(...linhas.map((l) => ctx.measureText(l).width)) + 16;
+    let x = P.x + P.r + 8;
+    let y = P.y - 10;
+    if (x + w > W - 6) x = P.x - P.r - 8 - w;
+    if (y + 34 > H) y = H - 36;
     if (y < 6) y = 6;
 
-    ctx.save();
-    ctx.fillStyle = 'rgba(14, 18, 30, 0.92)';
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, w, h, 10);
-    else ctx.rect(x, y, w, h);
-    ctx.fill();
-    ctx.restore();
-
-    ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x, y, w, h, 10);
-    else ctx.rect(x, y, w, h);
-    ctx.stroke();
+    ctx.fillStyle = 'rgba(18, 20, 26, 0.92)';
+    if (ctx.roundRect) {
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, 32, 6);
+      ctx.fill();
+    } else {
+      ctx.fillRect(x, y, w, 32);
+    }
 
     ctx.fillStyle = corDe(N);
-    ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(x + 3, y + 4, 3, h - 8, 2);
-    else ctx.fillRect(x + 3, y + 4, 3, h - 8);
-    ctx.fill();
+    ctx.fillRect(x, y + 2, 3, 28);
 
     ctx.fillStyle = '#ffffff';
-    ctx.font = IOS ? '600 11px -apple-system, "Segoe UI Variable", sans-serif' : '600 11px "Segoe UI Variable", Inter, sans-serif';
-    ctx.fillText(linhas[0], x + 12, y + 6);
-    ctx.font = IOS ? '11px -apple-system, "Segoe UI Variable", sans-serif' : '11px "Segoe UI Variable", Inter, sans-serif';
-    ctx.fillStyle = '#a0aec0';
-    ctx.fillText(linhas[1], x + 12, y + 21);
+    ctx.fillText(linhas[0], x + 8, y + 3);
+    ctx.fillStyle = '#9aa0a6';
+    ctx.fillText(linhas[1], x + 8, y + 17);
   }
   function status(t) { $('graf-status').textContent = t; }
 
@@ -3356,7 +3146,7 @@ const grafoCer = (() => {
       const P = proj[i];
       if (!P.vis) continue;
       const dx = P.x - mx; const dy = P.y - my;
-      const rr = (P.r + 5) * (P.r + 5);
+      const rr = (P.r + 4) * (P.r + 4);
       const d2 = dx * dx + dy * dy;
       if (d2 > rr) continue;
       const n = d2 / rr + P.z * 1e-6;
@@ -3397,12 +3187,11 @@ const grafoCer = (() => {
     cerebro.abrirArquivo(arquivo);
   }
 
-  // ----- mouse e touch com inércia e fluidez -----
+  // ----- mouse e touch direto e instantâneo (zero lag) -----
   const pos = (e) => { const r = canvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   canvas.addEventListener('contextmenu', (e) => e.preventDefault());
   canvas.addEventListener('pointerdown', (e) => {
     if (!nos.length) return;
-    ultimaInteracao = Date.now();
     velYaw = 0;
     velPitch = 0;
     canvas.focus({ preventScroll: true });
@@ -3410,17 +3199,12 @@ const grafoCer = (() => {
     const i = e.button === 0 && !e.shiftKey ? acharNo(x, y) : -1;
     const tipo = i >= 0 ? 'no' : (e.button === 2 || e.button === 1 || e.shiftKey ? 'mover' : 'girar');
     arraste = { tipo, i, x, y, x0: x, y0: y, moveu: false, tUlt: performance.now(), presoAntes: i >= 0 ? nos[i].preso : false };
-    if (i >= 0) {
-      nos[i].preso = true;
-      dispararPulsoSinaptico(i);
-    }
+    if (i >= 0) nos[i].preso = true;
     canvas.setPointerCapture(e.pointerId);
     canvas.classList.add('arrastando');
-    pedir();
   });
   canvas.addEventListener('pointermove', (e) => {
     const [x, y] = pos(e);
-    ultimaInteracao = Date.now();
     if (!arraste) {
       const i = acharNo(x, y);
       if (i !== hover) { hover = i; canvas.classList.toggle('sobre', i >= 0); pedir(); }
@@ -3429,7 +3213,7 @@ const grafoCer = (() => {
     const dx = x - arraste.x;
     const dy = y - arraste.y;
     const agora = performance.now();
-    const dt = Math.max(1, agora - (arraste.tUlt || agora));
+    const dt = Math.max(1, agora - arraste.tUlt);
     arraste.tUlt = agora;
     arraste.x = x;
     arraste.y = y;
@@ -3437,8 +3221,8 @@ const grafoCer = (() => {
     if (!arraste.moveu) return;
     camAnim = null;
     if (arraste.tipo === 'girar') {
-      const dyaw = dx * 0.0055;
-      const dpitch = dy * 0.0055;
+      const dyaw = dx * 0.0065;
+      const dpitch = dy * 0.0065;
       cam.yaw += dyaw;
       cam.pitch = limitar(cam.pitch + dpitch, -1.45, 1.45);
       velYaw = dyaw / (dt * 0.06);
@@ -3460,7 +3244,7 @@ const grafoCer = (() => {
       N.z += vx * syw + z1 * cyw;
       N.vx = N.vy = N.vz = 0;
       enquadrarAoParar = false;
-      reaquecer(0.24);
+      reaquecer(0.2);
     }
     pedir();
   });
@@ -3468,23 +3252,20 @@ const grafoCer = (() => {
     if (!arraste) return;
     const a = arraste;
     arraste = null;
-    ultimaInteracao = Date.now();
     canvas.classList.remove('arrastando');
     try { canvas.releasePointerCapture(e.pointerId); } catch { /* já solto */ }
     if (a.tipo === 'no') {
       const N = nos[a.i];
-      if (!a.moveu) {
-        N.preso = a.presoAntes;
-        selecionar(a.i);
-        dispararPulsoSinaptico(a.i);
-        return;
-      }
+      if (!a.moveu) { N.preso = a.presoAntes; selecionar(a.i); return; }
       N.preso = true;
       ultimoMovido = a.i;
       canvas.dataset.movido = JSON.stringify({ id: N.id, x: Math.round(N.x), y: Math.round(N.y), z: Math.round(N.z) });
       if (selecionado === a.i) selecionar(a.i);
     } else if (!a.moveu) {
       selecionar(-1);
+    } else if (a.tipo === 'girar') {
+      velYaw = limitar(velYaw, -0.04, 0.04);
+      velPitch = limitar(velPitch, -0.04, 0.04);
     }
     pedir();
   };
@@ -3500,16 +3281,120 @@ const grafoCer = (() => {
   canvas.addEventListener('wheel', (e) => {
     e.preventDefault();
     if (!nos.length) return;
-    ultimaInteracao = Date.now();
     const [mx, my] = pos(e);
-    zoomX = mx;
-    zoomY = my;
-    alvoDist = limitar(alvoDist * Math.exp(e.deltaY * 0.0013), 40, 40000);
-    zoomAnimando = true;
+    const antes = cam.dist;
+    const depois = limitar(antes * Math.exp(e.deltaY * 0.0012), 40, 40000);
+    const razao = antes / depois;
+    cam.panX = (mx - W / 2) - (mx - W / 2 - cam.panX) * razao;
+    cam.panY = (my - H / 2) - (my - H / 2 - cam.panY) * razao;
+    cam.dist = depois;
     camAnim = null;
     mexeuNaCamera = true;
     pedir();
   }, { passive: false });
+  canvas.addEventListener('keydown', (e) => {
+    if (e.key === 'r' || e.key === 'R') { mexeuNaCamera = false; enquadrar(true); }
+    else if (e.key === 'Escape') { if (selecionado >= 0) selecionar(-1); else if (filtroTexto) { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); } }
+  });
+
+  // ----- barra de cima -----
+  $('graf-filtro').addEventListener('input', () => { filtroTexto = $('graf-filtro').value; aplicarFiltro(); pedir(); });
+  $('graf-filtro').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && casam && casam.size) {
+      e.preventDefault();
+      const alvo = [...casam].sort((a, b) => (nos[a].t === 'p' ? -1 : 0) - (nos[b].t === 'p' ? -1 : 0) || viz[b].length - viz[a].length)[0];
+      selecionar(alvo);
+      centrarEm(alvo);
+    } else if (e.key === 'Escape') { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); }
+  });
+  $('graf-centro').addEventListener('click', () => { mexeuNaCamera = false; enquadrar(true); });
+  let cerAmpliado = false;
+  const btnAmpliar = $('graf-ampliar');
+  if (btnAmpliar) {
+    btnAmpliar.addEventListener('click', () => {
+      cerAmpliado = !cerAmpliado;
+      cartao.classList.toggle('cer-largo', cerAmpliado);
+      btnAmpliar.textContent = IOS ? (cerAmpliado ? 'reduzir' : 'ampliar') : (cerAmpliado ? '[reduzir]' : '[ampliar]');
+      btnAmpliar.classList.toggle('ativa', cerAmpliado);
+      requestAnimationFrame(() => {
+        medir();
+        pedir();
+        enquadrar(false);
+      });
+    });
+  }
+  const bgDemo = $('graf-demo');
+  if (bgDemo) bgDemo.addEventListener('click', alternarDemo);
+  new ResizeObserver(() => { if (aberto && emTela) { medir(); pedir(); } }).observe(area);
+
+  function atualizarBotoesDemo(ativo) {
+    const rotulo = ativo ? (IOS ? '✦ cheio: on' : '[✦ cheio: on]') : (IOS ? '✦ cheio' : '[✦ cheio]');
+    const bg = $('graf-demo');
+    const bc = $('cer-demo');
+    if (bg) { bg.textContent = rotulo; bg.classList.toggle('ativa', ativo); }
+    if (bc) { bc.textContent = rotulo; bc.classList.toggle('ativa', ativo); }
+  }
+
+  function alternarDemo() {
+    modoDemo = !modoDemo;
+    atualizarBotoesDemo(modoDemo);
+    if (!dadosReais) {
+      carregar(true);
+      return;
+    }
+    montar(modoDemo ? fundirComDemoCerebro(dadosReais) : dadosReais);
+    enquadrarAoParar = true;
+    reaquecer(modoDemo ? 1 : 0.6);
+    if (modoDemo) {
+      dizer('Cérebro cheio no modo visual! Ficou parecendo uma constelação!');
+    } else {
+      dizer('Voltei para o cérebro real com as suas memórias.');
+    }
+    if (typeof cerebro !== 'undefined' && cerebro.aoMudarDemo) {
+      cerebro.aoMudarDemo(modoDemo);
+    }
+  }
+
+  // troca Graph | Search; a aba sempre começa no grafo
+  const trocas = [...document.querySelectorAll('.cer-troca-btn')];
+  const marcarTroca = () => trocas.forEach((b) => b.classList.toggle('ativa', (b.dataset.tela === 'grafo') === aberto));
+  trocas.forEach((b) => b.addEventListener('click', () => (b.dataset.tela === 'grafo' ? abrir() : fechar())));
+  function abrir() {
+    aberto = true;
+    aba.classList.add('grafo');
+    marcarTroca();
+    if (emTela) { medir(); carregar(false); }
+  }
+  function fechar() {
+    aberto = false;
+    aba.classList.remove('grafo');
+    marcarTroca();
+    if (quadro) { cancelAnimationFrame(quadro); quadro = 0; }
+  }
+
+  return {
+    abrir,
+    alternarDemo,
+    modoAtivo() { return modoDemo; },
+    iniciar() { aberto = true; aba.classList.add('grafo'); marcarTroca(); atualizarBotoesDemo(modoDemo); },
+    visivel(v) {
+      emTela = v;
+      if (!v) {
+        if (quadro) { cancelAnimationFrame(quadro); quadro = 0; }
+        if (cerAmpliado) {
+          cerAmpliado = false;
+          cartao.classList.remove('cer-largo');
+          if (btnAmpliar) {
+            btnAmpliar.textContent = IOS ? 'ampliar' : '[ampliar]';
+            btnAmpliar.classList.remove('ativa');
+          }
+        }
+        return;
+      }
+      if (aberto) { medir(); carregar(false); }
+    },
+  };
+})();
   canvas.addEventListener('keydown', (e) => {
     if (e.key === 'r' || e.key === 'R') { mexeuNaCamera = false; enquadrar(true); }
     else if (e.key === 'Escape') { if (selecionado >= 0) selecionar(-1); else if (filtroTexto) { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); } }
