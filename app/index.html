@@ -224,30 +224,12 @@
         </div>
       </section>
 
-      <!-- 5: cérebro (memória em Markdown). Nada roda sozinho: cada clique chama o cerebro.py uma vez -->
+      <!-- 5: cérebro (memória em Markdown). Grafo 3D interativo -->
       <section id="aba-cerebro" class="painel" data-painel="cerebro">
-        <form id="cer-form" class="linha-busca" autocomplete="off">
-          <div class="cer-troca" role="group" aria-label="Tela do Brain">
-            <button type="button" class="cer-troca-btn" data-tela="grafo" title="O cérebro como um grafo 3D">Graph</button>
-            <button type="button" class="cer-troca-btn ativa" data-tela="busca" title="Buscar nas lembranças">Search</button>
-          </div>
+        <form id="cer-form" class="linha-busca oculto" autocomplete="off">
           <input id="cer-busca" type="text" maxlength="200" spellcheck="false" placeholder="o que lembrar? (Enter)" aria-label="Buscar no cérebro">
           <select id="cer-projeto" class="cer-select" title="Projeto"><option value="">todos</option></select>
           <button type="submit" id="cer-buscar" class="botao-cmd">[buscar]</button>
-          <button type="button" id="cer-demo" class="botao-cmd" title="Modo ilustrativo: preenche o cérebro com memórias e conexões visuais para demonstração (clique de novo para desativar)">[✦ cheio]</button>
-          <div class="cer-mais">
-            <button type="button" id="cer-mais" class="botao-cmd" title="Compactar conversa, economia, manutenção e conferências" aria-haspopup="true" aria-expanded="false">[mais ▾]</button>
-            <div id="cer-menu" class="cer-menu oculto" role="menu">
-              <button type="button" id="cer-compactar" class="cer-menu-item" role="menuitem" title="Guardar no cérebro o resumo de um chat">Compactar conversa<small>guarda o resumo de um chat</small></button>
-              <button type="button" id="cer-prompt" class="cer-menu-item" role="menuitem" title="Copia um prompt para colar no fim de um chat do Claude.ai, ChatGPT ou Gemini">Copiar prompt de compactação<small>para colar no chat</small></button>
-              <div class="cer-menu-sep"></div>
-              <button type="button" id="cer-economia" class="cer-menu-item" role="menuitem" title="O cérebro está compensando? Consultas por semana, tokens evitados (estimado) e o teste A/B">Economia<small>o cérebro compensa?</small></button>
-              <button type="button" id="cer-manutencao" class="cer-menu-item" role="menuitem" title="Diagnóstico do cérebro, sinônimos, consolidação, índices por projeto e backup (só quando você clica)">Manutenção<small>diagnóstico e backup</small></button>
-              <div class="cer-menu-sep"></div>
-              <button type="button" id="cer-validar" class="cer-menu-item" role="menuitem" title="Confere o formato de todos os arquivos">Validar formato<small>confere os arquivos</small></button>
-              <button type="button" id="cer-reindexar" class="cer-menu-item" role="menuitem" title="Refaz o INDICE.md">Refazer índice<small>INDICE.md</small></button>
-            </div>
-          </div>
         </form>
         <!-- estado do projeto escolhido (e quando foi atualizado) -->
         <div id="cer-estado" class="cer-estado sub"></div>
@@ -270,13 +252,22 @@
         <!-- tela 2: o cérebro em grafo 3D (canvas puro; só desenha quando você mexe; a simulação dura segundos e para) -->
         <div id="cer-grafo" class="cer-grafo">
           <div class="graf-topo">
-            <div class="cer-troca" role="group" aria-label="Tela do Brain">
-              <button type="button" class="cer-troca-btn ativa" data-tela="grafo" title="O cérebro como um grafo 3D">Graph</button>
-              <button type="button" class="cer-troca-btn" data-tela="busca" title="Buscar nas lembranças">Search</button>
+            <input id="graf-filtro" type="text" maxlength="60" spellcheck="false" placeholder="filtrar por nome, palavra ou projeto..." aria-label="Filtrar o grafo">
+            <button type="button" id="graf-centro" class="botao-cmd" title="Enquadra o grafo inteiro de novo (tecla R). Dica: arraste para girar, roda para ampliar, botão direito para mover; duplo clique abre o arquivo">[centralizar]</button>
+            <button type="button" id="graf-ampliar" class="botao-cmd" title="Ampliar a visualização do grafo ocultando a barra lateral (ou restaurar)">[⛶ ampliar]</button>
+            <div class="cer-mais">
+              <button type="button" id="cer-mais" class="botao-cmd" title="Compactar conversa, economia, manutenção e conferências" aria-haspopup="true" aria-expanded="false">[mais ▾]</button>
+              <div id="cer-menu" class="cer-menu oculto" role="menu">
+                <button type="button" id="cer-compactar" class="cer-menu-item" role="menuitem" title="Guardar no cérebro o resumo de um chat">Compactar conversa<small>guarda o resumo de um chat</small></button>
+                <button type="button" id="cer-prompt" class="cer-menu-item" role="menuitem" title="Copia um prompt para colar no fim de um chat do Claude.ai, ChatGPT ou Gemini">Copiar prompt de compactação<small>para colar no chat</small></button>
+                <div class="cer-menu-sep"></div>
+                <button type="button" id="cer-economia" class="cer-menu-item" role="menuitem" title="O cérebro está compensando? Consultas por semana, tokens evitados (estimado) e o teste A/B">Economia<small>o cérebro compensa?</small></button>
+                <button type="button" id="cer-manutencao" class="cer-menu-item" role="menuitem" title="Diagnóstico do cérebro, sinônimos, consolidação, índices por projeto e backup (só quando você clica)">Manutenção<small>diagnóstico e backup</small></button>
+                <div class="cer-menu-sep"></div>
+                <button type="button" id="cer-validar" class="cer-menu-item" role="menuitem" title="Confere o formato de todos os arquivos">Validar formato<small>confere os arquivos</small></button>
+                <button type="button" id="cer-reindexar" class="cer-menu-item" role="menuitem" title="Refaz o INDICE.md">Refazer índice<small>INDICE.md</small></button>
+              </div>
             </div>
-            <input id="graf-filtro" type="text" maxlength="60" spellcheck="false" placeholder="filtrar por nome, palavra ou projeto (Enter vai até ele)" aria-label="Filtrar o grafo">
-            <button type="button" id="graf-centro" class="botao-cmd" title="Enquadra o grafo inteiro de novo (tecla R). Dica: arraste para girar, roda para ampliar, botão direito para mover; uma bolinha pode ser arrastada; duplo clique abre o arquivo">[centralizar]</button>
-            <button type="button" id="graf-demo" class="botao-cmd" title="Modo ilustrativo: preenche o cérebro com memórias e conexões visuais para demonstração (clique de novo para desativar)">[✦ cheio]</button>
           </div>
           <div id="graf-area" class="graf-area">
             <canvas id="graf-canvas" class="graf-canvas" tabindex="0" aria-label="Grafo 3D do cérebro"

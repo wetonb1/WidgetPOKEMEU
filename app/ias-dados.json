@@ -41,7 +41,9 @@
       "claude-opus-5-5-low": "Claude Opus 5.5 · esforço leve",
       "claude-opus-5-5-medium": "Claude Opus 5.5 · planejamento e tarefas difíceis",
       "claude-opus-5-5-high": "Claude Opus 5.5 · o mais forte, gasta mais cota",
-      "gpt-oss-120b-medium": "GPT-OSS 120B · dia a dia"
+      "gpt-oss-120b-low": "GPT-OSS 120B · esforço leve",
+      "gpt-oss-120b-medium": "GPT-OSS 120B · dia a dia",
+      "gpt-oss-120b-high": "GPT-OSS 120B · esforço alto"
     },
     "modeloPadrao": "gemini-3.8-flash-medium",
     "docs": "https://antigravity.google/docs/getting-started",

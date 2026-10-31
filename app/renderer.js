@@ -86,6 +86,11 @@ async function mudarConfig(mudanca) {
 let accent = '#3ddc84';
 function atualizarAccent() {
   accent = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || accent;
+  const doc = document.documentElement.style;
+  doc.setProperty('--pet-glow', `color-mix(in srgb, ${accent} 28%, transparent)`);
+  doc.setProperty('--accent-glow', `color-mix(in srgb, ${accent} 65%, transparent)`);
+  doc.setProperty('--glass-mesh-1', `color-mix(in srgb, ${accent} 20%, #6366f1)`);
+  doc.setProperty('--glass-mesh-2', `color-mix(in srgb, ${accent} 14%, #ec4899)`);
 }
 atualizarAccent();
 
@@ -3195,6 +3200,21 @@ const grafoCer = (() => {
     } else if (e.key === 'Escape') { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); }
   });
   $('graf-centro').addEventListener('click', () => { mexeuNaCamera = false; enquadrar(true); });
+  let cerAmpliado = false;
+  const btnAmpliar = $('graf-ampliar');
+  if (btnAmpliar) {
+    btnAmpliar.addEventListener('click', () => {
+      cerAmpliado = !cerAmpliado;
+      cartao.classList.toggle('cer-largo', cerAmpliado);
+      btnAmpliar.textContent = IOS ? (cerAmpliado ? 'reduzir' : 'ampliar') : (cerAmpliado ? '[reduzir]' : '[ampliar]');
+      btnAmpliar.classList.toggle('ativa', cerAmpliado);
+      requestAnimationFrame(() => {
+        medir();
+        pedir();
+        enquadrar(false);
+      });
+    });
+  }
   const bgDemo = $('graf-demo');
   if (bgDemo) bgDemo.addEventListener('click', alternarDemo);
   new ResizeObserver(() => { if (aberto && emTela) { medir(); pedir(); } }).observe(area);
@@ -3251,7 +3271,18 @@ const grafoCer = (() => {
     iniciar() { aberto = true; aba.classList.add('grafo'); marcarTroca(); atualizarBotoesDemo(modoDemo); },
     visivel(v) {
       emTela = v;
-      if (!v) { if (quadro) { cancelAnimationFrame(quadro); quadro = 0; } return; } // fora da tela: nada roda (a simulação pausa)
+      if (!v) {
+        if (quadro) { cancelAnimationFrame(quadro); quadro = 0; }
+        if (cerAmpliado) {
+          cerAmpliado = false;
+          cartao.classList.remove('cer-largo');
+          if (btnAmpliar) {
+            btnAmpliar.textContent = IOS ? 'ampliar' : '[ampliar]';
+            btnAmpliar.classList.remove('ativa');
+          }
+        }
+        return;
+      }
       if (aberto) { medir(); carregar(false); }
     },
   };
@@ -4467,9 +4498,19 @@ const projetos = (() => {
       dizer('Abri o PowerShell em ' + p.nome + ' numa janela externa.');
     }
   }
-  terminalEmb.aoPedirPS((projId) => {
-    const p = cadastro.find((x) => x.id === projId) || cadastro[0];
-    if (p) abrirPS(p);
+  terminalEmb.aoPedirPS(async (projId) => {
+    if (!cadastro || !cadastro.length) {
+      const r = await chamar(() => window.widget.projetosListar());
+      if (r && r.ok && r.dados && Array.isArray(r.dados.projetos)) {
+        cadastro = r.dados.projetos;
+      }
+    }
+    const p = (cadastro && cadastro.find((x) => x.id === projId)) || (cadastro && cadastro[0]);
+    if (p) {
+      abrirPS(p);
+    } else {
+      dizer('Nenhum projeto encontrado para abrir o PowerShell.');
+    }
   });
 
   // ----- cartões -----
@@ -4528,17 +4569,104 @@ const projetos = (() => {
     const escolherModelo = (modelo) => { estado.modelo = modelo; };
     function desenharModelo() {
       const ia = iaInfo(estado.ia);
-      const modelos = Object.keys(ia.modelos);
-      const s = el('select', 'cer-select proj-select');
-      s.title = 'Clique para escolher o modelo e depois clique em abrir';
-      for (const m of modelos) {
-        const desc = ia.modelos[m];
-        s.append(new Option(desc ? `${m} · ${desc}` : m, m));
+      if (estado.ia === 'antigravity') {
+        const container = el('div', 'proj-agy-seletor');
+        const s = el('select', 'cer-select proj-select proj-agy-select');
+        s.title = 'Modelo Antigravity (separado por família de IA e nível de força)';
+
+        const FAMILIAS = [
+          { prefix: 'gemini-3.8-flash', rotulo: 'Gemini 3.8 Flash' },
+          { prefix: 'gemini-4-argon', rotulo: 'Gemini 4 Argon' },
+          { prefix: 'claude-sonnet-5-5', rotulo: 'Claude Sonnet 5.5' },
+          { prefix: 'claude-opus-5-5', rotulo: 'Claude Opus 5.5' },
+          { prefix: 'gpt-oss-120b', rotulo: 'GPT-OSS 120B' },
+        ];
+        const ROTULO_FORCA = {
+          low: '⚡ Low (rápido / leve)',
+          medium: '⚖ Medium (dia a dia)',
+          high: '🔥 High (esforço alto)',
+        };
+
+        const modelos = Object.keys(ia.modelos);
+        const usados = new Set();
+
+        for (const fam of FAMILIAS) {
+          const itens = modelos.filter((m) => m.startsWith(fam.prefix));
+          if (itens.length) {
+            const grupo = document.createElement('optgroup');
+            grupo.label = '✦ ' + fam.rotulo;
+            for (const forca of ['low', 'medium', 'high']) {
+              const m = itens.find((x) => x.endsWith('-' + forca));
+              if (m) {
+                usados.add(m);
+                grupo.append(new Option(`${fam.rotulo} · ${ROTULO_FORCA[forca] || forca}`, m));
+              }
+            }
+            itens.filter((x) => !usados.has(x)).forEach((m) => {
+              usados.add(m);
+              grupo.append(new Option(ia.modelos[m] || m, m));
+            });
+            s.append(grupo);
+          }
+        }
+        const outros = modelos.filter((m) => !usados.has(m));
+        if (outros.length) {
+          const grupo = document.createElement('optgroup');
+          grupo.label = 'Outros modelos';
+          outros.forEach((m) => grupo.append(new Option(ia.modelos[m] || m, m)));
+          s.append(grupo);
+        }
+
+        s.value = estado.modelo;
+        if (!s.value && s.options.length) s.value = s.options[0].value;
+        s.addEventListener('change', () => {
+          escolherModelo(s.value);
+          atualizarPilulasForca();
+        });
+
+        const pilulasForca = el('div', 'proj-forca-pills');
+        function atualizarPilulasForca() {
+          const val = s.value || estado.modelo;
+          const forcaAtual = val.endsWith('-low') ? 'low' : (val.endsWith('-high') ? 'high' : 'medium');
+          pilulasForca.replaceChildren();
+          ['low', 'medium', 'high'].forEach((f) => {
+            const pBtn = el('button', 'forca-pill' + (forcaAtual === f ? ' ativa ' + f : ''), f.toUpperCase());
+            pBtn.type = 'button';
+            pBtn.title = `Trocar para força ${f.toUpperCase()}`;
+            pBtn.addEventListener('click', (ev) => {
+              ev.stopPropagation();
+              const atualVal = s.value;
+              const match = atualVal.match(/^(.*)-(low|medium|high)$/);
+              if (match) {
+                const novo = match[1] + '-' + f;
+                if (ia.modelos[novo]) {
+                  s.value = novo;
+                  escolherModelo(novo);
+                  atualizarPilulasForca();
+                }
+              }
+            });
+            pilulasForca.append(pBtn);
+          });
+        }
+        atualizarPilulasForca();
+
+        container.append(s, pilulasForca);
+        zonaModelo.replaceChildren(container);
+        escolherModelo(s.value);
+      } else {
+        const modelos = Object.keys(ia.modelos);
+        const s = el('select', 'cer-select proj-select');
+        s.title = 'Clique para escolher o modelo e depois clique em abrir';
+        for (const m of modelos) {
+          const desc = ia.modelos[m];
+          s.append(new Option(desc ? `${m} · ${desc}` : m, m));
+        }
+        s.value = estado.modelo;
+        s.addEventListener('change', () => escolherModelo(s.value));
+        zonaModelo.replaceChildren(s);
+        escolherModelo(estado.modelo);
       }
-      s.value = estado.modelo;
-      s.addEventListener('change', () => escolherModelo(s.value));
-      zonaModelo.replaceChildren(s);
-      escolherModelo(estado.modelo);
     }
     // o que a IA suporta: o botão fica desabilitado, com a dica do porquê
     const suporte = (botaoEl, ia, modo) => {
@@ -4828,7 +4956,47 @@ const projetos = (() => {
   function atualizarCamposIA(modelo, reserva) {
     const ia = iaInfo(f.ia.value);
     if (!ia) return;
-    f.modelo.replaceChildren(...Object.keys(ia.modelos).map((m) => new Option(m + (m === ia.modeloPadrao ? ' (recomendado)' : ''), m)));
+    if (f.ia.value === 'antigravity') {
+      const FAMILIAS = [
+        { prefix: 'gemini-3.8-flash', rotulo: 'Gemini 3.8 Flash' },
+        { prefix: 'gemini-4-argon', rotulo: 'Gemini 4 Argon' },
+        { prefix: 'claude-sonnet-5-5', rotulo: 'Claude Sonnet 5.5' },
+        { prefix: 'claude-opus-5-5', rotulo: 'Claude Opus 5.5' },
+        { prefix: 'gpt-oss-120b', rotulo: 'GPT-OSS 120B' },
+      ];
+      const ROTULO_FORCA = { low: 'Low (rápido / leve)', medium: 'Medium (dia a dia)', high: 'High (esforço alto)' };
+      f.modelo.replaceChildren();
+      const modelos = Object.keys(ia.modelos);
+      const usados = new Set();
+      for (const fam of FAMILIAS) {
+        const itens = modelos.filter((m) => m.startsWith(fam.prefix));
+        if (itens.length) {
+          const grupo = document.createElement('optgroup');
+          grupo.label = '✦ ' + fam.rotulo;
+          for (const forca of ['low', 'medium', 'high']) {
+            const m = itens.find((x) => x.endsWith('-' + forca));
+            if (m) {
+              usados.add(m);
+              grupo.append(new Option(`${fam.rotulo} · ${ROTULO_FORCA[forca] || forca}`, m));
+            }
+          }
+          itens.filter((x) => !usados.has(x)).forEach((m) => {
+            usados.add(m);
+            grupo.append(new Option(ia.modelos[m] || m, m));
+          });
+          f.modelo.append(grupo);
+        }
+      }
+      const outros = modelos.filter((m) => !usados.has(m));
+      if (outros.length) {
+        const grupo = document.createElement('optgroup');
+        grupo.label = 'Outros modelos';
+        outros.forEach((m) => grupo.append(new Option(ia.modelos[m] || m, m)));
+        f.modelo.append(grupo);
+      }
+    } else {
+      f.modelo.replaceChildren(...Object.keys(ia.modelos).map((m) => new Option(m + (m === ia.modeloPadrao ? ' (recomendado)' : ''), m)));
+    }
     f.modelo.value = Object.prototype.hasOwnProperty.call(ia.modelos, modelo) ? modelo : ia.modeloPadrao;
     const outras = idsIA().filter((id) => id !== f.ia.value);
     f.reserva.replaceChildren(new Option('nenhuma', ''), ...outras.map((id) => new Option(nomeIA(id), id)));
@@ -6838,6 +7006,7 @@ if (document.documentElement.dataset.destacado === '1') {
       document.documentElement.style.setProperty('--accent', cfg.corPokebola);
       atualizarAccent();
     }
+    projetos.iniciar(cfg);
     abas.iniciar(cfg);
     document.querySelectorAll('.painel').forEach((p) => p.classList.remove('ativo'));
     const pProj = document.getElementById('aba-projetos');
