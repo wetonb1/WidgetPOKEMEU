@@ -31,7 +31,9 @@
         <button type="button" class="aba" role="tab" data-aba="skills" title="Skills: o que a IA sabe fazer e quanto custa (Alt+6)">6:skills</button>
       </nav>
       <div class="cab-botoes">
-        <button type="button" id="btn-config" class="cab-btn config" title="Settings: Pokémon, visual e ajustes (Alt+0)" aria-label="Settings">
+        <button type="button" id="btn-update" class="cab-btn atualizar oculto" title="Atualização disponível: clique para instalar (seus dados não mudam)" aria-label="Atualizar o widget">
+          <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zM19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+        </button>        <button type="button" id="btn-config" class="cab-btn config" title="Settings: Pokémon, visual e ajustes (Alt+0)" aria-label="Settings">
           <svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 00.12-.61l-1.92-3.32a.488.488 0 00-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.484.484 0 00-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58a.49.49 0 00-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
         </button>
         <button type="button" id="btn-pin" class="cab-btn" title="Fixado no topo (clique para soltar)" aria-label="Fixar no topo">
@@ -212,6 +214,7 @@
           <label class="caixa"><input type="checkbox" id="cfg-economico"> modo econômico</label>
           <label class="caixa"><input type="checkbox" id="cfg-visualizador"> visualizador de áudio</label>
           <label class="caixa"><input type="checkbox" id="cfg-animacoes"> animações do Pokémon</label>
+          <label class="caixa" title="Uma consulta leve ao GitHub ao abrir. O download só começa quando você clica em update."><input type="checkbox" id="cfg-atualizacao"> avisar de atualizações</label>
         </div>
         <!-- visual do widget: CMD (padrão) ou iOS (vidro com desfoque) -->
         <div class="estilo-escolha" role="radiogroup" aria-label="Visual">
@@ -787,6 +790,16 @@
         <div id="power-contagem" class="power-contagem oculto"></div>
         <div id="power-erro" class="cc-erro" role="alert"></div>
         <div id="power-botoes" class="dialogo-botoes"></div>
+      </div>
+    </div>
+
+    <!-- Atualização pelo GitHub: confirma, baixa, troca só o código e reinicia (os dados do usuário não são tocados) -->
+    <div id="update-dialogo" class="dialogo oculto" role="dialog" aria-modal="true" aria-labelledby="update-titulo">
+      <div class="dialogo-caixa power-caixa">
+        <h2 id="update-titulo"></h2>
+        <div id="update-texto" class="pj-nota"></div>
+        <div id="update-erro" class="cc-erro" role="alert"></div>
+        <div id="update-botoes" class="dialogo-botoes"></div>
       </div>
     </div>
 

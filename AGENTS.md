@@ -1,23 +1,25 @@
 # Meu Widget + Cérebro — instruções para IAs (Antigravity lê este arquivo; o Claude Code lê o CLAUDE.md, de mesmo conteúdo)
 
-## O widget
-Widget pessoal para Windows 10 (só o dono usa): janela flutuante sem borda, sempre no topo. Abas (Alt+1 a Alt+6): `sys`
+## O widget (versão Ubuntu / Linux)
+Widget pessoal para Ubuntu / Linux (só o dono usa): janela flutuante sem borda, sempre no topo. Abas (Alt+1 a Alt+6): `sys`
 (gerenciador de tarefas), `music`, `apps`, `cerebro`, `projetos` e `skills`. Engrenagem = Settings (Pokédex e ajustes, Alt+0);
 botão de desligar o PC com 2 confirmações.
 - Stack: Electron + JavaScript puro, HTML e CSS. Sem frameworks, sem bundler, sem dependências de runtime.
-  Ponte com o Windows: `app/helper.cs` (e `app/media.ps1` de reserva): mudou um, mude o outro.
-  O Claude e o Antigravity (`agy`) rodam DENTRO do widget (aba Projects): `app/pty.cs` (ConPTY, compilado 1x com o csc) + `app/pty.js`/`app/embutido.js`
-  + xterm.js em `app/vendor/xterm` (carregado só ao abrir a 1ª sessão); sem csc cai no terminal externo.
+  Ponte com o Linux: `app/helper-linux.py` (D-Bus MPRIS2, pactl/amixer, /proc) e `app/pty-linux.py` (POSIX PTY).
+  O Claude e o Antigravity (`agy`) rodam DENTRO do widget (aba Projects): `app/pty-linux.py` + `app/pty.js`/`app/embutido.js`
+  + xterm.js em `app/vendor/xterm` (carregado só ao abrir a 1ª sessão); sem PTY cai no terminal externo.
 - Entrada: `app/main.js`; tela em `app/index.html` + `app/renderer.js` via `app/preload.js`.
-  Config: `%APPDATA%\meu-widget\config.json`.
+  Config: `~/.config/meu-widget/config.json`.
 - Segurança: `contextIsolation: true`, `nodeIntegration: false`, CSP, nenhuma porta de rede aberta.
-- Como cada aba funciona e as decisões: `docs/WIDGET.md`. Custos: `docs/OTIMIZACAO.md`.
+- Como cada aba funciona e as decisões: `docs/WIDGET.md` e `docs/UBUNTU.md`. Custos: `docs/OTIMIZACAO.md`.
 
 ## Regra de leveza
 - Nada de processos pesados ou loops rápidos em segundo plano; todo recurso novo vem com o custo estimado (`npm run medir`).
 - Rede só por clique do dono (catálogo de skills em `app/catalogo-skills.js`: GitHub, nada é executado, revisar antes de adicionar).
+  Única exceção: o aviso de atualização (`app/atualizador.js`): 1 consulta leve ao GitHub (só o SHA do último commit da branch `devs(ubunto)`) ~20 s depois de abrir,
+  desligável em Settings; o download e a troca de arquivos só por clique em "update". Nunca toca nos dados do usuário (config, `cerebro/` pessoal, `projetos.json`, skills importadas).
 - Tarefas de IA (resumir, importar, consolidar) só disparam por ação do dono. NUNCA rotação automática de contas;
-  chave de API só em variável do Windows, nunca em arquivo.
+  chave de API só em variável de ambiente, nunca em arquivo.
 
 ## Cérebro (memória em Markdown, pasta `cerebro/`)
 Serve para gastar menos tokens: consulte-o ANTES de pesquisar, só pelo `cerebro/tools/cerebro.py` (skill cerebro-buscar).

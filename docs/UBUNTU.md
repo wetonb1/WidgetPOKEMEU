@@ -65,3 +65,13 @@ O pacote será gerado na pasta `dist/MeuWidget.AppImage`.
 - **Skills (`skills`)**: Orçamento de tokens, simulação de economia e gerenciamento modular de skills para IAs.
 - **Configurações & Pokédex**: Personalização visual (tema escuro, iOS blur, modo mini), Pokédex interativa e atalhos rápidos.
 
+
+---
+
+## 🔄 Atualização Automática / Botão Update
+
+O widget no Ubuntu conta com o mesmo sistema de atualização rápida que a versão Windows:
+- **Monitoramento da Branch**: Configurado em pp/atualizacao.json para a branch devs(ubunto).
+- **Verificação Leve**: ~20 segundos após a inicialização, o Electron faz uma requisição leve de ~40 bytes à API do GitHub (nd.github.sha).
+- **Botão no Cabeçalho**: Caso haja novo commit na branch devs(ubunto), o botão update surge no topo e o Pokémon avisa.
+- **Segurança de Dados**: Todo o conteúdo do usuário (~/.config/meu-widget, cerebro/conversas/, cerebro/estado/, projetos.json, skills importadas) permanece 100% intacto. Apenas arquivos de código do widget são atualizados com backup e reversão automática em caso de erro.

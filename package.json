@@ -10,6 +10,7 @@
     "icone": "electron tools/gerar-icone.js",
     "medir": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/medir.ps1",
     "testar-cerebro": "node tools/testar-cerebro.js",
+    "testar-atualizador": "node tools/testar-atualizador.js",
     "testar-abrir": "node tools/testar-abrir.js",
     "testar-sessoes": "node tools/testar-sessoes.js",
     "testar-pty": "node tools/testar-pty.js",

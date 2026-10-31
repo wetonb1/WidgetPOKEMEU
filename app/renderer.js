@@ -6426,6 +6426,87 @@ const abas = (() => {
   };
 })();
 
+// ---------- Atualização (botão "update" do cabeçalho) ----------
+// O main.js avisa quando a branch do widget ganhou commit novo. Aqui só: mostrar o botão, confirmar, mostrar o resultado e reiniciar.
+// Quem baixa e troca os arquivos é o main.js (app/atualizador.js), que não mexe nos dados do usuário.
+const atualizacao = (() => {
+  const btn = document.getElementById('btn-update');
+  const dlg = { raiz: document.getElementById('update-dialogo'), titulo: document.getElementById('update-titulo'), texto: document.getElementById('update-texto'),
+    erro: document.getElementById('update-erro'), botoes: document.getElementById('update-botoes') };
+  let estado = { disponivel: false, remoto: '' };
+  let avisado = false;
+  let ocupado = false;
+  const botao = (rotulo, aoClicar, principal) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = rotulo;
+    if (principal) b.className = 'principal';
+    b.addEventListener('click', aoClicar);
+    return b;
+  };
+  const fechar = () => { if (!ocupado) dlg.raiz.classList.add('oculto'); };
+
+  function mostrar(novo) {
+    estado = novo && typeof novo === 'object' ? novo : { disponivel: false, remoto: '' };
+    btn.classList.toggle('oculto', !estado.disponivel);
+    if (estado.disponivel && !avisado) {
+      avisado = true;
+      dizer('Saiu uma atualização nova! Clique no botão de download (update) no topo. Seus dados ficam como estão.');
+    }
+  }
+
+  function perguntar() {
+    dlg.erro.textContent = '';
+    dlg.titulo.textContent = 'Atualizar o widget?';
+    dlg.texto.textContent = `Versão nova no GitHub (${estado.remoto}). Troco só os arquivos do programa. Suas configurações, o Cérebro, os projetos e as skills que você importou NÃO são mexidos. O widget reinicia no final e as sessões de terminal abertas são fechadas.`;
+    dlg.botoes.replaceChildren(botao('depois', fechar), botao('atualizar agora', instalar, true));
+    dlg.raiz.classList.remove('oculto');
+    dlg.botoes.lastChild.focus();
+  }
+
+  async function instalar() {
+    ocupado = true;
+    dlg.erro.textContent = '';
+    dlg.titulo.textContent = 'Atualizando...';
+    dlg.texto.textContent = 'Baixando a versão nova e trocando os arquivos. Pode levar alguns segundos; não feche o widget.';
+    dlg.botoes.replaceChildren();
+    let r;
+    try { r = await window.widget.atualizacaoAplicar(); } catch (erro) { r = { ok: false, erro: erro.message }; }
+    ocupado = false;
+    if (!r || !r.ok) {
+      dlg.titulo.textContent = 'Não consegui atualizar';
+      dlg.texto.textContent = 'Nada foi mudado: se algo tinha sido trocado, já foi desfeito. Seus dados estão intactos.';
+      dlg.erro.textContent = (r && r.erro) || 'erro desconhecido';
+      dlg.botoes.replaceChildren(botao('fechar', fechar), botao('tentar de novo', instalar, true));
+      return;
+    }
+    mostrar({ disponivel: false, remoto: '' });
+    dlg.titulo.textContent = 'Atualizado!';
+    const quantos = `${r.atualizados} arquivo(s) trocado(s) e ${r.novos} novo(s).`;
+    if (r.depsMudaram) {
+      dlg.texto.textContent = `${quantos} Esta versão mudou as dependências: feche o widget, rode "npm install" na pasta dele e abra de novo.`;
+      dlg.botoes.replaceChildren(botao('fechar', fechar, true));
+      return;
+    }
+    dlg.texto.textContent = `${quantos} Reiniciando o widget...`;
+    dlg.botoes.replaceChildren();
+    await esperar(1500);
+    window.widget.atualizacaoReiniciar().catch((erro) => console.error('Erro ao reiniciar:', erro));
+  }
+
+  btn.addEventListener('click', perguntar);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !dlg.raiz.classList.contains('oculto')) fechar(); });
+
+  return {
+    mostrar,
+    // o aviso pode ter chegado antes de a tela estar pronta: pergunta o que o main já sabe, e escuta os próximos
+    iniciar() {
+      window.widget.onAtualizacao(mostrar);
+      window.widget.atualizacaoEstado().then(mostrar).catch((erro) => console.error('Erro ao ler a atualização:', erro));
+    },
+  };
+})();
+
 // ---------- Ajustes (aba poke) ----------
 // Cada caixa salva na config na hora; o Pokémon comenta.
 const ajustes = (() => {
@@ -6434,7 +6515,23 @@ const ajustes = (() => {
     economico: document.getElementById('cfg-economico'),
     visualizador: document.getElementById('cfg-visualizador'),
     animacoes: document.getElementById('cfg-animacoes'),
+    atualizacao: document.getElementById('cfg-atualizacao'),
   };
+
+  // avisar de atualizações: ligar confere já (é um clique seu); desligar esconde o botão
+  caixa.atualizacao.addEventListener('change', () => {
+    const ligar = caixa.atualizacao.checked;
+    mudarConfig((cfg) => { cfg.avisarAtualizacao = ligar; })
+      .then(() => {
+        if (!ligar) { atualizacao.mostrar(null); dizer('Tudo bem, não vou mais avisar de atualização.'); return null; }
+        dizer('Vou olhar se tem versão nova...');
+        return window.widget.atualizacaoVerificar().then((est) => {
+          atualizacao.mostrar(est);
+          if (!est || !est.disponivel) dizer('Você já está na versão mais nova (ou não consegui consultar o GitHub agora).');
+        });
+      })
+      .catch((erro) => console.error('Erro ao salvar:', erro));
+  });
 
   caixa.autostart.addEventListener('change', async () => {
     const ligar = caixa.autostart.checked;
@@ -6494,6 +6591,7 @@ const ajustes = (() => {
       caixa.economico.checked = cfg.desempenho === 'economico';
       caixa.visualizador.checked = cfg.visualizador !== false;
       caixa.animacoes.checked = cfg.animacoes !== false;
+      caixa.atualizacao.checked = cfg.avisarAtualizacao !== false;
     },
   };
 })();
@@ -6546,6 +6644,7 @@ if (document.documentElement.dataset.destacado === '1') {
 
   sistema.iniciar();
   musica.iniciar();
+  atualizacao.iniciar();
 
   // Ctrl+Alt+A (atalho global do main.js): aba Projetos + seletor rápido. Nada antes de escolher o Pokémon.
   window.widget.onAtalhoProjetos(() => {
