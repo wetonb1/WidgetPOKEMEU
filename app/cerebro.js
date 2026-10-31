@@ -23,6 +23,28 @@ function pastaRaizWidget() {
     const dirExe = path.dirname(process.execPath);
     if (fs.existsSync(path.join(dirExe, 'cerebro'))) return dirExe;
   }
+  // Se estiver rodando empacotado (.exe no Temp) e não achou cerebro ao lado:
+  // consulta pastaInstalacao salva na config do widget ou ~/.cerebro.json
+  try {
+    const pastaCfg = process.env.APPDATA ? path.join(process.env.APPDATA, 'meu-widget') : path.join(os.homedir(), '.config', 'meu-widget');
+    const arqCfg = path.join(pastaCfg, 'config.json');
+    if (fs.existsSync(arqCfg)) {
+      const c = JSON.parse(fs.readFileSync(arqCfg, 'utf8').replace(/^\uFEFF/, ''));
+      if (c && c.pastaInstalacao && fs.existsSync(path.join(c.pastaInstalacao, 'cerebro', 'tools', 'cerebro.py'))) {
+        return c.pastaInstalacao;
+      }
+    }
+  } catch { /* ignora */ }
+  try {
+    const arqCerebro = process.env.CEREBRO_CONFIG || path.join(os.homedir(), '.cerebro.json');
+    if (fs.existsSync(arqCerebro)) {
+      const c = JSON.parse(fs.readFileSync(arqCerebro, 'utf8').replace(/^\uFEFF/, ''));
+      if (c && c.cerebro_dir) {
+        const pai = path.dirname(c.cerebro_dir);
+        if (fs.existsSync(path.join(c.cerebro_dir, 'tools', 'cerebro.py'))) return pai;
+      }
+    }
+  } catch { /* ignora */ }
   return path.resolve(__dirname, '..');
 }
 
@@ -37,11 +59,25 @@ function pastaTools() {
     const arquivo = process.env.CEREBRO_CONFIG || path.join(os.homedir(), '.cerebro.json');
     if (fs.existsSync(arquivo)) {
       const conteudo = JSON.parse(fs.readFileSync(arquivo, 'utf8').replace(/^\uFEFF/, ''));
-      if (conteudo && conteudo.cerebro_dir) pastas.push(conteudo.cerebro_dir);
+      if (conteudo && conteudo.cerebro_dir) {
+        pastas.push(conteudo.cerebro_dir);
+        pastas.push(path.join(conteudo.cerebro_dir, 'tools'));
+      }
     }
   } catch { /* sem config ou corrompido */ }
+  try {
+    const pastaCfg = process.env.APPDATA ? path.join(process.env.APPDATA, 'meu-widget') : path.join(os.homedir(), '.config', 'meu-widget');
+    const arqCfg = path.join(pastaCfg, 'config.json');
+    if (fs.existsSync(arqCfg)) {
+      const c = JSON.parse(fs.readFileSync(arqCfg, 'utf8').replace(/^\uFEFF/, ''));
+      if (c && c.pastaInstalacao) pastas.push(path.join(c.pastaInstalacao, 'cerebro', 'tools'));
+    }
+  } catch { /* ignora */ }
   for (const p of pastas) {
-    if (typeof p === 'string' && p) candidatos.push(path.join(p, 'tools'));
+    if (typeof p === 'string' && p) {
+      if (fs.existsSync(path.join(p, 'cerebro.py'))) return p;
+      if (fs.existsSync(path.join(p, 'tools', 'cerebro.py'))) return path.join(p, 'tools');
+    }
   }
   return candidatos.find((p) => fs.existsSync(path.join(p, 'cerebro.py'))) || candidatos[0];
 }

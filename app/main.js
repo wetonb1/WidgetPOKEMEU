@@ -4,6 +4,23 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+// Se estiver rodando empacotado (.exe no Temp) e existir a pasta com o código do widget ao lado ou na config:
+// delega para o app/main.js externo para que o widget rode do código atualizado e permita auto-update via GitHub.
+if (app.isPackaged && !process.env._MEU_WIDGET_DELEGADO) {
+  try {
+    const { pastaRaizWidget } = require('./cerebro');
+    const raiz = pastaRaizWidget();
+    const mainExterno = path.join(raiz, 'app', 'main.js');
+    if (fs.existsSync(mainExterno) && path.resolve(mainExterno) !== path.resolve(__filename)) {
+      process.env._MEU_WIDGET_DELEGADO = '1';
+      require(mainExterno);
+      return;
+    }
+  } catch (err) {
+    console.error('Falha ao delegar para main externo:', err.message);
+  }
+}
+
 // Tamanho da janela (horizontal). Você redimensiona puxando as bordas, dentro
 // de um mínimo e um máximo que não quebram o layout; o tamanho fica salvo.
 // Ao trocar de modo, a borda direita e o topo não se mexem (preso ao canto).
@@ -1631,8 +1648,10 @@ try { configAtualizacao = atualizador.lerConfig(__dirname); } catch (erro) { con
 let atualizacao = { disponivel: false, remoto: '' };
 let atualizando = false;
 
+const podeAtualizar = () => !app.isPackaged || process.env._MEU_WIDGET_DELEGADO === '1' || fs.existsSync(path.join(cerebro.pastaRaizWidget(), 'app', 'main.js'));
+
 async function verificarAtualizacao() {
-  if (!configAtualizacao || app.isPackaged || atualizando) return atualizacao;
+  if (!configAtualizacao || !podeAtualizar() || atualizando) return atualizacao;
   try {
     const r = await atualizador.verificar({ raiz: cerebro.pastaRaizWidget(), pastaConfig: PASTA_CONFIG, config: configAtualizacao });
     atualizacao = { disponivel: r.disponivel, remoto: r.remoto.slice(0, 7) };
@@ -1647,7 +1666,7 @@ ipcMain.handle('atualizar:estado', (e) => (daJanela(e) ? atualizacao : RECUSADO)
 ipcMain.handle('atualizar:verificar', (e) => (daJanela(e) ? verificarAtualizacao() : RECUSADO));
 ipcMain.handle('atualizar:aplicar', async (e) => {
   if (!daJanela(e)) return RECUSADO;
-  if (!configAtualizacao || app.isPackaged) return { ok: false, erro: 'esta versão (.exe/AppImage) não atualiza por aqui: baixe a nova no GitHub' };
+  if (!configAtualizacao || !podeAtualizar()) return { ok: false, erro: 'esta versão isolada não atualiza por aqui: baixe a nova no GitHub' };
   if (atualizando) return { ok: false, erro: 'já estou atualizando' };
   atualizando = true;
   try {
@@ -1745,8 +1764,8 @@ app.whenReady().then(() => {
 
   criarJanela();
 
-  // 20 s depois de abrir (não atrasa a abertura): confere se saiu versão nova, se o dono deixou ligado
-  if (carregarConfig().avisarAtualizacao !== false) setTimeout(verificarAtualizacao, 20000);
+  // 2 s depois de abrir (não atrasa a abertura): confere se saiu versão nova, se o dono deixou ligado
+  if (carregarConfig().avisarAtualizacao !== false) setTimeout(verificarAtualizacao, 2000);
 
   // Atalho global Ctrl+Alt+A: mostra o widget na aba Projetos com o seletor rápido (sem dependências:
   // é do próprio Electron). Se outro programa já usa o atalho, o registro falha e nada acontece.
