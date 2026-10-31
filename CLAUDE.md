@@ -16,6 +16,8 @@ botão de desligar o PC com 2 confirmações.
 ## Regra de leveza
 - Nada de processos pesados ou loops rápidos em segundo plano; todo recurso novo vem com o custo estimado (`npm run medir`).
 - Rede só por clique do dono (catálogo de skills em `app/catalogo-skills.js`: GitHub, nada é executado, revisar antes de adicionar).
+  Única exceção: o aviso de atualização (`app/atualizador.js`): 1 consulta leve ao GitHub (só o SHA do último commit) ~20 s depois de abrir,
+  desligável em Settings; o download e a troca de arquivos só por clique em "update". Nunca toca nos dados do usuário (config, `cerebro/` pessoal, `projetos.json`, skills importadas).
 - Tarefas de IA (resumir, importar, consolidar) só disparam por ação do dono. NUNCA rotação automática de contas;
   chave de API só em variável do Windows, nunca em arquivo.
 

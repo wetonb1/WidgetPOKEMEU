@@ -140,6 +140,7 @@ function sanitizarConfig(cfg, modelo) {
     animacoes: bool(cfg.animacoes, modelo.animacoes),
     favoritos: Array.isArray(cfg.favoritos) ? [...new Set(cfg.favoritos.filter(slug))].slice(0, 50) : [],
     iniciarComWindows: bool(cfg.iniciarComWindows, modelo.iniciarComWindows),
+    avisarAtualizacao: bool(cfg.avisarAtualizacao, modelo.avisarAtualizacao !== false), // botão "update" quando sai versão nova no GitHub
     boasVindas: {
       ativo: bool(bv.ativo, mbv.ativo),
       voz: bool(bv.voz, mbv.voz),
@@ -1617,6 +1618,55 @@ ipcMain.handle('janela:fixar', (e, fixar) => {
   return fixar;
 });
 
+// ---------- Atualização pelo GitHub ----------
+// O botão "update" do cabeçalho aparece quando a branch deste widget (app/atualizacao.json) ganha um commit novo.
+// Rede: UMA chamada leve (o SHA do último commit) uns segundos depois de abrir, e só se "avisar de atualizações" estiver
+// ligado nos ajustes; o download só começa quando o dono clica em "atualizar agora". A troca de arquivos e o que nunca
+// é tocado (config, Cérebro, projetos, skills do usuário) estão no app/atualizador.js. Só vale rodando do código
+// (npm start / iniciar-widget.sh): o .exe/AppImage não troca os próprios arquivos.
+const atualizador = require('./atualizador');
+let configAtualizacao = null;
+try { configAtualizacao = atualizador.lerConfig(__dirname); } catch (erro) { console.error('Atualização desligada:', erro.message); }
+let atualizacao = { disponivel: false, remoto: '' };
+let atualizando = false;
+
+async function verificarAtualizacao() {
+  if (!configAtualizacao || app.isPackaged || atualizando) return atualizacao;
+  try {
+    const r = await atualizador.verificar({ raiz: cerebro.pastaRaizWidget(), pastaConfig: PASTA_CONFIG, config: configAtualizacao });
+    atualizacao = { disponivel: r.disponivel, remoto: r.remoto.slice(0, 7) };
+    if (janela && !janela.isDestroyed()) janela.webContents.send('atualizar:aviso', atualizacao);
+  } catch (erro) {
+    console.error('Não deu para verificar atualização:', erro.message); // sem internet etc.: o botão simplesmente não aparece
+  }
+  return atualizacao;
+}
+ipcMain.handle('atualizar:estado', (e) => (daJanela(e) ? atualizacao : RECUSADO));
+// o dono ligou "avisar de atualizações" nos ajustes: confere já (é um clique dele)
+ipcMain.handle('atualizar:verificar', (e) => (daJanela(e) ? verificarAtualizacao() : RECUSADO));
+ipcMain.handle('atualizar:aplicar', async (e) => {
+  if (!daJanela(e)) return RECUSADO;
+  if (!configAtualizacao || app.isPackaged) return { ok: false, erro: 'esta versão (.exe/AppImage) não atualiza por aqui: baixe a nova no GitHub' };
+  if (atualizando) return { ok: false, erro: 'já estou atualizando' };
+  atualizando = true;
+  try {
+    const r = await atualizador.atualizar({ raiz: cerebro.pastaRaizWidget(), pastaConfig: PASTA_CONFIG, config: configAtualizacao });
+    atualizacao = { disponivel: false, remoto: r.sha.slice(0, 7) };
+    return { ok: true, atualizados: r.atualizados, novos: r.novos, depsMudaram: r.depsMudaram };
+  } catch (erro) {
+    return { ok: false, erro: erro.message };
+  } finally {
+    atualizando = false;
+  }
+});
+// recomeça o widget para carregar o código novo (o will-quit fecha as sessões e o medidor)
+ipcMain.handle('atualizar:reiniciar', (e) => {
+  if (!daJanela(e)) return RECUSADO;
+  app.relaunch();
+  app.quit();
+  return { ok: true };
+});
+
 // O medidor (ou o PowerShell de reserva) morre junto com o app
 app.on('will-quit', () => {
   globalShortcut.unregisterAll();
@@ -1693,6 +1743,9 @@ app.whenReady().then(() => {
   });
 
   criarJanela();
+
+  // 20 s depois de abrir (não atrasa a abertura): confere se saiu versão nova, se o dono deixou ligado
+  if (carregarConfig().avisarAtualizacao !== false) setTimeout(verificarAtualizacao, 20000);
 
   // Atalho global Ctrl+Alt+A: mostra o widget na aba Projetos com o seletor rápido (sem dependências:
   // é do próprio Electron). Se outro programa já usa o atalho, o registro falha e nada acontece.

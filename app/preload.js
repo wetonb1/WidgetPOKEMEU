@@ -119,4 +119,13 @@ contextBridge.exposeInMainWorld('widget', {
   janelaModo: (modo) => ipcRenderer.invoke('janela:modo', String(modo)),
   janelaFixar: (fixar) => ipcRenderer.invoke('janela:fixar', fixar === true),
   setAutostart: (ligar) => ipcRenderer.invoke('autostart', ligar === true),
+  // atualização pelo GitHub (o botão "update"): o main só aplica o que veio da própria branch do widget
+  atualizacaoEstado: () => ipcRenderer.invoke('atualizar:estado'),
+  atualizacaoVerificar: () => ipcRenderer.invoke('atualizar:verificar'),
+  atualizacaoAplicar: () => ipcRenderer.invoke('atualizar:aplicar'),
+  atualizacaoReiniciar: () => ipcRenderer.invoke('atualizar:reiniciar'),
+  onAtualizacao: (cb) => {
+    ipcRenderer.removeAllListeners('atualizar:aviso');
+    ipcRenderer.on('atualizar:aviso', (_e, d) => cb(d));
+  },
 });

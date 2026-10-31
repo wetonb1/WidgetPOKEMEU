@@ -112,6 +112,8 @@ button { font-family: var(--font); }
 .cab-btn.config.ativa svg { fill: var(--accent); }
 .cab-btn.power:hover { background: #a1260d; }
 .cab-btn.power:hover svg { fill: #ffffff; }
+.cab-btn.atualizar svg { fill: var(--accent); }
+[data-estilo="ios"] .cab-btn.atualizar { background: rgba(255, 255, 255, 0.18); }
 [data-estilo="ios"] .tm-vista { border: none; border-radius: 8px; background: rgba(255, 255, 255, 0.07); padding: 2px 11px; }
 [data-estilo="ios"] .tm-vista.ativa { background: rgba(255, 255, 255, 0.2); color: #ffffff; }
 [data-estilo="ios"] .cer-troca-btn { border: none; border-radius: 8px; background: rgba(255, 255, 255, 0.07); padding: 2px 11px; }
@@ -253,6 +255,11 @@ button { font-family: var(--font); }
 .dialogo-botoes .principal, .fav-btn:hover, .fav-btn.atual {
   background: var(--text);
   color: var(--bg);
+}
+.botao-cmd.ativa {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 4px;
 }
 
 /* linha de busca estilo prompt: "pokémon> _" */

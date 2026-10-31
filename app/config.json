@@ -25,6 +25,7 @@
   "favoritosFranquias": [],
   "favoritos": [],
   "iniciarComWindows": true,
+  "avisarAtualizacao": true,
   "boasVindas": {
     "ativo": true,
     "voz": true,

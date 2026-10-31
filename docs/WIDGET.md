@@ -201,6 +201,18 @@ escolhe uma pasta e gera `cerebro-AAAA-MM-DD.zip` (nunca sobrescreve; leva conve
 a proposta de estado. Testes: `python cerebro/tools/test_manutencao.py`, `python cerebro/tools/test_cerebro.py`, `node tools/testar-cerebro.js`.
 Variável só para teste: `MEU_WIDGET_DESTINO_TESTE` (pula o seletor de pasta do backup).
 
+## Atualização pelo GitHub (botão "update")
+
+- **Quando aparece**: ~20 s depois de abrir, o `main.js` faz UMA consulta leve (`GET api.github.com/repos/<repo>/commits/<branch>` com `Accept: application/vnd.github.sha`, resposta de 40 bytes) e compara com o commit instalado. Se for diferente, o botão de download aparece no cabeçalho e o Pokémon avisa. Qualquer `push` na branch gera o botão (não precisa criar release). Desliga em **Settings → avisar de atualizações** (ligar de novo confere na hora).
+- **Qual branch**: `app/atualizacao.json` (`{ "repo": "wetonb1/WidgetPOKEMEU", "branch": "devs" }`); a versão Ubuntu aponta para `devs(ubunto)`. Cada versão só se atualiza da própria branch.
+- **Qual commit está instalado**: `%APPDATA%\meu-widget\atualizacao.json` (gravado a cada atualização) ou, em clone git na MESMA branch, o `.git`. Sem nenhuma pista (pasta baixada em zip), o commit de agora vira o ponto de partida.
+- **Ao clicar**: confirma → baixa o tarball do commit EXATO anunciado (`codeload.github.com`, só hosts do GitHub, só https, limite de 150 MB) → `tar` do sistema descompacta numa pasta temporária → valida (precisa ter `package.json`, `app/main.js`...) → guarda backup do que vai trocar em `<config>/atualizacao-backup/` → copia só código → grava o commit → reinicia (`app.relaunch`). Se qualquer cópia falhar, tudo é desfeito.
+- **Dados do usuário (nunca tocados)**: a config (fica fora da pasta do código), `cerebro/conversas`, `cerebro/estado`, `cerebro/indices`, `cerebro/.log`, `cerebro/INDICE.md`, `cerebro/sinonimos.json`, `projetos.json`, `importacoes/`, `node_modules/`, `.git/`, `.claude/`, `.agents/`, `dist/`, executáveis. **Nada é apagado.** O `skills-biblioteca/catalogo.json` é mesclado: skill oficial atualiza, skill nova entra, skill importada pelo usuário fica. Chaves novas da config entram com o valor padrão sem mexer nas existentes (o `carregarConfig` já faz isso).
+- **Limites**: só vale rodando do código (`npm start` / `iniciar-widget.sh`); o `.exe`/AppImage não troca os próprios arquivos (o botão nem aparece). Se o `package.json` mudar as dependências, a tela avisa para rodar `npm install`.
+- **Custo**: 1 requisição de ~40 bytes por abertura; o download (~4 MB) só por clique. Nada fica rodando em segundo plano.
+- **Testes**: `npm run testar-atualizador` (sem rede: troca de arquivos, proteção dos dados, desfazer, tarball real, registro do commit).
+- **Para lançar uma atualização**: é só dar `git push` na branch (`devs` para a versão Windows, `devs(ubunto)` para a Ubuntu). Quem tem o widget com o atualizador vê o botão na próxima abertura.
+
 ## Stack e regras
 
 - Electron 31 ou mais novo, JavaScript puro, HTML e CSS. **Sem frameworks e sem bundler.**
