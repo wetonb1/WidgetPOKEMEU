@@ -2,7 +2,6 @@
 const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 contextBridge.exposeInMainWorld('widget', {
-  plataforma: process.platform,
   loadConfig: () => ipcRenderer.invoke('config:carregar'),
   saveConfig: (cfg) => ipcRenderer.invoke('config:salvar', cfg),
   getStats: () => ipcRenderer.invoke('stats'),
@@ -47,6 +46,7 @@ contextBridge.exposeInMainWorld('widget', {
   projetosRemover: (id) => ipcRenderer.invoke('projetos:remover', String(id)),
   projetosPreparar: (id, confirmar) => ipcRenderer.invoke('projetos:preparar', String(id), confirmar === true),
   projetosPreencherEstado: (id, dados) => ipcRenderer.invoke('projetos:preencher-estado', String(id), dados),
+  projetosAvaliarSkills: (id) => ipcRenderer.invoke('projetos:avaliar-skills', String(id)),
   projetosEscolherPasta: (inicial) => ipcRenderer.invoke('projetos:escolher-pasta', inicial ? String(inicial) : ''),
   // abrir a IA de um projeto: modo novo | continuar | retomar; ou abrir um PowerShell na pasta do projeto
   projetosAbrirIA: (id, opcoes) => ipcRenderer.invoke('projetos:abrir-ia', String(id), opcoes),

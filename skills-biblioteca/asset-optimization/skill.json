@@ -1,0 +1,16 @@
+{
+  "nome": "asset-optimization",
+  "titulo": "asset-optimization",
+  "descricao_curta": "Validates and optimizes Blender assets for polycount, topology, UV efficiency, material count, naming, collections, and game-ready performance. Use before export on all production assets via MCP.",
+  "exemplo_de_uso": "",
+  "categoria": "blender",
+  "versao": "1.0.0",
+  "autor": "arjun988",
+  "origem": "github:arjun988/blender-skills/.claude/skills/asset-optimization",
+  "compativel": [
+    "claude"
+  ],
+  "arquivos_extras": [
+    "references/lod-strategies.md"
+  ]
+}

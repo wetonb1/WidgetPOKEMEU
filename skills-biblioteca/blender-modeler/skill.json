@@ -1,0 +1,17 @@
+{
+  "nome": "blender-modeler",
+  "titulo": "blender-modeler",
+  "descricao_curta": "Core Blender modeling specialist for Edit Mode, modifiers, collections, precision modeling, and scene organization. Use for general 3D modeling, blockouts, cleanup, non-destructive workflows, and scen",
+  "exemplo_de_uso": "",
+  "categoria": "blender",
+  "versao": "1.0.0",
+  "autor": "arjun988",
+  "origem": "github:arjun988/blender-skills/.claude/skills/blender-modeler",
+  "compativel": [
+    "claude"
+  ],
+  "arquivos_extras": [
+    "references/modifier-stack.md",
+    "references/scene-organization.md"
+  ]
+}

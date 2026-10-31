@@ -1,6 +1,54 @@
 {
   "skills": [
     {
+      "nome": "asset-optimization",
+      "titulo": "asset-optimization",
+      "descricao_curta": "Validates and optimizes Blender assets for polycount, topology, UV efficiency, material count, naming, collections, and game-ready performance. Use before export on all production assets via MCP.",
+      "exemplo_de_uso": "",
+      "categoria": "blender",
+      "versao": "1.0.0",
+      "autor": "arjun988",
+      "origem": "github:arjun988/blender-skills/.claude/skills/asset-optimization",
+      "compativel": [
+        "claude"
+      ],
+      "arquivos_extras": [
+        "references/lod-strategies.md"
+      ]
+    },
+    {
+      "nome": "blender-modeler",
+      "titulo": "blender-modeler",
+      "descricao_curta": "Core Blender modeling specialist for Edit Mode, modifiers, collections, precision modeling, and scene organization. Use for general 3D modeling, blockouts, cleanup, non-destructive workflows, and scen",
+      "exemplo_de_uso": "",
+      "categoria": "blender",
+      "versao": "1.0.0",
+      "autor": "arjun988",
+      "origem": "github:arjun988/blender-skills/.claude/skills/blender-modeler",
+      "compativel": [
+        "claude"
+      ],
+      "arquivos_extras": [
+        "references/modifier-stack.md",
+        "references/scene-organization.md"
+      ]
+    },
+    {
+      "nome": "cerebro-avaliar",
+      "titulo": "Cérebro: avaliar skills (/avaliar)",
+      "descricao_curta": "Avalia as skills mais úteis para o projeto no cérebro com quase zero tokens (< 250 tokens). Use /avaliar.",
+      "exemplo_de_uso": "/avaliar ou /avaliacao",
+      "categoria": "cerebro",
+      "versao": "1.0.0",
+      "autor": "eu",
+      "origem": "local",
+      "compativel": [
+        "claude",
+        "antigravity"
+      ],
+      "arquivos_extras": []
+    },
+    {
       "nome": "cerebro-buscar",
       "titulo": "Cérebro: buscar (combinada)",
       "descricao_curta": "Os 3 níveis numa skill só: estado, títulos e cabeçalhos; sugere o que abrir.",

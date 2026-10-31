@@ -543,8 +543,9 @@
       <section id="aba-projetos" class="painel" data-painel="projetos">
         <div class="proj-esq">
         <div class="proj-topo">
-          <button type="button" id="proj-adicionar" class="botao-cmd" title="Cadastrar um projeto: você escolhe a pasta (Shift+clique: digitar o caminho)">[+ adicionar]</button>
-          <button type="button" id="proj-uso-abrir" class="botao-cmd" title="Como ver o uso, estimativa local, pausar ao chegar no limite, trocar de conta e economia">[uso e continuidade]</button>
+          <button type="button" id="proj-adicionar" class="botao-cmd proj-btn-add" title="Cadastrar um projeto: você escolhe a pasta (Shift+clique: digitar o caminho)">[+ novo projeto]</button>
+          <button type="button" id="proj-uso-abrir" class="botao-cmd" title="Como ver o uso, estimativa local, pausar ao chegar no limite, trocar de conta e economia">[uso & continuidade]</button>
+          <input type="search" id="proj-filtro" class="proj-filtro" placeholder="filtrar..." spellcheck="false" title="Filtrar projetos por nome, id ou tag">
           <span id="proj-conta" class="sub"></span>
           <span class="dialogo-espaco"></span>
           <span id="ps-conta" class="sub" title="Sessões abertas pelo widget agora / máximo (max_sessoes)"></span>
@@ -718,6 +719,30 @@
             </div>
           </div>
 
+          <!-- modal de avaliação e recomendação de skills para o projeto -->
+          <div id="pks-caixa" class="dialogo-caixa cc-caixa pks-caixa oculto">
+            <div class="cc-topo">
+              <div class="pks-topo-tit">
+                <h2 id="pks-titulo">skills para o projeto</h2>
+                <div id="pks-stack" class="pks-stack"></div>
+              </div>
+              <div class="dialogo-botoes">
+                <button type="button" id="pks-fechar" class="principal">fechar</button>
+              </div>
+            </div>
+            <div class="pks-filtros">
+              <button type="button" class="pks-filtro-btn ativo" data-filtro="todos">todas (<span id="pks-cnt-todos">0</span>)</button>
+              <button type="button" class="pks-filtro-btn pks-filtro-essencial" data-filtro="essencial">🟢 essenciais (<span id="pks-cnt-essenciais">0</span>)</button>
+              <button type="button" class="pks-filtro-btn pks-filtro-util" data-filtro="util">🟡 úteis (<span id="pks-cnt-uteis">0</span>)</button>
+              <button type="button" class="pks-filtro-btn" data-filtro="instaladas">instaladas (<span id="pks-cnt-instaladas">0</span>)</button>
+            </div>
+            <div id="pks-lista" class="pks-lista"></div>
+            <div class="pks-rodape">
+              <span class="pks-dica">💡 Dica: Digite <code>/avaliar</code> na sua sessão para diagnóstico via IA (&lt; 250 tokens).</span>
+              <button type="button" id="pks-copiar-cmd" class="botao-cmd" title="Copiar comando /avaliar">[copiar /avaliar]</button>
+            </div>
+          </div>
+
           <form id="pe-form" class="dialogo-caixa cc-caixa oculto" autocomplete="off">
             <h2 id="pe-titulo">estado criado</h2>
             <div class="sub pj-nota">Quer preencher agora? O agente pode preencher o resto depois, lendo a pasta do projeto.</div>
@@ -729,6 +754,7 @@
             </div>
             <div id="pe-erro" class="cc-erro" role="alert"></div>
             <div class="dialogo-botoes">
+              <button type="button" id="pe-skills" class="botao-cmd pks-btn-destaque" title="Ver quais skills do catálogo mais servem a este projeto">[⭐ ver skills recomendadas]</button>
               <span class="dialogo-espaco"></span>
               <button type="button" id="pe-depois">deixar para o agente</button>
               <button type="submit" id="pe-salvar" class="principal">preencher agora</button>

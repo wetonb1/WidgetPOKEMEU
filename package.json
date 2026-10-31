@@ -1,12 +1,11 @@
 {
   "name": "meu-widget",
-  "version": "1.0.0",
-  "description": "Widget pessoal para Linux (Ubuntu) e Windows",
+  "version": "1.0.1",
+  "description": "Widget pessoal para Windows 10",
   "main": "app/main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder --win portable && node tools/finalizar-exe.js",
-    "dist:linux": "electron-builder --linux AppImage",
     "icone": "electron tools/gerar-icone.js",
     "medir": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/medir.ps1",
     "testar-cerebro": "node tools/testar-cerebro.js",
@@ -24,7 +23,8 @@
     "testar-importar": "python -X utf8 cerebro/tools/test_importar.py",
     "testar-economia": "python -X utf8 cerebro/tools/test_economia.py",
     "testar-manutencao": "python -X utf8 cerebro/tools/test_manutencao.py",
-    "testar-grafo": "python -X utf8 cerebro/tools/test_grafo.py"
+    "testar-grafo": "python -X utf8 cerebro/tools/test_grafo.py",
+    "testar-avaliar-skills": "node tools/testar-avaliar-skills.js"
   },
   "keywords": [],
   "author": "weto",
@@ -41,19 +41,10 @@
       "target": "portable",
       "icon": "assets/icone.ico"
     },
-    "linux": {
-      "target": [
-        "AppImage"
-      ],
-      "category": "Utility",
-      "icon": "assets/icone.png"
-    },
     "asarUnpack": [
       "app/media.ps1",
       "app/helper.cs",
-      "app/pty.cs",
-      "app/helper-linux.py",
-      "app/pty-linux.py"
+      "app/pty.cs"
     ],
     "npmRebuild": false,
     "files": [
