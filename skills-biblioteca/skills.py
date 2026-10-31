@@ -89,7 +89,7 @@ PERIGOS = [
 ]
 PERIGOS = [(re.compile(p, re.IGNORECASE), motivo) for p, motivo in PERIGOS]
 EXT_SCRIPT = {".py", ".ps1", ".psm1", ".sh", ".bash", ".bat", ".cmd", ".js", ".mjs", ".ts", ".vbs", ".rb", ".pl", ".exe", ".dll", ".msi", ".jar"}
-MAX_ZIP = 20 * 1024 * 1024  # bytes descompactados
+MAX_ZIP = 60 * 1024 * 1024  # bytes descompactados
 MAX_ARQUIVOS = 500
 
 
@@ -474,7 +474,7 @@ def _extrair_zip(arquivo, destino):
         if len(membros) > MAX_ARQUIVOS:
             raise ValueError(f"o zip tem mais de {MAX_ARQUIVOS} arquivos")
         if sum(m.file_size for m in membros) > MAX_ZIP:
-            raise ValueError("o zip descompactado passa de 20 MB")
+            raise ValueError(f"o zip descompactado passa de {MAX_ZIP // (1024 * 1024)} MB")
         for m in membros:
             if not _caminho_seguro(m.filename.replace("\\", "/")):
                 raise ValueError(f"caminho perigoso dentro do zip: {m.filename}")

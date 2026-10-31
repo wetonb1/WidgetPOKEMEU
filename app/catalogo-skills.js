@@ -21,11 +21,11 @@ const FONTES = [
 const REPO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,100}$/; // o nome do repositório nunca é "." nem ".."
 const LIMITES = {
   arquivos: 300,           // arquivos por skill
-  arquivo: 1024 * 1024,    // bytes por arquivo
-  total: 5 * 1024 * 1024,  // bytes por skill
+  arquivo: 25 * 1024 * 1024,   // bytes por arquivo (até 25 MB)
+  total: 60 * 1024 * 1024,     // bytes por skill (até 60 MB)
   descricoes: 60,          // quantas descrições (SKILL.md) buscar por vez
   cabecalho: 64 * 1024,    // o começo do SKILL.md basta para o nome e a descrição
-  espera: 20000,           // ms por pedido
+  espera: 30000,           // ms por pedido
   validade: 30 * 60 * 1000, // quanto tempo a lista da memória vale
 };
 
@@ -204,8 +204,8 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
     if (!d.tree.some((x) => x && x.type === 'blob' && x.path === prefixo + 'SKILL.md')) throw new ErroCatalogo('naoEncontrado', 'essa pasta não tem SKILL.md');
     const arquivos = d.tree.filter((x) => x && x.type === 'blob' && typeof x.path === 'string' && x.path.startsWith(prefixo) && !/(^|\/)\.git(\/|$)/.test(x.path));
     if (arquivos.length > LIMITES.arquivos) throw new ErroCatalogo('grande', `a skill tem ${arquivos.length} arquivos (o limite é ${LIMITES.arquivos})`);
-    if (arquivos.some((a) => Number(a.size) > LIMITES.arquivo)) throw new ErroCatalogo('grande', 'a skill tem um arquivo maior que 1 MB');
-    if (arquivos.reduce((s, a) => s + (Number(a.size) || 0), 0) > LIMITES.total) throw new ErroCatalogo('grande', 'a skill passa de 5 MB');
+    if (arquivos.some((a) => Number(a.size) > LIMITES.arquivo)) throw new ErroCatalogo('grande', `a skill tem um arquivo maior que ${Math.round(LIMITES.arquivo / (1024 * 1024))} MB`);
+    if (arquivos.reduce((s, a) => s + (Number(a.size) || 0), 0) > LIMITES.total) throw new ErroCatalogo('grande', `a skill passa de ${Math.round(LIMITES.total / (1024 * 1024))} MB`);
     const nomePasta = (caminho.split('/').pop() || repo.split('/')[1]).replace(/[^A-Za-z0-9._-]/g, '-').replace(/^\.+/, '') || 'skill';
     const raiz = path.resolve(destino, nomePasta);
     fs.rmSync(raiz, { recursive: true, force: true });
@@ -217,7 +217,7 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
       if (alvo !== raiz && !alvo.startsWith(raiz + path.sep)) throw new ErroCatalogo('erro', 'caminho de arquivo suspeito: ' + rel); // nada fora da pasta
       const conteudo = await pedir(`${raw}/${repo}/HEAD/${a.path.split('/').map(encodeURIComponent).join('/')}`);
       bytes += conteudo.length;
-      if (bytes > LIMITES.total) throw new ErroCatalogo('grande', 'a skill passa de 5 MB');
+      if (bytes > LIMITES.total) throw new ErroCatalogo('grande', `a skill passa de ${Math.round(LIMITES.total / (1024 * 1024))} MB`);
       fs.mkdirSync(path.dirname(alvo), { recursive: true });
       fs.writeFileSync(alvo, conteudo);
     });

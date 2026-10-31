@@ -287,7 +287,7 @@ reaberto em `[como funciona]`. `[buscar online]` abre o catálogo (`app/catalogo
 `anthropics/skills` (Claude), `openai/skills` (Codex), a comunidade (busca de repositórios pelos tópicos `agent-skills`/`claude-skills`, por estrelas) e
 "outro" (`dono/repo`). Uma consulta à árvore do repositório (`/git/trees/HEAD?recursive=1`) acha as pastas com `SKILL.md` (modelos em branco ficam de
 fora); o nome e a descrição vêm do começo de cada `SKILL.md` (até 60 por vez, 6 pedidos juntos). **Baixar** leva só os arquivos da pasta da skill
-(até 300 arquivos, 1 MB cada, 5 MB), recusa caminhos com `..`, e entrega a pasta temporária ao mesmo `skills.py importar` de sempre (revisão com
+(até 300 arquivos, 25 MB cada, 60 MB), recusa caminhos com `..`, e entrega a pasta temporária ao mesmo `skills.py importar` de sempre (revisão com
 scripts e alertas; só entra com o seu clique; nada é executado). A biblioteca registra `origem: github:dono/repo/pasta` e o autor (`importar
 --rotulo=`). Sem internet ou com o limite do GitHub (60 por hora sem conta): a lista fica em `%APPDATA%\meu-widget\skills-catalogo.json` e a tela
 avisa de quando é. `MEU_WIDGET_GITHUB_API/RAW` trocam os endereços (só testes). Teste: `npm run testar-catalogo` (um GitHub de mentira local).

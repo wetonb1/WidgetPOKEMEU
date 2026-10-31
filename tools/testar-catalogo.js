@@ -27,7 +27,7 @@ const REPOS = {
       { path: 'skills/evil/SKILL.md', type: 'blob', size: 10 },
       { path: 'skills/evil/../../fora.txt', type: 'blob', size: 5 },
       { path: 'skills/enorme/SKILL.md', type: 'blob', size: 10 },
-      { path: 'skills/enorme/dados.bin', type: 'blob', size: 5 * 1024 * 1024 },
+      { path: 'skills/enorme/dados.bin', type: 'blob', size: 30 * 1024 * 1024 },
       { path: 'skills/sub', type: 'tree' },
     ],
     arquivos: {
@@ -162,7 +162,7 @@ const servidor = http.createServer((req, res) => {
     const d = path.join(pasta, 'x');
     for (const ruim of ['../x', 'a/../b', '/abs', 'c:/x', 'a\\b', 'a'.repeat(400)]) await assert.rejects(() => cat.baixar('dono/skills', ruim, d), /caminho inválido/);
     await assert.rejects(() => cat.baixar('dono/skills', 'skills/nao-tem', d), (e) => e.tipo === 'naoEncontrado');
-    await assert.rejects(() => cat.baixar('dono/skills', 'skills/enorme', d), (e) => e.tipo === 'grande' && /1 MB/.test(e.message));
+    await assert.rejects(() => cat.baixar('dono/skills', 'skills/enorme', d), (e) => e.tipo === 'grande' && /25 MB/.test(e.message));
     await assert.rejects(() => cat.baixar('dono/muitos', 's', d), (e) => e.tipo === 'grande' && /311 arquivos/.test(e.message));
     await assert.rejects(() => cat.baixar('x/../y', 'a', d), /inválido/);
   });
