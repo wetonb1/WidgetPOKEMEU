@@ -44,7 +44,7 @@ CATALOGO = "catalogo.json"
 CATEGORIAS = ("cerebro", "codigo", "escrita", "blender", "roblox", "design", "outros")
 CAMPOS = ("nome", "titulo", "descricao_curta", "exemplo_de_uso", "categoria", "versao", "autor", "origem",
           "compativel", "arquivos_extras")
-RE_NOME = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
+RE_NOME = re.compile(r"^[a-z0-9][a-z0-9-]{0,255}$")
 RE_VERSAO = re.compile(r"^\d+\.\d+\.\d+$")
 MAX_DESCRICAO = 200  # caracteres da description do SKILL.md (entra em toda conversa)
 MAX_CORPO = 40       # linhas do SKILL.md depois do cabeçalho
@@ -576,7 +576,7 @@ def cerebro_slug(texto):
     import unicodedata
     base = unicodedata.normalize("NFKD", str(texto))
     base = "".join(c for c in base if not unicodedata.combining(c)).lower()
-    return re.sub(r"[^a-z0-9]+", "-", base).strip("-")[:64]
+    return re.sub(r"[^a-z0-9]+", "-", base).strip("-")[:256]
 
 
 # ---------- Linha de comando ----------

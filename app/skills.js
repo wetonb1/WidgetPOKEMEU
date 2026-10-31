@@ -7,7 +7,7 @@ const path = require('path');
 const { executar, pastaTools, pastaRaizWidget } = require('./cerebro');
 const ias = require('./ias');
 
-const NOME = /^[a-z0-9][a-z0-9-]{0,63}$/;
+const NOME = /^[a-z0-9][a-z0-9-]{0,255}$/;
 const PROJETO = /^[a-z0-9][a-z0-9-]{0,40}$/;
 const CATEGORIAS = new Set(['cerebro', 'codigo', 'escrita', 'blender', 'roblox', 'design', 'outros']);
 
