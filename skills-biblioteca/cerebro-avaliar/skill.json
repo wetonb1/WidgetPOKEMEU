@@ -1,0 +1,15 @@
+{
+  "nome": "cerebro-avaliar",
+  "titulo": "Cérebro: avaliar skills (/avaliar)",
+  "descricao_curta": "Avalia as skills mais úteis para o projeto no cérebro com quase zero tokens (< 250 tokens). Use /avaliar.",
+  "exemplo_de_uso": "/avaliar ou /avaliacao",
+  "categoria": "cerebro",
+  "versao": "1.0.0",
+  "autor": "eu",
+  "origem": "local",
+  "compativel": [
+    "claude",
+    "antigravity"
+  ],
+  "arquivos_extras": []
+}

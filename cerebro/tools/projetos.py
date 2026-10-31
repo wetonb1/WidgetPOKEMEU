@@ -794,6 +794,16 @@ def _cmd_worktree(args):
     return 0
 
 
+def _cmd_avaliar_skills(args):
+    import avaliar_skills
+    r = avaliar_skills.avaliar_skills_projeto(args.id)
+    if args.json:
+        print(json.dumps(r, ensure_ascii=False, indent=2))
+    else:
+        print(avaliar_skills.formatar_tabela_terminal(r))
+    return 0
+
+
 def montar_parser():
     comum = argparse.ArgumentParser(add_help=False)
     comum.add_argument("--json", action="store_true", help="saída em JSON (para o widget)")
@@ -814,6 +824,7 @@ def montar_parser():
         ("pausa-estado", _cmd_pausa_estado, "estado atual e próximos passos do projeto", True),
         ("pausa-salvar", _cmd_pausa_salvar, "atualiza estado atual e próximos passos", True),
         ("pausa-registrar", _cmd_pausa_registrar, "anota a pausa no sessoes.jsonl", True),
+        ("avaliar-skills", _cmd_avaliar_skills, "avalia as skills mais úteis para o projeto", True),
     ):
         p = sub.add_parser(nome, parents=[comum], help=ajuda)
         if com_id:

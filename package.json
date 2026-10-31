@@ -23,7 +23,8 @@
     "testar-importar": "python -X utf8 cerebro/tools/test_importar.py",
     "testar-economia": "python -X utf8 cerebro/tools/test_economia.py",
     "testar-manutencao": "python -X utf8 cerebro/tools/test_manutencao.py",
-    "testar-grafo": "python -X utf8 cerebro/tools/test_grafo.py"
+    "testar-grafo": "python -X utf8 cerebro/tools/test_grafo.py",
+    "testar-avaliar-skills": "node tools/testar-avaliar-skills.js"
   },
   "keywords": [],
   "author": "weto",

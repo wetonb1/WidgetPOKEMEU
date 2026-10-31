@@ -4352,6 +4352,7 @@ const projetos = (() => {
   const caixas = {
     form: $('pj-form'), estado: $('pe-form'), confirma: $('pc-caixa'), abrir: $('pa-form'), instalar: $('pi-caixa'),
     escolha: $('px-caixa'), rapido: $('pq-caixa'), pausa: $('pz-caixa'), trocar: $('pt-caixa'),
+    skills: $('pks-caixa'),
   };
   const f = {
     titulo: $('pj-titulo'), pasta: $('pj-pasta'), nome: $('pj-nome'), id: $('pj-id'), descricao: $('pj-descricao'),
@@ -4360,6 +4361,11 @@ const projetos = (() => {
   };
   const IOS = document.documentElement.dataset.estilo === 'ios';
   const INTERVALO = 10000;
+
+  let modalProjetoSkills = null; // o projeto atualmente inspecionado no modal de skills
+  let avaliacaoSkillsAtual = null; // dados avaliados das skills do projeto
+  let filtroSkills = 'todos'; // 'todos' | 'essencial' | 'util' | 'instaladas'
+  let termoFiltro = ''; // filtro de texto da lista de projetos
 
   let cadastro = [];
   let infoIAs = null; // { claude: { nome, modelos: {sonnet: 'dia a dia', ...}, instalada, instalar, docs } }
@@ -4493,6 +4499,7 @@ const projetos = (() => {
     }, 'Escolher sessão anterior, editar, preparar o projeto, pausar com segurança e remover');
     extra.append(
       (estado.retomar = botao('[escolher sessão anterior]', () => abrirSessao(p, estado.modelo, 'retomar', '', { ia: estado.ia }), '')),
+      botao('[⭐ avaliar skills]', () => abrirSkillsModal(p), 'Diagnóstico de skills e otimização de tokens para este projeto'),
       botao('[editar]', () => abrirForm(p), 'Editar nome, pasta, modelo, cor...'),
       botao('[preparar projeto]', () => preparar(p), 'Cria (ou acrescenta ao) CLAUDE.md da pasta do projeto, com as regras do cérebro'),
       botao('[pausar com segurança]', () => iniciarPausa(p), 'Chegou no limite de uso? Guia: compactar, atualizar o estado do projeto e anotar a pausa'),
@@ -4516,6 +4523,8 @@ const projetos = (() => {
     const continuar = quadro('continuar');
     const psBtn = botao('[powershell]', () => abrirPS(p), 'Abre um PowerShell na pasta deste projeto (dá para destacar só ele para outro monitor)');
     psBtn.classList.add('proj-ps');
+    const btnSkills = botao('[⭐ skills]', () => abrirSkillsModal(p), 'Ver e instalar as skills recomendadas para este projeto');
+    btnSkills.classList.add('proj-btn-skills');
     const escolherModelo = (modelo) => { estado.modelo = modelo; };
     function desenharModelo() {
       const ia = iaInfo(estado.ia);
@@ -4581,6 +4590,7 @@ const projetos = (() => {
     acoesIA.append(...[
       continuar,
       psBtn,
+      btnSkills,
       p.pausa && botao('[continuar da pausa]', () => abrirSessao(p, estado.modelo, 'novo', '', { retomada: true, ia: estado.ia }),
         'Sessão nova que já começa lendo o estado do projeto no cérebro: você não precisa explicar de novo'),
       outraBtn,
@@ -4593,16 +4603,29 @@ const projetos = (() => {
 
   let ultimaAssinaturaCadastro = '';
   function desenhar() {
-    conta.textContent = cadastro.length ? cadastro.length + (cadastro.length > 1 ? ' projetos' : ' projeto') : '';
+    let listaFiltrada = cadastro;
+    if (termoFiltro) {
+      listaFiltrada = cadastro.filter((p) =>
+        (p.nome && p.nome.toLowerCase().includes(termoFiltro)) ||
+        (p.id && p.id.toLowerCase().includes(termoFiltro)) ||
+        (p.descricao && p.descricao.toLowerCase().includes(termoFiltro)) ||
+        (p.tags && p.tags.some((t) => t.toLowerCase().includes(termoFiltro)))
+      );
+    }
+    conta.textContent = cadastro.length ? (termoFiltro ? `${listaFiltrada.length}/${cadastro.length} projetos` : cadastro.length + (cadastro.length > 1 ? ' projetos' : ' projeto')) : '';
     if (!cadastro.length) {
       ultimaAssinaturaCadastro = '';
-      lista.replaceChildren(el('div', 'cer-aviso', 'Nenhum projeto ainda. Clique em adicionar e escolha a pasta.'));
+      lista.replaceChildren(el('div', 'cer-aviso', 'Nenhum projeto ainda. Clique em [+ novo projeto] e escolha a pasta.'));
       return;
     }
-    const assinatura = JSON.stringify(cadastro);
-    if (assinatura === ultimaAssinaturaCadastro && lista.children.length === cadastro.length) return;
+    if (!listaFiltrada.length) {
+      lista.replaceChildren(el('div', 'cer-aviso', `Nenhum projeto combina com "${termoFiltro}".`));
+      return;
+    }
+    const assinatura = JSON.stringify(listaFiltrada);
+    if (assinatura === ultimaAssinaturaCadastro && lista.children.length === listaFiltrada.length) return;
     ultimaAssinaturaCadastro = assinatura;
-    lista.replaceChildren(...cadastro.map(cartao));
+    lista.replaceChildren(...listaFiltrada.map(cartao));
   }
   async function carregar(forcar) {
     if (!forcar && Date.now() - ultimaCarga < INTERVALO) return;
@@ -4612,6 +4635,110 @@ const projetos = (() => {
     if (!r.ok) { ultimaCarga = 0; aviso(r.erro || 'não consegui ler o cadastro', true); return; }
     cadastro = r.dados.projetos;
     desenhar();
+  }
+
+  // ----- Modal de avaliação de skills do projeto -----
+  async function abrirSkillsModal(p) {
+    if (!p) return;
+    modalProjetoSkills = p;
+    filtroSkills = 'todos';
+    $('pks-titulo').textContent = `skills para ${p.nome}`;
+    $('pks-stack').textContent = 'Analisando cérebro e stack em 0 tokens...';
+    $('pks-lista').replaceChildren(el('div', 'cer-aviso', 'Calculando aderência das skills com base no cérebro...'));
+    document.querySelectorAll('.pks-filtro-btn').forEach((b) => b.classList.toggle('ativo', b.dataset.filtro === 'todos'));
+    mostrarCaixa('skills');
+
+    try {
+      const res = await chamar(() => window.widget.projetosAvaliarSkills(p.id));
+      if (!res.ok) {
+        $('pks-lista').replaceChildren(el('div', 'cer-erro-texto', res.erro || 'Não consegui avaliar as skills deste projeto.'));
+        return;
+      }
+      const dados = res.dados || res;
+      avaliacaoSkillsAtual = dados;
+      $('pks-stack').textContent = `Stack: ${dados.projeto.stack || 'Geral'}`;
+      desenharSkillsModal();
+    } catch (e) {
+      $('pks-lista').replaceChildren(el('div', 'cer-erro-texto', 'Erro ao carregar skills: ' + e.message));
+    }
+  }
+
+  function desenharSkillsModal() {
+    if (!avaliacaoSkillsAtual || !avaliacaoSkillsAtual.skills) return;
+    const { resumo, skills: lista } = avaliacaoSkillsAtual;
+
+    $('pks-cnt-todos').textContent = resumo.total;
+    $('pks-cnt-essenciais').textContent = resumo.essenciais;
+    $('pks-cnt-uteis').textContent = resumo.uteis;
+    $('pks-cnt-instaladas').textContent = resumo.instaladas_projeto;
+
+    const filtradas = lista.filter((s) => {
+      if (filtroSkills === 'essencial') return s.nivel === 'essencial';
+      if (filtroSkills === 'util') return s.nivel === 'util';
+      if (filtroSkills === 'instaladas') return s.instalada_projeto;
+      return true;
+    });
+
+    if (!filtradas.length) {
+      $('pks-lista').replaceChildren(el('div', 'cer-aviso', 'Nenhuma skill encontrada neste filtro.'));
+      return;
+    }
+
+    const items = filtradas.map((s) => {
+      const item = el('div', `pks-item ${s.nivel}`);
+      const cab = el('div', 'pks-item-cab');
+      cab.append(
+        el('span', 'pks-item-nome', s.nome),
+        el('span', 'pks-item-cat', s.categoria),
+        el('span', `pks-item-badge pks-badge-${s.nivel}`, s.nivel_rotulo)
+      );
+
+      const razao = el('div', 'pks-item-razao', s.razao);
+      const rodape = el('div', 'pks-item-rodape');
+      const eco = el('span', 'pks-item-eco', `🌱 ${s.economia_estimada}`);
+      const acoes = el('div', 'pks-item-acoes');
+
+      if (s.instalada_projeto) {
+        acoes.append(el('span', 'pks-badge-instalada', '✓ instalada no projeto'));
+        const btnRemover = botao('[remover]', async () => {
+          btnRemover.disabled = true;
+          btnRemover.textContent = 'removendo...';
+          try {
+            await window.widget.skillsRemover(s.nome, 'projeto', modalProjetoSkills.id, 'ambos');
+            dizer(`Skill ${s.nome} removida do projeto ${modalProjetoSkills.nome}.`);
+            await abrirSkillsModal(modalProjetoSkills);
+          } catch (e) {
+            console.error('Erro ao remover skill:', e);
+            btnRemover.disabled = false;
+            btnRemover.textContent = '[remover]';
+          }
+        }, 'Remover esta skill do projeto');
+        acoes.append(btnRemover);
+      } else {
+        const btnInstalar = el('button', 'botao-cmd pks-btn-instalar', '+ instalar no projeto');
+        btnInstalar.type = 'button';
+        btnInstalar.addEventListener('click', async () => {
+          btnInstalar.disabled = true;
+          btnInstalar.textContent = 'instalando...';
+          try {
+            await window.widget.skillsInstalar(s.nome, 'projeto', modalProjetoSkills.id, 'ambos');
+            dizer(`Skill ${s.nome} instalada no projeto ${modalProjetoSkills.nome}!`);
+            await abrirSkillsModal(modalProjetoSkills);
+          } catch (e) {
+            console.error('Erro ao instalar skill:', e);
+            btnInstalar.disabled = false;
+            btnInstalar.textContent = '+ instalar no projeto';
+          }
+        });
+        acoes.append(btnInstalar);
+      }
+
+      rodape.append(eco, acoes);
+      item.append(cab, razao, rodape);
+      return item;
+    });
+
+    $('pks-lista').replaceChildren(...items);
   }
 
   // ----- janelinhas (uma por vez dentro de #proj-dialogo) -----
@@ -5457,6 +5584,47 @@ const projetos = (() => {
   });
 
   $('proj-adicionar').addEventListener('click', adicionar);
+
+  // Busca rápida de projetos
+  const campoFiltro = $('proj-filtro');
+  if (campoFiltro) {
+    campoFiltro.addEventListener('input', (e) => {
+      termoFiltro = e.target.value.toLowerCase().trim();
+      desenhar();
+    });
+  }
+
+  // Atalho de skills no diálogo de estado criado
+  const btnPeSkills = $('pe-skills');
+  if (btnPeSkills) {
+    btnPeSkills.addEventListener('click', () => {
+      fechar();
+      const id = caixas.estado.dataset.id;
+      const p = cadastro.find((item) => item.id === id);
+      if (p) abrirSkillsModal(p);
+    });
+  }
+
+  // Ações do modal de skills do projeto
+  $('pks-fechar').addEventListener('click', fechar);
+  $('pks-copiar-cmd').addEventListener('click', async () => {
+    if (modalProjetoSkills) {
+      await chamar(() => window.widget.cerebroCopiar(`/avaliar ${modalProjetoSkills.id}`));
+      $('pks-copiar-cmd').textContent = 'copiado!';
+      dizer(`Comando "/avaliar ${modalProjetoSkills.id}" copiado! Cole na sua sessão.`);
+      setTimeout(() => { $('pks-copiar-cmd').textContent = '[copiar /avaliar]'; }, 2000);
+    }
+  });
+
+  document.querySelectorAll('.pks-filtro-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.pks-filtro-btn').forEach((b) => b.classList.remove('ativo'));
+      btn.classList.add('ativo');
+      filtroSkills = btn.dataset.filtro;
+      desenharSkillsModal();
+    });
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key !== 'Escape' || !emTela || dialogo.classList.contains('oculto')) return;
     if (!caixas.trocar.classList.contains('oculto')) fecharTrocarConta();
