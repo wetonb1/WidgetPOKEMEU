@@ -20,7 +20,7 @@ const FONTES = [
 
 const REPO = /^[A-Za-z0-9][A-Za-z0-9._-]{0,99}\/(?!\.{1,2}$)[A-Za-z0-9._-]{1,100}$/; // o nome do repositório nunca é "." nem ".."
 const LIMITES = {
-  arquivos: 80,            // arquivos por skill
+  arquivos: 300,           // arquivos por skill
   arquivo: 1024 * 1024,    // bytes por arquivo
   total: 5 * 1024 * 1024,  // bytes por skill
   descricoes: 60,          // quantas descrições (SKILL.md) buscar por vez
@@ -130,7 +130,7 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
   // skills de um repositório (com o nome e a descrição lidos do começo de cada SKILL.md). termo filtra pelo caminho e pelo texto.
   async function listar(repo, termo = '') {
     validarRepo(repo);
-    const t = String(termo || '').trim().toLowerCase().slice(0, 60);
+    const t = String(termo || '').trim().toLowerCase().slice(0, 250);
     let lista = memoria.get(repo);
     let offline = false;
     if (!lista || agora() - lista.quando > LIMITES.validade) {
@@ -159,7 +159,7 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
         try {
           const md = (await pedir(`${raw}/${repo}/HEAD/${p.caminho ? p.caminho + '/' : ''}SKILL.md`, { max: LIMITES.cabecalho * 8 })).toString('utf8').slice(0, LIMITES.cabecalho);
           const c = cabecalhoSkill(md);
-          lista.descritas.set(p.caminho, { caminho: p.caminho, arquivos: p.arquivos, nome: (c.name || nomePasta).slice(0, 80), descricao: (c.description || '').slice(0, 400) });
+          lista.descritas.set(p.caminho, { caminho: p.caminho, arquivos: p.arquivos, nome: (c.name || nomePasta).slice(0, 250), descricao: (c.description || '').slice(0, 400) });
         } catch (e) {
           lista.descritas.set(p.caminho, { caminho: p.caminho, arquivos: p.arquivos, nome: nomePasta, descricao: '', semDescricao: true });
         }
@@ -178,7 +178,7 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
 
   // repositórios da comunidade que têm skills (pelos tópicos do GitHub), os mais estrelados primeiro
   async function repositorios(termo = '') {
-    const t = String(termo || '').trim().replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 60);
+    const t = String(termo || '').trim().replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 250);
     const consultas = ['agent-skills', 'claude-skills'].map((topico) => `${t ? t + '+' : ''}topic:${topico}`);
     const vistos = new Map();
     let erro = null;
