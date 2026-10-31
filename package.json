@@ -1,6 +1,6 @@
 {
   "name": "meu-widget",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Widget pessoal para Windows 10",
   "main": "app/main.js",
   "scripts": {

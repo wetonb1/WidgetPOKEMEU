@@ -136,11 +136,24 @@ npm run dist
 
 ---
 
+## 🔄 Atualização Automática pelo GitHub (Botão "update")
+
+- **Detecção Leve**: Cerca de 20 segundos após a inicialização, o widget faz uma requisição leve de ~40 bytes à API do GitHub (`Accept: application/vnd.github.sha`) para conferir o último commit da branch `devs`.
+- **Botão Update**: Se houver um novo commit no GitHub, o botão de download surge no cabeçalho e o Pokémon avisa.
+- **Ao clicar**: Baixa o commit exato do GitHub via tarball, cria backup preventivo e atualiza apenas os arquivos do programa.
+- **Preservação Total**: Todos os dados do usuário (`%APPDATA%\meu-widget`, memórias do Cérebro, histórico de conversas, `projetos.json` e skills importadas) permanecem 100% intactos.
+- **Ajustes**: O aviso pode ser ligado ou desligado a qualquer momento em **Settings (Alt+0) > avisar de atualizações**.
+
+---
+
 ## 🧪 Como Rodar os Testes Automatizados
 
 Para verificar a integridade de todas as pontes e scripts no Windows:
 
 ```powershell
+# Testar sistema de atualização automática
+npm run testar-atualizador
+
 # Testar ponte do Cérebro
 npm run testar-cerebro
 
@@ -150,3 +163,4 @@ npm run testar-skills
 # Testar medição de consumo de CPU e RAM
 npm run medir
 ```
+
