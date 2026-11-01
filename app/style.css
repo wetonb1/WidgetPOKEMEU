@@ -1848,7 +1848,15 @@ html[data-estilo="ios"] {
   --vidro-forte: rgba(255, 255, 255, 0.14);  /* hover / selecionado */
   --mola: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent; }
+html[data-estilo="ios"],
+html[data-estilo="ios"] body,
+html[data-destacado="1"],
+html[data-destacado="1"] body {
+  background: transparent !important;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
 [data-estilo="ios"] body { font: 13px/1.4 var(--font); -webkit-font-smoothing: antialiased; }
 [data-estilo="ios"] * { scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
 
@@ -1860,6 +1868,7 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 26px;
+  overflow: hidden;
   background-color: var(--c-media);
   background-image:
     radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%),
@@ -1871,7 +1880,7 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
     inset 1px 0 0 rgba(255, 255, 255, 0.20),
-    0 16px 40px rgba(0, 0, 0, 0.36);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.10);
   transition: --c-esq 1.2s ease, --c-dir 1.2s ease, --c-topo 1.2s ease, --c-baixo 1.2s ease, --c-media 1.2s ease, border-color 0.4s ease;
 }
 
@@ -2232,10 +2241,13 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   padding-bottom: 8px;
   overflow: hidden;
   border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   background-image:
     radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 75%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
 }
 [data-estilo="ios"] .mini .lado-poke {
   padding: 3px;
@@ -2365,6 +2377,13 @@ html[data-destacado="1"] #cartao {
 html[data-destacado="1"][data-estilo="ios"] #cartao {
   grid-template-rows: 44px 1fr !important;
   padding-bottom: 10px;
+  border-radius: 24px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 1px 0 0 rgba(255, 255, 255, 0.20),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+  overflow: hidden !important;
 }
 html[data-destacado="1"] #aba-projetos.ativo.terminal:not(.usando) {
   display: flex !important;
