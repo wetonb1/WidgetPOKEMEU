@@ -41,11 +41,9 @@
   --glass-mesh-2: color-mix(in srgb, var(--accent) 14%, #ec4899);
 }
 
-/* Classes reutilizáveis Liquid Glass */
+/* Classes reutilizáveis Liquid Glass (Ultra-High Performance: 0% CPU, sem backdrop-filter) */
 .glass {
   background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: var(--glass-border);
   box-shadow: var(--glass-reflect), var(--glass-shadow);
   border-radius: var(--glass-radius-card);
@@ -54,8 +52,6 @@
 
 .glass-strong {
   background: var(--glass-bg-hover);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border-light);
   box-shadow: var(--glass-reflect), var(--glass-shadow-lg);
   border-radius: var(--glass-radius-card);
@@ -63,8 +59,6 @@
 
 .glass-card {
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.04) 100%), var(--glass-bg-card);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: var(--glass-border);
   box-shadow: var(--glass-reflect), var(--glass-shadow);
   border-radius: var(--glass-radius-card);
@@ -84,8 +78,6 @@
   justify-content: center;
   gap: 6px;
   background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur-sm);
-  -webkit-backdrop-filter: var(--glass-blur-sm);
   border: 1px solid rgba(255, 255, 255, 0.25);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 4px 12px rgba(0, 0, 0, 0.18);
   border-radius: var(--glass-radius-pill);
@@ -110,8 +102,6 @@
 
 .glass-input {
   background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: var(--glass-blur-sm);
-  -webkit-backdrop-filter: var(--glass-blur-sm);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
   border-radius: 12px;
@@ -890,7 +880,7 @@ button { font-family: var(--font); }
 #aba-cerebro.grafo .cer-grafo { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
 .graf-topo { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 .graf-topo .botao-cmd { flex-shrink: 0; }
-#graf-filtro { flex: 1; min-width: 60px; padding: 3px 8px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(0, 0, 0, 0.45); color: var(--text); font: 12px var(--font); outline: none; border-radius: 8px; backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+#graf-filtro { flex: 1; min-width: 60px; padding: 3px 8px; border: 1px solid rgba(255, 255, 255, 0.16); background: rgba(0, 0, 0, 0.55); color: var(--text); font: 12px var(--font); outline: none; border-radius: 8px; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
 #graf-filtro:focus { border-color: var(--accent); box-shadow: 0 0 10px rgba(79, 157, 255, 0.25); }
 .graf-area { position: relative; flex: 1; min-height: 0; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px;
   background: #121318; }
@@ -898,8 +888,7 @@ button { font-family: var(--font); }
 .graf-canvas.sobre { cursor: pointer; }
 .graf-canvas.arrastando { cursor: grabbing; }
 .graf-info { position: absolute; left: 8px; bottom: 8px; max-width: min(360px, 80%); display: flex; flex-direction: column; gap: 3px; padding: 6px 10px;
-  border: 1px solid rgba(255, 255, 255, 0.22); border-left: 3px solid var(--cor, var(--accent)); background: rgba(14, 18, 30, 0.88);
-  backdrop-filter: blur(24px) saturate(180%); -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.22); border-left: 3px solid var(--cor, var(--accent)); background: rgba(16, 20, 32, 0.95);
   border-radius: 14px; box-shadow: 0 10px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.2); font-size: 11px; z-index: 10; }
 .graf-info .graf-nome { color: var(--cor, var(--accent)); font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .graf-info .graf-meta { color: rgba(255, 255, 255, 0.68); font-size: 11px; }
@@ -1869,19 +1858,19 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   padding: 0 12px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 26px;
-  background-color: rgba(18, 19, 28, 0.72);
-  backdrop-filter: blur(32px) saturate(175%);
-  -webkit-backdrop-filter: blur(32px) saturate(175%);
+  background-color: var(--c-media);
   background-image:
     radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%),
-    radial-gradient(100% 100% at 100% 100%, color-mix(in srgb, var(--glass-mesh-1) 18%, transparent), transparent 70%),
-    radial-gradient(80% 80% at 50% 50%, color-mix(in srgb, var(--glass-mesh-2) 12%, transparent), transparent 80%),
+    radial-gradient(75% 120% at 0% 50%, var(--c-esq), transparent),
+    radial-gradient(75% 120% at 100% 50%, var(--c-dir), transparent),
+    radial-gradient(120% 75% at 50% 0%, var(--c-topo), transparent),
+    radial-gradient(120% 75% at 50% 100%, var(--c-baixo), transparent),
     linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 60%, transparent 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.45),
     inset 1px 0 0 rgba(255, 255, 255, 0.20),
     0 16px 40px rgba(0, 0, 0, 0.36);
-  transition: --accent 0.6s ease, background 0.6s ease, border-color 0.4s ease;
+  transition: --c-esq 1.2s ease, --c-dir 1.2s ease, --c-topo 1.2s ease, --c-baixo 1.2s ease, --c-media 1.2s ease, border-color 0.4s ease;
 }
 
 /* ----- barra de cima ----- */
@@ -1893,8 +1882,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   padding: 4px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
@@ -1925,8 +1912,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   border-radius: 50%;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.10);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
   transition: background 0.18s ease, transform 0.2s var(--glass-spring), border-color 0.18s ease;
 }
@@ -1944,9 +1929,7 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
 [data-estilo="ios"] .power-caixa {
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 20px;
-  background: rgba(24, 25, 36, 0.90);
-  backdrop-filter: blur(32px);
-  -webkit-backdrop-filter: blur(32px);
+  background: rgba(24, 25, 36, 0.95);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 16px 48px rgba(0, 0, 0, 0.55);
 }
 [data-estilo="ios"] .cfg-topo h2 { color: #ffffff; }
@@ -1956,9 +1939,7 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
 [data-estilo="ios"] .conteudo {
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 100%), rgba(20, 21, 32, 0.55);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 100%), rgba(20, 21, 32, 0.65);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 24px rgba(0, 0, 0, 0.22);
 }
 [data-estilo="ios"] .lado-poke { padding: 10px 12px; }
@@ -1974,7 +1955,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   border: 1px solid color-mix(in srgb, currentColor 35%, transparent);
   font: 600 10px var(--font);
   letter-spacing: 0.4px;
-  backdrop-filter: blur(8px);
 }
 [data-estilo="ios"] .tipo-chip::before, [data-estilo="ios"] .tipo-chip::after { content: none; }
 [data-estilo="ios"] .poke-vazio { color: rgba(255, 255, 255, 0.2); }
@@ -1993,7 +1973,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   background: rgba(255, 255, 255, 0.10);
   border: 1px solid rgba(255, 255, 255, 0.12);
   line-height: 1.35;
-  backdrop-filter: blur(12px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 [data-estilo="ios"] .fala-linha:last-child {
@@ -2008,8 +1987,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   margin: 8px 0 10px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.18);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 4px 14px rgba(0, 0, 0, 0.15);
   color: var(--glass-text-sub);
@@ -2025,8 +2002,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: rgba(255, 255, 255, 0.09);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   color: var(--glass-text-main);
   font: 500 12px var(--font);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.15);
@@ -2063,8 +2038,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.08);
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
   box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.25);
   color: var(--glass-text-main);
   caret-color: var(--accent);
@@ -2219,7 +2192,7 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
 [data-estilo="ios"] .estilo-op.ativo { background: rgba(255, 255, 255, 0.2); color: #ffffff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25); }
 
 /* ----- diálogo: vidro por cima de tudo ----- */
-[data-estilo="ios"] .dialogo { border-radius: 18px; background: rgba(10, 10, 16, 0.62); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+[data-estilo="ios"] .dialogo { border-radius: 18px; background: rgba(10, 10, 16, 0.72); }
 [data-estilo="ios"] .dialogo-caixa {
   gap: 10px;
   padding: 16px;
@@ -2267,8 +2240,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 [data-estilo="ios"] .mini .status {
@@ -2277,8 +2248,6 @@ html[data-estilo="ios"], html[data-estilo="ios"] body { background: transparent;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.07);
   border: 1px solid rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 [data-estilo="ios"] .mini .st { border: none; line-height: 14px; font-size: 11px; color: var(--glass-text-main); }
