@@ -41,10 +41,16 @@ const ARQUIVO_MODELO = path.join(__dirname, 'config.json');
 // Caches do Electron vão para uma subpasta, deixando a pasta da config limpa
 app.setPath('userData', path.join(PASTA_CONFIG, 'electron'));
 let janela = null;
-let janelaTerm = null; // janela destacada só com o terminal/PowerShell (mantém a borda do widget; pode ir para outro monitor)
+const janelasTerm = new Map(); // id -> BrowserWindow (permite múltiplas guias/janelas destacadas)
+let janelaTerm = null; // janela destacada ativa/recente
 
-// Toda mensagem IPC precisa vir da nossa janela principal ou da janela destacada do terminal
-const daJanelaTerm = (e) => janelaTerm !== null && !janelaTerm.isDestroyed() && e.sender === janelaTerm.webContents;
+// Toda mensagem IPC precisa vir da nossa janela principal ou de alguma janela destacada do terminal
+const daJanelaTerm = (e) => {
+  for (const win of janelasTerm.values()) {
+    if (win && !win.isDestroyed() && e.sender === win.webContents) return true;
+  }
+  return false;
+};
 const daJanela = (e) => (janela !== null && !janela.isDestroyed() && e.sender === janela.webContents) || daJanelaTerm(e);
 
 // Só uma instância do widget por vez; abrir de novo só traz a janela para a frente
@@ -364,7 +370,9 @@ function criarJanela(posicao) {
   janela.on('closed', () => {
     if (janela === esta) {
       janela = null;
-      if (janelaTerm && !janelaTerm.isDestroyed()) janelaTerm.destroy();
+      for (const w of janelasTerm.values()) if (w && !w.isDestroyed()) w.destroy();
+      janelasTerm.clear();
+      janelaTerm = null;
     }
   });
   esta.vidroPronto = Promise.resolve();
@@ -1099,7 +1107,9 @@ const embutidos = criarGerenciador({
   localizar: (programa, env) => ias.localizar(programa, env),
   enviar: (canal, ...args) => {
     if (janela && !janela.isDestroyed()) janela.webContents.send(canal, ...args);
-    if (janelaTerm && !janelaTerm.isDestroyed()) janelaTerm.webContents.send(canal, ...args);
+    for (const w of janelasTerm.values()) {
+      if (w && !w.isDestroyed()) w.webContents.send(canal, ...args);
+    }
   },
 });
 const iniciarEmbutido = process.env.MEU_WIDGET_TERMINAL_EXTERNO ? null : (opcoes) => embutidos.iniciar(opcoes);
@@ -1232,12 +1242,8 @@ function sanitizarEstadoTerm(estado) {
   return ultimoEstadoTerm;
 }
 
-function criarJanelaTerm() {
-  if (janelaTerm && !janelaTerm.isDestroyed()) {
-    janelaTerm.show();
-    janelaTerm.focus();
-    return janelaTerm;
-  }
+function criarJanelaTerm(id, opcoes = {}) {
+  const winId = id || ('term-' + Date.now() + '-' + Math.random().toString(36).slice(2, 6));
   const cfg = carregarConfig();
   const ios = cfg.estilo === 'ios';
   const displays = screen.getAllDisplays();
@@ -1246,12 +1252,13 @@ function criarJanelaTerm() {
   const area = (outroMonitor || dispPrincipal).workArea;
   const width = Math.min(820, area.width - 2 * MARGEM);
   const height = Math.min(520, area.height - 2 * MARGEM);
+  const offset = (janelasTerm.size * 32) % 160;
   const x = outroMonitor
-    ? area.x + Math.round((area.width - width) / 2)
-    : Math.max(area.x + MARGEM, (janela && !janela.isDestroyed() ? janela.getBounds().x - 40 : area.x + MARGEM));
+    ? area.x + Math.round((area.width - width) / 2) + offset
+    : Math.max(area.x + MARGEM, (janela && !janela.isDestroyed() ? janela.getBounds().x - 40 - offset : area.x + MARGEM));
   const y = outroMonitor
-    ? area.y + Math.round((area.height - height) / 2)
-    : Math.min(area.y + area.height - height - MARGEM, (janela && !janela.isDestroyed() ? janela.getBounds().y + 36 : area.y + MARGEM));
+    ? area.y + Math.round((area.height - height) / 2) + offset
+    : Math.min(area.y + area.height - height - MARGEM, (janela && !janela.isDestroyed() ? janela.getBounds().y + 36 + offset : area.y + MARGEM));
 
   const w = new BrowserWindow({
     x, y, width, height,
@@ -1275,29 +1282,35 @@ function criarJanelaTerm() {
     },
   });
   w.setMenuBarVisibility(false);
-  w.loadFile(path.join(__dirname, 'index.html'), { query: { estilo: ios ? 'ios' : 'cmd', rapido: '1', destacado: '1' } });
+  w.loadFile(path.join(__dirname, 'index.html'), { query: { estilo: ios ? 'ios' : 'cmd', rapido: '1', destacado: '1', janelaId: winId } });
   w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   w.webContents.on('will-navigate', (ev) => ev.preventDefault());
   w.once('ready-to-show', () => { if (!w.isDestroyed()) { w.show(); w.focus(); } });
   w.webContents.on('did-finish-load', () => {
-    if (!w.isDestroyed()) w.webContents.send('term:sincronizar', ultimoEstadoTerm);
+    if (!w.isDestroyed()) w.webContents.send('term:sincronizar', opcoes.estado || ultimoEstadoTerm);
   });
   w.on('closed', () => {
+    janelasTerm.delete(winId);
     if (janelaTerm === w) {
-      janelaTerm = null;
-      if (janela && !janela.isDestroyed()) janela.webContents.send('term:acoplado', ultimoEstadoTerm);
+      janelaTerm = janelasTerm.values().next().value || null;
+      if (!janelaTerm && janela && !janela.isDestroyed()) janela.webContents.send('term:acoplado', ultimoEstadoTerm);
     }
   });
   if (ios) acompanharFundo(w);
+  janelasTerm.set(winId, w);
   janelaTerm = w;
   return w;
 }
 
-ipcMain.handle('term:destacar', (e, estado) => {
+ipcMain.handle('term:destacar', (e, estado, opcoes = {}) => {
   if (!daJanela(e)) return false;
   const limpo = sanitizarEstadoTerm(estado);
+  if (opcoes && opcoes.novaJanela) {
+    criarJanelaTerm(null, { estado: limpo });
+    return true;
+  }
   const jaExistia = !!(janelaTerm && !janelaTerm.isDestroyed());
-  const w = criarJanelaTerm();
+  const w = jaExistia ? janelaTerm : criarJanelaTerm(null, { estado: limpo });
   if (jaExistia && !w.webContents.isLoading()) w.webContents.send('term:sincronizar', limpo);
   return true;
 });
@@ -1305,6 +1318,12 @@ ipcMain.handle('term:destacar', (e, estado) => {
 ipcMain.handle('term:acoplar', (e, estado) => {
   if (!daJanela(e)) return false;
   if (estado) sanitizarEstadoTerm(estado);
+  for (const [id, w] of janelasTerm.entries()) {
+    if (w && !w.isDestroyed() && e.sender === w.webContents) {
+      w.close();
+      return true;
+    }
+  }
   if (janelaTerm && !janelaTerm.isDestroyed()) janelaTerm.close();
   else if (janela && !janela.isDestroyed()) janela.webContents.send('term:acoplado', ultimoEstadoTerm);
   return true;
@@ -1390,7 +1409,12 @@ ipcMain.handle('projetos:escolher-pasta', async (e, inicial) => {
 });
 
 ipcMain.on('janela:fechar', (e) => {
-  if (daJanelaTerm(e)) { if (janelaTerm && !janelaTerm.isDestroyed()) janelaTerm.close(); return; }
+  for (const [id, w] of janelasTerm.entries()) {
+    if (w && !w.isDestroyed() && e.sender === w.webContents) {
+      w.close();
+      return;
+    }
+  }
   if (daJanela(e)) app.quit();
 });
 
@@ -1564,9 +1588,11 @@ function aplicarTamanho(width, height) {
 }
 
 ipcMain.handle('janela:modo', (e, modo) => {
-  if (daJanelaTerm(e)) {
-    if (janelaTerm && !janelaTerm.isDestroyed()) janelaTerm.minimize();
-    return true;
+  for (const [id, w] of janelasTerm.entries()) {
+    if (w && !w.isDestroyed() && e.sender === w.webContents) {
+      w.minimize();
+      return true;
+    }
   }
   if (!daJanela(e) || !['normal', 'mini'].includes(modo)) return false;
   if (modo === modoAtual) return true;
@@ -1624,9 +1650,11 @@ ipcMain.handle('janela:estilo', (e, estilo) => {
 // Pin: fixado = sempre no topo e fora da barra de tarefas. Salva na config.
 ipcMain.handle('janela:fixar', (e, fixar) => {
   if (!daJanela(e) || typeof fixar !== 'boolean') return null;
-  if (daJanelaTerm(e)) {
-    if (janelaTerm && !janelaTerm.isDestroyed()) janelaTerm.setAlwaysOnTop(fixar);
-    return fixar;
+  for (const [id, w] of janelasTerm.entries()) {
+    if (w && !w.isDestroyed() && e.sender === w.webContents) {
+      w.setAlwaysOnTop(fixar);
+      return fixar;
+    }
   }
   janela.setAlwaysOnTop(fixar);
   janela.setSkipTaskbar(fixar);

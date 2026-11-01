@@ -6,7 +6,7 @@ O **Meu Widget** é uma aplicação desktop pessoal em Electron desenvolvida par
 
 ---
 
-## 🚀 Como Executar no Windows
+## Como Executar no Windows
 
 ### 1. Pré-requisitos
 - **Sistema Operacional**: Windows 10 (versão 1809 ou superior) ou Windows 11 (64-bit).
@@ -49,14 +49,14 @@ npm run dist
 
 ### 4. Iniciar Automaticamente com o Windows
 
-- **Usando o `.exe`**: Abra a engrenagem (⚙ ou `Alt+0`) → **Settings** → marque a opção **"Iniciar com o Windows"**.
+- **Usando o `.exe`**: Abra os ajustes (`Alt+0`) → **Settings** → marque a opção **"Iniciar com o Windows"**.
 - **Usando o modo `npm start`**:
   1. Pressione `Win + R`, digite `shell:startup` e pressione Enter.
   2. Crie um atalho para o arquivo `iniciar-widget.vbs` dentro desta pasta.
 
 ---
 
-## 🛠️ Arquitetura Técnica no Windows
+## Arquitetura Técnica no Windows
 
 | Módulo / Recurso | Implementação no Windows | Benefício & Eficiência |
 |---|---|---|
@@ -71,7 +71,7 @@ npm run dist
 
 ---
 
-## 🧩 Todas as Abas e Recursos
+## Todas as Abas e Recursos
 
 ### 1. System (`sys` ou `Alt+1`)
 - **Monitor de Recursos**: Gráficos de uso em tempo real de CPU e memória RAM física do computador.
@@ -111,7 +111,7 @@ npm run dist
 - **Biblioteca Modular**: Instale e remova skills para Claude e Antigravity globalmente ou por projeto.
 - **Indicador de Economia**: Medição em tempo real de tokens poupados através do uso do Cérebro.
 
-### 7. Configurações & Pokédex (⚙ ou `Alt+0`)
+### 7. Configurações & Pokédex (`Alt+0`)
 - **Pokédex Completa**: Escolha qualquer Pokémon das gerações 1 a 9 com sprites oficiais em pixel art da PokéAPI.
 - **Temas Visuais**:
   - **CMD**: Estilo retrô de terminal hacker (fundo preto, texto cinza e realce na cor do Pokémon).
@@ -120,7 +120,7 @@ npm run dist
 
 ---
 
-## ⌨️ Atalhos de Teclado Globais e Locais
+## Atalhos de Teclado Globais e Locais
 
 | Atalho | Ação |
 |---|---|
@@ -136,7 +136,7 @@ npm run dist
 
 ---
 
-## 🔄 Atualização Automática pelo GitHub (Botão "update")
+## Atualização Automática pelo GitHub (Botão "update")
 
 - **Detecção Leve**: Cerca de 20 segundos após a inicialização, o widget faz uma requisição leve de ~40 bytes à API do GitHub (`Accept: application/vnd.github.sha`) para conferir o último commit da branch `devs`.
 - **Botão Update**: Se houver um novo commit no GitHub, o botão de download surge no cabeçalho e o Pokémon avisa.
@@ -146,7 +146,7 @@ npm run dist
 
 ---
 
-## 🧪 Como Rodar os Testes Automatizados
+## Como Rodar os Testes Automatizados
 
 Para verificar a integridade de todas as pontes e scripts no Windows:
 

@@ -56,7 +56,7 @@ const teste = async (nome, fn) => {
       'gemini-4-argon-low', 'gemini-4-argon-medium', 'gemini-4-argon-high',
       'claude-sonnet-5-5-low', 'claude-sonnet-5-5-medium', 'claude-sonnet-5-5-high',
       'claude-opus-5-5-low', 'claude-opus-5-5-medium', 'claude-opus-5-5-high',
-      'gpt-oss-120b-medium',
+      'gpt-oss-120b-low', 'gpt-oss-120b-medium', 'gpt-oss-120b-high',
     ]);
     assert.strictEqual(a.modeloPadrao, 'gemini-3.8-flash-medium');
     assert.deepStrictEqual(a.comandosUteis, ['/usage']);

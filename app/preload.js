@@ -98,7 +98,7 @@ contextBridge.exposeInMainWorld('widget', {
   termComando: (id, comando) => ipcRenderer.invoke('term:comando', String(id), String(comando)),
   termExiste: (id) => ipcRenderer.invoke('term:existe', String(id)),
   termEncerrar: (id) => ipcRenderer.invoke('term:encerrar', String(id)),
-  termDestacar: (estado) => ipcRenderer.invoke('term:destacar', estado),
+  termDestacar: (estado, opcoes) => ipcRenderer.invoke('term:destacar', estado, opcoes),
   termAcoplar: (estado) => ipcRenderer.invoke('term:acoplar', estado),
   onTermDados: (fn) => ipcRenderer.on('term:dados', (_e, id, dados) => fn(id, dados)),
   onTermFim: (fn) => ipcRenderer.on('term:fim', (_e, id, codigo, erro) => fn(id, codigo, erro)),

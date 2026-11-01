@@ -11,6 +11,24 @@ const { chavePasta } = require('./sessoes');
 const MODOS = new Set(['novo', 'continuar', 'retomar']);
 const NOMES_MODO = { continuar: 'continuar a última sessão', retomar: 'escolher uma sessão anterior' };
 
+function garantirWorkspaceAgy(pasta) {
+  try {
+    const os = require('os');
+    const settingsPath = path.join(os.homedir(), '.gemini', 'antigravity-cli', 'settings.json');
+    if (fs.existsSync(settingsPath)) {
+      const conteudo = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+      if (!Array.isArray(conteudo.trustedWorkspaces)) conteudo.trustedWorkspaces = [];
+      const normalizada = path.resolve(pasta);
+      if (!conteudo.trustedWorkspaces.some((p) => path.resolve(p).toLowerCase() === normalizada.toLowerCase())) {
+        conteudo.trustedWorkspaces.push(normalizada);
+        fs.writeFileSync(settingsPath, JSON.stringify(conteudo, null, 2), 'utf8');
+      }
+    }
+  } catch (e) {
+    // silencioso para não interromper abertura
+  }
+}
+
 // opcoes: { ia, modo, modelo, tarefa, forcar, ignorarLimite, worktree, retomada, semPularPermissoes, semPrompt, comando }
 //   ia: abrir OUTRA IA que não a do projeto (ex.: "continuar no Antigravity"); só ids que o ias.js conhece. Sem ia: a do projeto.
 //   forcar: abre mesmo com outra sessão na mesma pasta (desaconselhado)
@@ -58,8 +76,8 @@ async function abrirIA(id, opcoes = {}, { copiar = null, simular = false, regist
   const temModelo = (m) => typeof m === 'string' && Object.prototype.hasOwnProperty.call(ia.modelos, m);
   const porIA = projeto.modelos_por_ia && typeof projeto.modelos_por_ia === 'object' ? projeto.modelos_por_ia[idIA] : undefined;
   const escolhido = [modelo, ehPadrao ? projeto.modelo_padrao : undefined, porIA, ia.modeloPadrao].find(temModelo) || Object.keys(ia.modelos)[0];
-  // pular permissões: só na IA padrão do projeto (nunca herdado ao abrir a outra) e só se ela tiver a opção
-  const pularPermissoes = semPularPermissoes !== true && ehPadrao && projeto.pular_permissoes === true && !!(ia.suporta && ia.suporta.pularPermissoes);
+  // pular permissões: só na IA padrão do projeto (ou se explicitamente pedido) e se a IA tiver suporte
+  const pularPermissoes = semPularPermissoes !== true && (opcoes.pularPermissoes === true || (ehPadrao && projeto.pular_permissoes === true)) && !!(ia.suporta && ia.suporta.pularPermissoes);
   // comando que a tela pode pedir (hoje /usage): só os desta IA
   const comandoValido = semPrompt === true && typeof comando === 'string' && (ia.comandosUteis || []).includes(comando) ? comando : '';
 
@@ -72,6 +90,7 @@ async function abrirIA(id, opcoes = {}, { copiar = null, simular = false, regist
     infoWorktree = w.dados;
     pasta = w.dados.pasta;
   }
+  if (idIA === 'antigravity') garantirWorkspaceAgy(pasta);
 
   // 3. trava por pasta (vale entre IAs: Claude e Antigravity na mesma pasta também conflitam) e limite de sessões
   if (registro) {

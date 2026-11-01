@@ -201,8 +201,8 @@
         <form id="poke-form" class="linha-busca" autocomplete="off">
           <label for="poke-busca">trocar&gt;</label>
           <input id="poke-busca" type="text" maxlength="30" spellcheck="false" placeholder="nome ou número + Enter">
-          <button type="button" id="poke-fav" class="icone-btn" title="Favoritar">☆</button>
-          <button type="button" id="poke-shiny" class="icone-btn" title="Alternar brilhante (shiny)">✦</button>
+          <button type="button" id="poke-fav" class="icone-btn" title="Favoritar">fav</button>
+          <button type="button" id="poke-shiny" class="icone-btn" title="Alternar brilhante (shiny)">shiny</button>
         </form>
         <!-- resultados da busca de anime: clique escolhe (sem nova requisição) -->
         <div class="sugestoes oculto" id="poke-resultados"></div>
@@ -254,7 +254,7 @@
           <div class="graf-topo">
             <input id="graf-filtro" type="text" maxlength="60" spellcheck="false" placeholder="filtrar por nome, palavra ou projeto..." aria-label="Filtrar o grafo">
             <button type="button" id="graf-centro" class="botao-cmd" title="Enquadra o grafo inteiro de novo (tecla R). Dica: arraste para girar, roda para ampliar, botão direito para mover; duplo clique abre o arquivo">[centralizar]</button>
-            <button type="button" id="graf-ampliar" class="botao-cmd" title="Ampliar a visualização do grafo ocultando a barra lateral (ou restaurar)">[⛶ ampliar]</button>
+            <button type="button" id="graf-ampliar" class="botao-cmd" title="Ampliar a visualização do grafo ocultando a barra lateral (ou restaurar)">[ampliar]</button>
             <div class="cer-mais">
               <button type="button" id="cer-mais" class="botao-cmd" title="Compactar conversa, economia, manutenção e conferências" aria-haspopup="true" aria-expanded="false">[mais ▾]</button>
               <div id="cer-menu" class="cer-menu oculto" role="menu">
@@ -590,6 +590,7 @@
             <button type="button" id="et-voltar" class="botao-cmd" title="Esconde o terminal (as sessões continuam abertas; [abrir] em &quot;sessões ativas&quot; traz de volta)">[esconder]</button>
             <div id="et-abas" class="et-abas" role="tablist" aria-label="Sessões abertas"></div>
             <button type="button" id="et-ps" class="botao-cmd" title="Abre um PowerShell na pasta do projeto atual">[+ ps]</button>
+            <button type="button" id="et-ps-destacar" class="botao-cmd" title="Abre um PowerShell diretamente em uma nova janela destacada">[+ ps ↗]</button>
             <span class="dialogo-espaco"></span>
             <button type="button" id="et-ampliar" class="botao-cmd" title="Esconde o Pokémon para o terminal ter mais espaço (em janela estreita ele já se esconde sozinho)">[ampliar]</button>
             <button type="button" id="et-destacar" class="botao-cmd" title="Destaca somente o terminal/PowerShell numa janela própria com a borda característica do widget (para usar em outro monitor)">[↗ destacar]</button>
@@ -723,16 +724,16 @@
             </div>
             <div class="pks-filtros">
               <button type="button" class="pks-filtro-btn ativo" data-filtro="todos">todas (<span id="pks-cnt-todos">0</span>)</button>
-              <button type="button" class="pks-filtro-btn pks-filtro-essencial" data-filtro="essencial">🟢 essenciais (<span id="pks-cnt-essenciais">0</span>)</button>
-              <button type="button" class="pks-filtro-btn pks-filtro-util" data-filtro="util">🟡 úteis (<span id="pks-cnt-uteis">0</span>)</button>
+              <button type="button" class="pks-filtro-btn pks-filtro-essencial" data-filtro="essencial">essenciais (<span id="pks-cnt-essenciais">0</span>)</button>
+              <button type="button" class="pks-filtro-btn pks-filtro-util" data-filtro="util">úteis (<span id="pks-cnt-uteis">0</span>)</button>
               <button type="button" class="pks-filtro-btn" data-filtro="instaladas">instaladas (<span id="pks-cnt-instaladas">0</span>)</button>
-              <button type="button" class="pks-filtro-btn pks-filtro-online" data-filtro="online">🌐 online (<span id="pks-cnt-online">0</span>)</button>
+              <button type="button" class="pks-filtro-btn pks-filtro-online" data-filtro="online">online (<span id="pks-cnt-online">0</span>)</button>
               <span class="dialogo-espaco"></span>
-              <button type="button" id="pks-btn-online" class="botao-cmd pks-btn-buscar-online" title="Buscar repositórios online (GitHub, Anthropic, OpenAI)">[🌐 buscar online]</button>
+              <button type="button" id="pks-btn-online" class="botao-cmd pks-btn-buscar-online" title="Buscar repositórios online (GitHub, Anthropic, OpenAI)">[buscar online]</button>
             </div>
             <div id="pks-lista" class="pks-lista"></div>
             <div class="pks-rodape">
-              <span class="pks-dica">💡 Dica: Digite <code>/avaliar</code> (local) ou <code>/avaliar online</code> (GitHub/Anthropic/OpenAI) na sua sessão (&lt; 250 tokens).</span>
+              <span class="pks-dica">Dica: Digite <code>/avaliar</code> (local) ou <code>/avaliar online</code> (GitHub/Anthropic/OpenAI) na sua sessão (&lt; 250 tokens).</span>
               <button type="button" id="pks-copiar-cmd" class="botao-cmd" title="Copiar comando /avaliar">[copiar /avaliar]</button>
             </div>
           </div>
@@ -846,7 +847,7 @@
       <span id="st-cpu" class="st">cpu --%</span>
       <span id="st-ram" class="st">ram --</span>
       <span id="st-widget" class="st" title="RAM usada pelo próprio widget (todos os processos dele)">widget --</span>
-      <span id="st-musica" class="st st-musica">♪ --</span>
+      <span id="st-musica" class="st st-musica">--</span>
       <span id="st-modo" class="st st-modo oculto">eco</span>
       <span id="st-hora" class="st st-hora">--:--</span>
     </footer>
