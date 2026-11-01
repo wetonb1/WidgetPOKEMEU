@@ -1,0 +1,21 @@
+{
+  "nome": "roadmap-tutor",
+  "titulo": "roadmap-tutor",
+  "descricao_curta": "Learn a roadmap.sh developer roadmap one topic at a time, with progress tracked across sessions. Use when the user says \"continue\", \"next topic\", \"teach me the next bit\", \"what's next on my roadmap\", ",
+  "exemplo_de_uso": "",
+  "categoria": "outros",
+  "versao": "1.0.0",
+  "autor": "instax-dutta",
+  "origem": "github:instax-dutta/roadmap-tutor",
+  "compativel": [
+    "claude"
+  ],
+  "arquivos_extras": [
+    ".github/workflows/test.yml",
+    ".gitignore",
+    "LICENSE",
+    "README.md",
+    "scripts/roadmap.py",
+    "tests/test_roadmap.py"
+  ]
+}

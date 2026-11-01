@@ -15,23 +15,24 @@ Avalia a utilidade de skills locais e repositórios online para este projeto, ca
 1. **Catálogo Local (/avaliar)**:
    Avalia as skills locais e oficiais já disponíveis na biblioteca:
    ```bash
-   python cerebro/tools/projetos.py avaliar-skills {ID_DO_PROJETO} --json
+   python "{CAMINHO_CEREBRO}/tools/projetos.py" avaliar-skills
    ```
 
-2. **Busca Online (/avaliar online ou /avaliacao online)**:
+2. **Busca Online (/avaliar online ou /avaliar skills online)**:
    Realiza a busca ativa e diagnóstica em repositórios online (Anthropic, OpenAI e comunidade GitHub), classificando o que for mais relevante ao stack do projeto:
    ```bash
-   python cerebro/tools/projetos.py avaliar-skills {ID_DO_PROJETO} --online --json
+   python "{CAMINHO_CEREBRO}/tools/projetos.py" avaliar-skills --online
    ```
+
+> Nota: O script detecta automaticamente o projeto pela pasta atual da sessão. Você também pode informar o ID explicitamente:
+> `python "{CAMINHO_CEREBRO}/tools/projetos.py" avaliar-skills <id_do_projeto> [--online]`
 
 ## Regra de Otimização e Menor Consumo de Tokens
 
 Para manter o consumo quase nulo (< 250 tokens):
-1. **NUNCA** faça varredura em massa ou leitura completa das conversas da pasta `cerebro/conversas/`.
-2. Execute o comando local em Python (que roda em 0 tokens e devolve a análise pronta).
-3. Se precisar conferir o estado manualmente, leia **APENAS** o arquivo compacto de estado:
-   `cerebro/estado/{ID_DO_PROJETO}.md` (máximo 300 palavras).
-4. Apresente ao usuário o ranking de utilidade com:
+1. **NUNCA** faça varredura em massa ou leitura completa das conversas da pasta `cerebro/conversas/` nem leia o código todo.
+2. Execute o comando local em Python acima (que roda em 0 tokens e devolve a análise pronta).
+3. Apresente ao usuário o ranking de utilidade com:
    - Nível de utilidade (Essencial, Útil, Opcional)
    - Origem (Local ou Online: Anthropic, OpenAI, GitHub)
    - Por que foi recomendada para o stack/estado deste projeto

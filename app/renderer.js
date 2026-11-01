@@ -4765,7 +4765,7 @@ const projetos = (() => {
     }, 'Escolher sessão anterior, editar, preparar o projeto, pausar com segurança e remover');
     extra.append(
       (estado.retomar = botao('[escolher sessão anterior]', () => abrirSessao(p, estado.modelo, 'retomar', '', { ia: estado.ia }), '')),
-      botao('[⭐ avaliar skills]', () => abrirSkillsModal(p), 'Diagnóstico de skills e otimização de tokens para este projeto'),
+      botao('[avaliar skills]', () => abrirSkillsModal(p), 'Diagnóstico de skills e otimização de tokens para este projeto'),
       botao('[editar]', () => abrirForm(p), 'Editar nome, pasta, modelo, cor...'),
       botao('[preparar projeto]', () => preparar(p), 'Cria (ou acrescenta ao) CLAUDE.md da pasta do projeto, com as regras do cérebro'),
       botao('[pausar com segurança]', () => iniciarPausa(p), 'Chegou no limite de uso? Guia: compactar, atualizar o estado do projeto e anotar a pausa'),
@@ -4789,7 +4789,7 @@ const projetos = (() => {
     const continuar = quadro('continuar');
     const psBtn = botao('[powershell]', () => abrirPS(p), 'Abre um PowerShell na pasta deste projeto (dá para destacar só ele para outro monitor)');
     psBtn.classList.add('proj-ps');
-    const btnSkills = botao('[⭐ skills]', () => abrirSkillsModal(p), 'Ver e instalar as skills recomendadas para este projeto');
+    const btnSkills = botao('[skills]', () => abrirSkillsModal(p), 'Ver e instalar as skills recomendadas para este projeto');
     btnSkills.classList.add('proj-btn-skills');
     const escolherModelo = (modelo) => { estado.modelo = modelo; };
     function desenharModelo() {

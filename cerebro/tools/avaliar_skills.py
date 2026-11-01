@@ -66,6 +66,12 @@ REGRAS_ESPECIFICAS = {
         "razao_padrao": "Auditoria de skills e economia contínua via /avaliar com leitura compacta (< 250 tokens).",
         "economia": "Alta (mantém apenas as skills necessárias ativas)",
     },
+    "avaliar": {
+        "pontos_base": 88,
+        "nivel_padrao": "essencial",
+        "razao_padrao": "Auditoria de skills e economia contínua via /avaliar com leitura compacta (< 250 tokens).",
+        "economia": "Alta (mantém apenas as skills necessárias ativas)",
+    },
     "blender-modeler": {
         "pontos_base": 20,
         "nivel_padrao": "opcional",

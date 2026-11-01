@@ -17,6 +17,21 @@
       ]
     },
     {
+      "nome": "avaliar",
+      "titulo": "Cérebro: avaliar skills (/avaliar)",
+      "descricao_curta": "Avalia as skills mais úteis para o projeto no cérebro com quase zero tokens (< 250 tokens). Use /avaliar ou /avaliar online.",
+      "exemplo_de_uso": "/avaliar ou /avaliar online",
+      "categoria": "cerebro",
+      "versao": "1.0.0",
+      "autor": "eu",
+      "origem": "local",
+      "compativel": [
+        "claude",
+        "antigravity"
+      ],
+      "arquivos_extras": []
+    },
+    {
       "nome": "blender-modeler",
       "titulo": "blender-modeler",
       "descricao_curta": "Core Blender modeling specialist for Edit Mode, modifiers, collections, precision modeling, and scene organization. Use for general 3D modeling, blockouts, cleanup, non-destructive workflows, and scen",
@@ -283,6 +298,27 @@
         "typescript/claude-api/streaming.md",
         "typescript/claude-api/tool-use.md",
         "typescript/managed-agents/README.md"
+      ]
+    },
+    {
+      "nome": "roadmap-tutor",
+      "titulo": "roadmap-tutor",
+      "descricao_curta": "Learn a roadmap.sh developer roadmap one topic at a time, with progress tracked across sessions. Use when the user says \"continue\", \"next topic\", \"teach me the next bit\", \"what's next on my roadmap\", ",
+      "exemplo_de_uso": "",
+      "categoria": "outros",
+      "versao": "1.0.0",
+      "autor": "instax-dutta",
+      "origem": "github:instax-dutta/roadmap-tutor",
+      "compativel": [
+        "claude"
+      ],
+      "arquivos_extras": [
+        ".github/workflows/test.yml",
+        ".gitignore",
+        "LICENSE",
+        "README.md",
+        "scripts/roadmap.py",
+        "tests/test_roadmap.py"
       ]
     }
   ]
