@@ -1433,6 +1433,8 @@ button { font-family: var(--font); }
 .et-x { padding: 0 5px; color: var(--apagado); border: none; background: transparent; font: inherit; cursor: pointer; }
 .et-x:hover { color: var(--alerta); }
 .et-x.certeza { color: var(--alerta); }
+.et-dest-aba { padding: 0 4px; color: var(--apagado); border: none; background: transparent; font: inherit; cursor: pointer; border-radius: 4px; line-height: 1; }
+.et-dest-aba:hover { color: var(--accent); background: rgba(255, 255, 255, 0.12); }
 .et-corpo { position: relative; flex: 1; min-height: 0; border: 1px solid var(--linha); background: #000000; overflow: hidden; }
 .et-term { position: absolute; inset: 4px 2px 4px 6px; display: none; }
 .et-term.ativo { display: block; }

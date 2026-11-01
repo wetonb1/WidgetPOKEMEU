@@ -588,7 +588,7 @@ const musica = (() => {
       el.artista.textContent = '';
       el.capa.classList.add('oculto');
       el.capa.removeAttribute('src');
-      el.status.textContent = '♪ --';
+      el.status.textContent = '--';
       desenharPlayPause(false);
       atual = '';
       return;
@@ -596,7 +596,7 @@ const musica = (() => {
     el.titulo.textContent = info.title;
     el.titulo.title = info.title; // tooltip com o nome inteiro
     el.artista.textContent = info.artist || '';
-    el.status.textContent = (info.status === 'Playing' ? '♪ ' : '❚❚ ') + info.title + (info.artist ? ' — ' + info.artist : '');
+    el.status.textContent = (info.status === 'Playing' ? '' : '[pausado] ') + info.title + (info.artist ? ' — ' + info.artist : '');
     desenharPlayPause(info.status === 'Playing');
   }
 
@@ -1127,7 +1127,7 @@ const pokemon = (() => {
 
   function desenharBotoes() {
     const favorito = atual && (ehAnime() ? favFranquias.some((f) => mesmoPersonagem(f, atual)) : favoritos.includes(atual.slug));
-    el.fav.textContent = favorito ? '★' : '☆';
+    el.fav.textContent = favorito ? 'fav*' : 'fav';
     el.fav.classList.toggle('ativo', !!favorito);
     el.fav.title = favorito ? 'Remover dos favoritos' : 'Favoritar';
     el.shiny.classList.toggle('ativo', usarShiny && !ehAnime());
@@ -1139,7 +1139,7 @@ const pokemon = (() => {
     if (favoritos.length === 0 && favFranquias.length === 0) {
       const vazio = document.createElement('span');
       vazio.className = 'sub';
-      vazio.textContent = '(nenhum ainda: use a ☆)';
+      vazio.textContent = '(nenhum ainda: use o botão fav)';
       el.favs.replaceChildren(vazio);
       return;
     }
@@ -1929,12 +1929,12 @@ const apps = (() => {
     filtrar();
   }
 
-  // ✓ nos que você já tem
+  // ok nos que você já tem
   function marcarLoja() {
     for (const { el, item } of itensLoja) {
       const tem = posicao(item) >= 0;
       el.classList.toggle('tem', tem);
-      el.lastElementChild.textContent = tem ? '✓' : '+';
+      el.lastElementChild.textContent = tem ? 'ok' : '+';
     }
   }
 
@@ -2606,7 +2606,7 @@ function gerarTextoIlustrativo(arquivo) {
   const proj = meta ? meta.p : 'Demonstração';
   const data = meta ? meta.d : '2026-10-29';
   const chaves = meta && meta.k ? meta.k.join(', ') : 'ilustrativo, demo, visual';
-  return `# ✦ [MODO ILUSTRATIVO] ${titulo}\n\n`
+  return `# [MODO ILUSTRATIVO] ${titulo}\n\n`
     + `> [!NOTE]\n`
     + `> Este arquivo é meramente ilustrativo para demonstração visual do cérebro.\n`
     + `> Ele existe somente na memória de exibição: zero espaço no disco e zero tokens gastos.\n\n`
@@ -2616,7 +2616,7 @@ function gerarTextoIlustrativo(arquivo) {
     + `- Arquitetura de nós interconectados por afinidade conceitual e termos em comum.\n`
     + `- Representação tridimensional de memórias ativas com cálculo de dispersão por molas.\n`
     + `- Integração harmoniosa com o ecossistema do widget sem alterar o cérebro real.\n`
-    + `- Para desativar estas memórias visuais, clique no botão [✦ cheio] no topo.`;
+    + `- Para desativar estas memórias visuais, clique no botão [cheio] no topo.`;
 }
 
 const grafoCer = (() => {
@@ -3328,7 +3328,7 @@ const grafoCer = (() => {
   new ResizeObserver(() => { if (aberto && emTela) { medir(); pedir(); } }).observe(area);
 
   function atualizarBotoesDemo(ativo) {
-    const rotulo = ativo ? (IOS ? '✦ cheio: on' : '[✦ cheio: on]') : (IOS ? '✦ cheio' : '[✦ cheio]');
+    const rotulo = ativo ? (IOS ? 'cheio: on' : '[cheio: on]') : (IOS ? 'cheio' : '[cheio]');
     const bg = $('graf-demo');
     const bc = $('cer-demo');
     if (bg) { bg.textContent = rotulo; bg.classList.toggle('ativa', ativo); }
@@ -3564,7 +3564,7 @@ const manutencaoCer = (() => {
   };
   function registrar(linha) {
     feitos.push(linha);
-    $('man-feitos').replaceChildren(...feitos.slice(-6).map((t) => el('div', null, '✓ ' + t)));
+    $('man-feitos').replaceChildren(...feitos.slice(-6).map((t) => el('div', null, '[ok] ' + t)));
   }
 
   // ----- consolidação -----
@@ -3888,7 +3888,7 @@ const cerebro = (() => {
   }
   function desenharStats(s) {
     const kb = s.kb.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-    const extraDemo = grafoCer.modoAtivo && grafoCer.modoAtivo() ? ' · [✦ cheio: +36 ilustrativos]' : '';
+    const extraDemo = grafoCer.modoAtivo && grafoCer.modoAtivo() ? ' · [cheio: +36 ilustrativos]' : '';
     stats.textContent = `${s.arquivos} arq · ${kb} KB · última compactação ${fmtData(s.ultima_compactacao) || 'nunca'}${extraDemo}`;
     stats.title = `${s.conversas} conversas e ${s.estados} estados; última compactação = a conversa mais recente salva`;
   }
@@ -3932,8 +3932,8 @@ const cerebro = (() => {
       const item = el('button', 'cer-item' + (sugeridos.has(x.arquivo) ? ' sugerido' : '') + (x.ilustrativo ? ' demo' : ''));
       item.type = 'button';
       item.title = x.arquivo + ' · ' + x.pontos + ' pontos' + (x.ilustrativo ? ' (ilustrativo)' : '');
-      item.append(el('span', 'cer-pontos', x.ilustrativo ? '✦' : String(x.pontos)),
-        el('span', 'cer-nome', (x.ilustrativo ? '✦ ' : '') + x.arquivo),
+      item.append(el('span', 'cer-pontos', x.ilustrativo ? 'demo' : String(x.pontos)),
+        el('span', 'cer-nome', (x.ilustrativo ? '[demo] ' : '') + x.arquivo),
         el('span', 'cer-chaves', (x.palavras_chave || []).join(', ')));
       item.addEventListener('click', () => abrir(x.arquivo));
       return item;
@@ -3947,7 +3947,7 @@ const cerebro = (() => {
     doGrafo = false;
     aberto = arquivo;
     if (DADOS_ILUSTRATIVOS_CEREBRO.mapa.has(arquivo)) {
-      leitorNome.textContent = '✦ ' + arquivo + ' (Modo Ilustrativo)';
+      leitorNome.textContent = arquivo + ' (Modo Ilustrativo)';
       leitorNome.title = arquivo + ' · arquivo visual de demonstração';
       texto.textContent = gerarTextoIlustrativo(arquivo);
       texto.scrollTop = 0;
@@ -4098,8 +4098,8 @@ const cerebro = (() => {
 
   function aoMudarDemo(ativo) {
     if (stats.textContent && stats.textContent !== '--') {
-      const limpo = stats.textContent.replace(/ · \[✦ cheio: \+\d+ ilustrativos\]/g, '');
-      stats.textContent = limpo + (ativo ? ' · [✦ cheio: +36 ilustrativos]' : '');
+      const limpo = stats.textContent.replace(/ · \[cheio: \+\d+ ilustrativos\]/g, '');
+      stats.textContent = limpo + (ativo ? ' · [cheio: +36 ilustrativos]' : '');
     }
   }
 
@@ -4297,6 +4297,29 @@ const terminalEmb = (() => {
     return s;
   }
 
+  function destacarGuiaIndividual(s) {
+    if (!window.widget.termDestacar) return;
+    const info = {
+      termId: s.termId,
+      nome: s.nome,
+      modelo: s.modelo,
+      cor: s.cor,
+      sessaoId: s.sessaoId,
+      ia: s.ia,
+      projetoId: s.projetoId,
+    };
+    window.widget.termDestacar({ sessoes: [info], atual: s.termId }, { novaJanela: true });
+    sessoes.delete(s.termId);
+    if (s.host && s.host.parentNode) s.host.remove();
+    desenharAbas();
+    if (atual === s.termId) {
+      const prox = [...sessoes.keys()][0];
+      if (prox) mostrar(prox);
+      else if (!DESTACADO) voltar();
+    }
+    dizer(`Destaquei a guia "${s.nome}" numa janela separada!`);
+  }
+
   function desenharAbas() {
     barraAbas.replaceChildren(...[...sessoes.values()].map((s) => {
       const b = el('div', 'et-aba' + (s.termId === atual ? ' ativa' : '') + (s.vivo ? '' : ' fim'));
@@ -4305,7 +4328,12 @@ const terminalEmb = (() => {
       b.style.setProperty('--cor', /^#[0-9a-f]{6}$/i.test(s.cor || '') ? s.cor : '#6e6e6e');
       b.title = s.vivo ? `${s.nome} · ${s.modelo}` : `${s.nome} · encerrada`;
       b.append(el('span', 'et-bolinha'), el('span', null, `${s.nome} · ${s.modelo}`));
-      const x = el('button', 'et-x' + (s.confirmando ? ' certeza' : ''), s.confirmando ? 'encerrar?' : '✕');
+      const btnDest = el('button', 'et-dest-aba', '↗');
+      btnDest.type = 'button';
+      btnDest.title = 'Destacar esta guia numa janela separada';
+      btnDest.addEventListener('click', (e) => { e.stopPropagation(); destacarGuiaIndividual(s); });
+      b.append(btnDest);
+      const x = el('button', 'et-x' + (s.confirmando ? ' certeza' : ''), s.confirmando ? 'encerrar?' : 'x');
       x.type = 'button';
       x.title = s.vivo ? 'Encerrar esta sessão (clique de novo para confirmar)' : 'Fechar esta aba';
       x.addEventListener('click', (e) => { e.stopPropagation(); fechar(s); });
@@ -4420,11 +4448,20 @@ const terminalEmb = (() => {
   $('et-voltar').addEventListener('click', voltar);
   window.addEventListener('resize', () => { if (ampliado === null) aplicarVista(); });
   $('et-ampliar').addEventListener('click', () => { ampliado = !(ampliado === null ? window.innerWidth < 1000 : ampliado); aplicarVista(); const s = sessoes.get(atual); if (s) requestAnimationFrame(() => { ajustar(s); s.term.focus(); }); });
+  let aoAbrirPS = () => {};
+  let aoAbrirPSEmNovaJanela = () => {};
   if ($('et-ps')) {
     $('et-ps').textContent = IOS ? '+ ps' : '[+ ps]';
     $('et-ps').addEventListener('click', () => {
       const s = sessoes.get(atual);
       aoAbrirPS(s && s.projetoId ? s.projetoId : '');
+    });
+  }
+  if ($('et-ps-destacar')) {
+    $('et-ps-destacar').textContent = IOS ? '+ ps ↗' : '[+ ps ↗]';
+    $('et-ps-destacar').addEventListener('click', () => {
+      const s = sessoes.get(atual);
+      aoAbrirPSEmNovaJanela(s && s.projetoId ? s.projetoId : '');
     });
   }
   if ($('et-destacar')) {
@@ -4468,7 +4505,7 @@ const terminalEmb = (() => {
     tem: (id) => sessoes.has(id),
     aoMudar(fn) { aoMudar = fn; },
     aoUso(fn) { aoUso = fn; },
-    aoPedirPS(fn) { aoAbrirPS = fn; },
+    aoPedirPS(fn, fnNova) { aoAbrirPS = fn; aoAbrirPSEmNovaJanela = fnNova || fn; },
     // a aba Projetos entrou ou saiu da tela: o Pokémon só some enquanto você está no terminal
     visivel(v) {
       emTela = v;
@@ -4606,6 +4643,25 @@ const projetos = (() => {
       dizer('Abri o PowerShell em ' + p.nome + ' numa janela externa.');
     }
   }
+  async function abrirPSEmNovaJanela(p) {
+    if (ocupado) return;
+    ocupado = true;
+    const r = await chamar(() => window.widget.projetosAbrirPS(p.id));
+    ocupado = false;
+    if (!r.ok) { dizer('Não consegui abrir o PowerShell: ' + r.erro); return; }
+    if (r.via === 'widget' && r.termId) {
+      const info = { termId: r.termId, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id };
+      if (window.widget.termDestacar) {
+        window.widget.termDestacar({ sessoes: [info], atual: r.termId }, { novaJanela: true });
+        dizer('Abri um novo PowerShell destacado em janela independente!');
+      } else {
+        await terminalEmb.abrir(info);
+      }
+    } else {
+      dizer('Abri o PowerShell em ' + p.nome + ' numa janela externa.');
+    }
+  }
+
   terminalEmb.aoPedirPS(async (projId) => {
     if (!cadastro || !cadastro.length) {
       const r = await chamar(() => window.widget.projetosListar());
@@ -4616,6 +4672,19 @@ const projetos = (() => {
     const p = (cadastro && cadastro.find((x) => x.id === projId)) || (cadastro && cadastro[0]);
     if (p) {
       abrirPS(p);
+    } else {
+      dizer('Nenhum projeto encontrado para abrir o PowerShell.');
+    }
+  }, async (projId) => {
+    if (!cadastro || !cadastro.length) {
+      const r = await chamar(() => window.widget.projetosListar());
+      if (r && r.ok && r.dados && Array.isArray(r.dados.projetos)) {
+        cadastro = r.dados.projetos;
+      }
+    }
+    const p = (cadastro && cadastro.find((x) => x.id === projId)) || (cadastro && cadastro[0]);
+    if (p) {
+      abrirPSEmNovaJanela(p);
     } else {
       dizer('Nenhum projeto encontrado para abrir o PowerShell.');
     }
@@ -4690,9 +4759,9 @@ const projetos = (() => {
           { prefix: 'gpt-oss-120b', rotulo: 'GPT-OSS 120B' },
         ];
         const ROTULO_FORCA = {
-          low: '⚡ Low (rápido / leve)',
-          medium: '⚖ Medium (dia a dia)',
-          high: '🔥 High (esforço alto)',
+          low: 'Low (rápido / leve)',
+          medium: 'Medium (dia a dia)',
+          high: 'High (esforço alto)',
         };
 
         const modelos = Object.keys(ia.modelos);
@@ -4702,7 +4771,7 @@ const projetos = (() => {
           const itens = modelos.filter((m) => m.startsWith(fam.prefix));
           if (itens.length) {
             const grupo = document.createElement('optgroup');
-            grupo.label = '✦ ' + fam.rotulo;
+            grupo.label = fam.rotulo;
             for (const forca of ['low', 'medium', 'high']) {
               const m = itens.find((x) => x.endsWith('-' + forca));
               if (m) {
@@ -4927,7 +4996,7 @@ const projetos = (() => {
 
     if (!filtradas.length) {
       const aviso = filtroSkills === 'online'
-        ? 'Nenhuma skill online na lista ainda. Clique em "[🌐 buscar online]" acima para consultar os repositórios.'
+        ? 'Nenhuma skill online na lista ainda. Clique em "[buscar online]" acima para consultar os repositórios.'
         : 'Nenhuma skill encontrada neste filtro.';
       $('pks-lista').replaceChildren(el('div', 'cer-aviso', aviso));
       return;
@@ -4954,11 +5023,11 @@ const projetos = (() => {
       }
 
       const rodape = el('div', 'pks-item-rodape');
-      const eco = el('span', 'pks-item-eco', `🌱 ${s.economia_estimada}`);
+      const eco = el('span', 'pks-item-eco', s.economia_estimada);
       const acoes = el('div', 'pks-item-acoes');
 
       if (s.instalada_projeto) {
-        acoes.append(el('span', 'pks-badge-instalada', '✓ instalada no projeto'));
+        acoes.append(el('span', 'pks-badge-instalada', 'instalada no projeto'));
         const btnRemover = botao('[remover]', async () => {
           btnRemover.disabled = true;
           btnRemover.textContent = 'removendo...';
@@ -5080,7 +5149,7 @@ const projetos = (() => {
         const itens = modelos.filter((m) => m.startsWith(fam.prefix));
         if (itens.length) {
           const grupo = document.createElement('optgroup');
-          grupo.label = '✦ ' + fam.rotulo;
+          grupo.label = fam.rotulo;
           for (const forca of ['low', 'medium', 'high']) {
             const m = itens.find((x) => x.endsWith('-' + forca));
             if (m) {
@@ -5499,7 +5568,7 @@ const projetos = (() => {
     const nomeDaIA = nomeCurto(pausa.ia);
     $('pz-titulo').textContent = 'pausar "' + p.nome + '"';
     $('pz-erro').textContent = '';
-    $('pz-passos').replaceChildren(...PASSOS_PAUSA.map((t, i) => el('span', 'pz-passo' + (i === passo ? ' atual' : i < passo ? ' feito' : ''), (i < passo ? '✓ ' : (i + 1) + '. ') + t)));
+    $('pz-passos').replaceChildren(...PASSOS_PAUSA.map((t, i) => el('span', 'pz-passo' + (i === passo ? ' atual' : i < passo ? ' feito' : ''), (i < passo ? '[ok] ' : (i + 1) + '. ') + t)));
     const btn = (rotulo, acao, principal) => {
       const b = el('button', principal ? 'principal' : null, rotulo);
       b.type = 'button';
@@ -5785,7 +5854,7 @@ const projetos = (() => {
       }
     }
     $('pu-legenda').replaceChildren(...legenda);
-    const avisos = d.avisos.map((a) => el('div', 'proj-alerta', '⚠ ' + a));
+    const avisos = d.avisos.map((a) => el('div', 'proj-alerta', 'alerta: ' + a));
     if (d.pausas.length) {
       const u = d.pausas.at(-1);
       avisos.push(el('div', 'cer-nota', 'Pausas por limite: ' + d.pausas.length + ' (última: ' + u.projeto + ', ' + quando(u.data) + (u.ia ? ', no ' + nomeCurto(u.ia) : '') + ').'));
@@ -5937,13 +6006,13 @@ const projetos = (() => {
     btnPksOnline.addEventListener('click', async () => {
       if (!modalProjetoSkills || btnPksOnline.disabled) return;
       btnPksOnline.disabled = true;
-      btnPksOnline.textContent = '[🌐 consultando GitHub...]';
+      btnPksOnline.textContent = '[consultando GitHub...]';
       dizer('Consultando repositórios online (GitHub, Anthropic, OpenAI)...');
       try {
         await abrirSkillsModal(modalProjetoSkills, true);
       } finally {
         btnPksOnline.disabled = false;
-        btnPksOnline.textContent = '[🌐 buscar online]';
+        btnPksOnline.textContent = '[buscar online]';
       }
     });
   }
@@ -6157,7 +6226,7 @@ const skillsAba = (() => {
       if (cA.instalada.projeto) selos.append(selo(`${NOME_IA[a]}: projeto${vers(cA.instalada.projeto)}`, cA.instalada.projeto, c.versao));
       if (cA.instalada.global) selos.append(selo(`${NOME_IA[a]}: global${vers(cA.instalada.global)}`, cA.instalada.global, c.versao));
     });
-    c.alertas.forEach((a) => { const s = el('span', 'sk-selo alerta', '⚠ ' + a.split(':')[0]); s.title = a; selos.append(s); });
+    c.alertas.forEach((a) => { const s = el('span', 'sk-selo alerta', 'aviso: ' + a.split(':')[0]); s.title = a; selos.append(s); });
     const desc = el('div', 'sk-desc', c.descricao_curta || '');
     desc.title = c.descricao_curta || '';
     const ex = el('div', 'sk-ex');
@@ -6497,7 +6566,7 @@ const skillsAba = (() => {
     const alertas = d.alertas.length
       ? d.alertas.map((a) => {
         const l = el('div', 'sk-alerta');
-        l.append(el('b', null, `⚠ ${a.arquivo}${a.linha ? ':' + a.linha : ''} `), document.createTextNode(a.motivo + (a.trecho ? ' | ' : '')));
+        l.append(el('b', null, `aviso: ${a.arquivo}${a.linha ? ':' + a.linha : ''} `), document.createTextNode(a.motivo + (a.trecho ? ' | ' : '')));
         if (a.trecho) l.append(el('code', null, a.trecho));
         return l;
       })
@@ -6604,7 +6673,7 @@ const skillsAba = (() => {
       lista.replaceChildren(...cat.repos.map((r) => {
         const item = el('div', 'sk-cat-item');
         const nome = el('div', 'sk-cat-nome', r.repo);
-        nome.append(el('small', null, `★ ${num(r.estrelas)}${r.atualizado ? ' · ' + r.atualizado : ''}`));
+        nome.append(el('small', null, `${num(r.estrelas)} stars${r.atualizado ? ' · ' + r.atualizado : ''}`));
         item.append(nome, el('div', 'sk-cat-desc', r.descricao || 'sem descrição'),
           botao('[ver skills]', () => { cat.repoAberto = r.repo; $('sk-cat-busca').value = ''; ajustarCampoCat(); buscarCatalogo(); }, 'Lista as skills deste repositório'));
         return item;
