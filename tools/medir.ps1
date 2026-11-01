@@ -1,4 +1,4 @@
-﻿# tools/medir.ps1 — mede CPU e RAM do widget (árvore inteira de processos).
+# tools/medir.ps1 — mede CPU e RAM do widget (árvore inteira de processos).
 #
 # Uso:
 #   powershell -NoProfile -ExecutionPolicy Bypass -File tools\medir.ps1 -Cenario A -Variante base
@@ -20,7 +20,7 @@ param(
     [int]$Segundos = 60,
     [int]$Aquecer = 20,
     [switch]$Anexar,
-    [ValidateSet('A', 'B', 'D')]
+    [ValidateSet('A', 'B', 'C', 'D', 'P')]
     [string]$Cenario = 'A',
     [string]$Variante = 'base',
     [int]$Rodadas = 3,

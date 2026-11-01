@@ -276,6 +276,8 @@ if (!cfgInicial.aceleracaoGPU) app.disableHardwareAcceleration();
 // principal em vez de num processo próprio. Medido: -12 MB de RAM privada e um processo
 // a menos. Em troca, a rede perde o isolamento (sandbox) do processo separado; por isso
 // só liga se você pedir: "redeEmProcesso": true.
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
+app.commandLine.appendSwitch('disable-renderer-backgrounding');
 if (cfgInicial.redeEmProcesso) app.commandLine.appendSwitch('enable-features', 'NetworkServiceInProcess2');
 
 let modoAtual = 'normal';
@@ -293,8 +295,10 @@ const distanciaCor = (a, b) => Math.max(...[1, 3, 5].map((i) => Math.abs(parseIn
 const mudouLados = (a, b) => a.some((c, i) => (c === '-') !== (b[i] === '-') || (c !== '-' && distanciaCor(c, b[i]) >= LIMIAR_COR));
 
 function acompanharFundo(w) {
+  if (process.platform !== 'win32') return;
   let ultima = null;
   let ocupado = false;
+  let repeticoesEstaveis = 0;
   const passo = async () => {
     if (w.isDestroyed()) return;
     if (!ocupado && w.isVisible() && !w.isMinimized()) {
@@ -305,11 +309,15 @@ function acompanharFundo(w) {
         if (lados.length === 4 && lados.every((c) => c === '-' || COR_OK.test(c)) && lados.some((c) => c !== '-')
           && (!ultima || mudouLados(lados, ultima)) && !w.isDestroyed()) {
           ultima = lados;
+          repeticoesEstaveis = 0;
           w.webContents.send('tela:fundo', lados.join(' '));
+        } else {
+          repeticoesEstaveis++;
         }
       } catch { /* sem leitura nesta volta */ } finally { ocupado = false; }
     }
-    setTimeout(passo, ultimoEconomico ? 3000 : 1500);
+    const intervalo = ultimoEconomico ? 4000 : (modoAtual === 'mini' ? 3500 : (repeticoesEstaveis > 2 ? 3000 : 1500));
+    setTimeout(passo, intervalo);
   };
   w.webContents.once('did-finish-load', () => setTimeout(passo, 300));
 }
@@ -357,6 +365,7 @@ function criarJanela(posicao) {
       nodeIntegration: false,
       sandbox: true,
       devTools: !app.isPackaged, // ferramentas de desenvolvedor só ao rodar com "npm start"
+      backgroundThrottling: false,
       // necessário: a captura de áudio do visualizador (AudioContext) começa sem clique
       autoplayPolicy: 'no-user-gesture-required',
     },
@@ -565,11 +574,13 @@ const ACOES_MIDIA = new Set(['playpause', 'next', 'prev']);
 // %APPDATA%\meu-widget\medidor-<hash>.exe (o hash muda se o código mudar). Se o csc não
 // existir, a compilação falhar ou o programa não responder, tudo segue pelo media.ps1.
 const FONTE_AUXILIAR = path.join(__dirname, 'helper.cs').replace('app.asar', 'app.asar.unpacked');
+const FONTE_LINUX_HELPER = path.join(__dirname, 'helper-linux.py').replace('app.asar', 'app.asar.unpacked');
 const CSC = path.join(process.env.windir || 'C:\\Windows', 'Microsoft.NET', 'Framework64', 'v4.0.30319', 'csc.exe');
 let auxiliarExe = null;     // caminho do medidor compilado (null = usar o PowerShell)
 let usandoAuxiliar = false; // o servidor atual é o medidor?
 
 function prepararAuxiliar() {
+  if (process.platform !== 'win32') return Promise.resolve();
   return new Promise((resolve) => {
     try {
       if (!fs.existsSync(CSC)) return resolve();
@@ -642,7 +653,16 @@ function iniciarServidorPS() {
   const opcoes = { windowsHide: true, stdio: ['pipe', 'pipe', 'ignore'] };
   servidorPS = null;
   usandoAuxiliar = false;
-  if (auxiliarExe) {
+  if (process.platform === 'linux') {
+    if (fs.existsSync(FONTE_LINUX_HELPER)) {
+      try {
+        servidorPS = spawn('python3', [FONTE_LINUX_HELPER, 'servidor'], opcoes);
+        usandoAuxiliar = true;
+      } catch (e) {
+        console.error('Falha ao iniciar helper-linux.py:', e.message);
+      }
+    }
+  } else if (auxiliarExe) {
     try {
       servidorPS = spawn(auxiliarExe, [], opcoes);
       usandoAuxiliar = true;
@@ -650,7 +670,7 @@ function iniciarServidorPS() {
       descartarAuxiliar(erro.message); // arquivo inválido: o spawn já falha na hora
     }
   }
-  if (!servidorPS) {
+  if (!servidorPS && process.platform === 'win32') {
     servidorPS = spawn('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT_MIDIA, '-Action', 'servidor'], opcoes);
   }
   const meu = servidorPS;
@@ -1283,6 +1303,7 @@ function criarJanelaTerm(id, opcoes = {}) {
       nodeIntegration: false,
       sandbox: true,
       devTools: !app.isPackaged,
+      backgroundThrottling: false,
     },
   });
   w.setMenuBarVisibility(false);

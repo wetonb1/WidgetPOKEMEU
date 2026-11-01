@@ -2633,6 +2633,25 @@ const grafoCer = (() => {
   let quadros = 0; // quantos quadros o grafo desenhou (diagnóstico: parado, não sobe)
   const CELULA = 55; // grade da repulsão (só bolinhas próximas se empurram)
 
+  const gradeRepulsao = new Map();
+  const poolArrays = [];
+  let poolIdx = 0;
+  const jaSet = new Set();
+  let ultimoFoco = -999;
+  let vizFocoCache = null;
+  let ultimoStatus = '';
+  const hubColors = new Map();
+  const corHub = (hex, a) => {
+    const k = hex + '_' + a.toFixed(2);
+    let c = hubColors.get(k);
+    if (!c) {
+      const [r, g, b] = rgb(hex);
+      c = `rgba(${r}, ${g}, ${b}, ${0.2 * a})`;
+      hubColors.set(k, c);
+    }
+    return c;
+  };
+
   let aberto = false;
   let emTela = false;
   let carregando = false;
@@ -2771,14 +2790,26 @@ const grafoCer = (() => {
       if (!A.preso) { A.vx += dx * f * wa; A.vy += dy * f * wa; A.vz += dz * f * wa; }
       if (!B.preso) { B.vx -= dx * f * wb; B.vy -= dy * f * wb; B.vz -= dz * f * wb; }
     }
-    // repulsão entre vizinhos próximos (grade 3D: cada bolinha só olha as 27 células em volta)
-    const grade = new Map();
+    // repulsão entre vizinhos próximos (grade 3D: cada bolinha só olha as 27 células em volta, reusando arrays)
+    gradeRepulsao.clear();
+    poolIdx = 0;
     const chave = (cx, cy, cz) => ((cx + 512) * 1024 + (cy + 512)) * 1024 + (cz + 512);
     for (let i = 0; i < n; i++) {
       const N = nos[i];
       const c = chave(Math.floor(N.x / CELULA), Math.floor(N.y / CELULA), Math.floor(N.z / CELULA));
-      const lista = grade.get(c);
-      if (lista) lista.push(i); else grade.set(c, [i]);
+      let lista = gradeRepulsao.get(c);
+      if (!lista) {
+        if (poolIdx < poolArrays.length) {
+          lista = poolArrays[poolIdx++];
+          lista.length = 0;
+        } else {
+          lista = [];
+          poolArrays.push(lista);
+          poolIdx++;
+        }
+        gradeRepulsao.set(c, lista);
+      }
+      lista.push(i);
     }
     const forca = 260 * alpha;
     const lim2 = CELULA * CELULA;
@@ -2788,9 +2819,10 @@ const grafoCer = (() => {
       const cy = Math.floor(A.y / CELULA);
       const cz = Math.floor(A.z / CELULA);
       for (let ox = -1; ox <= 1; ox++) for (let oy = -1; oy <= 1; oy++) for (let oz = -1; oz <= 1; oz++) {
-        const lista = grade.get(chave(cx + ox, cy + oy, cz + oz));
+        const lista = gradeRepulsao.get(chave(cx + ox, cy + oy, cz + oz));
         if (!lista) continue;
-        for (const j of lista) {
+        for (let k = 0; k < lista.length; k++) {
+          const j = lista[k];
           if (j <= i) continue;
           const B = nos[j];
           let dx = A.x - B.x;
@@ -2958,7 +2990,11 @@ const grafoCer = (() => {
     const nevoa = (z) => limitar(1.08 - ((z - zmin) / faixa) * 0.55, 0.35, 1);
 
     const foco_ = selecionado >= 0 ? selecionado : hover;
-    const vizFoco = foco_ >= 0 ? new Set([foco_, ...viz[foco_]]) : null;
+    if (foco_ !== ultimoFoco) {
+      ultimoFoco = foco_;
+      vizFocoCache = foco_ >= 0 ? new Set([foco_, ...viz[foco_]]) : null;
+    }
+    const vizFoco = vizFocoCache;
     const vizSel = selecionado >= 0 ? vizFoco : null;
     // No Obsidian: quando tem foco, todo o resto do grafo atenua suavemente
     const apagado = (i) => (casam && !casam.has(i)) || (foco_ >= 0 && !vizFoco.has(i));
@@ -3000,8 +3036,7 @@ const grafoCer = (() => {
       if (!P.vis || P.x < -30 || P.y < -30 || P.x > W + 30 || P.y > H + 30) continue;
       const a = apagado(i) ? 0.08 : nevoa(P.z);
       if (a <= 0.15) continue;
-      const [r, g, b] = rgb(corDe(nos[i]));
-      ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${0.2 * a})`;
+      ctx.fillStyle = corHub(corDe(nos[i]), a);
       ctx.beginPath();
       ctx.arc(P.x, P.y, P.r * 2.3, 0, Math.PI * 2);
       ctx.fill();
@@ -3052,12 +3087,19 @@ const grafoCer = (() => {
     ultimoMs = ms;
     status(`${nos.length - hubs.length} arquivos · ${hubs.length} projetos · ${ligs.length} ligações` + (simulando ? ' · organizando...' : '')
       + (casam ? ` · ${casam.size} combinam` : ''));
-    canvas.dataset.estado = JSON.stringify({ yaw: +cam.yaw.toFixed(3), pitch: +cam.pitch.toFixed(3), dist: Math.round(cam.dist), panX: Math.round(cam.panX),
-      panY: Math.round(cam.panY), simulando, quadros, passoMs: Math.round(passoMs * 10) / 10, passos: passosFeitos, nos: nos.length, sel: selecionado >= 0 ? nos[selecionado].id : null, ms: Math.round(ms * 10) / 10 });
-    const ponto = (i) => [nos[i].id, Math.round(proj[i].x), Math.round(proj[i].y), Math.round(proj[i].r)];
-    if (ultimoMovido >= 0 && nos[ultimoMovido]) { const M = nos[ultimoMovido]; canvas.dataset.movidoAgora = JSON.stringify({ id: M.id, x: Math.round(M.x), y: Math.round(M.y), z: Math.round(M.z), preso: M.preso }); }
-    canvas.dataset.pontos = JSON.stringify({ hubs: hubs.filter((i) => proj[i].vis).map(ponto),
-      vizinhos: selecionado >= 0 ? viz[selecionado].filter((i) => proj[i].vis).slice(0, 12).map(ponto) : [] });
+    if (!simulando && !camAnim && Math.abs(velYaw) < 0.0001 && Math.abs(velPitch) < 0.0001 && !arraste) {
+      if (canvas.dataset.estadoPronto !== 'true') {
+        canvas.dataset.estadoPronto = 'true';
+        canvas.dataset.estado = JSON.stringify({ yaw: +cam.yaw.toFixed(3), pitch: +cam.pitch.toFixed(3), dist: Math.round(cam.dist), panX: Math.round(cam.panX),
+          panY: Math.round(cam.panY), simulando, quadros, passoMs: Math.round(passoMs * 10) / 10, passos: passosFeitos, nos: nos.length, sel: selecionado >= 0 ? nos[selecionado].id : null, ms: Math.round(ms * 10) / 10 });
+        const ponto = (i) => [nos[i].id, Math.round(proj[i].x), Math.round(proj[i].y), Math.round(proj[i].r)];
+        if (ultimoMovido >= 0 && nos[ultimoMovido]) { const M = nos[ultimoMovido]; canvas.dataset.movidoAgora = JSON.stringify({ id: M.id, x: Math.round(M.x), y: Math.round(M.y), z: Math.round(M.z), preso: M.preso }); }
+        canvas.dataset.pontos = JSON.stringify({ hubs: hubs.filter((i) => proj[i].vis).map(ponto),
+          vizinhos: selecionado >= 0 ? viz[selecionado].filter((i) => proj[i].vis).slice(0, 12).map(ponto) : [] });
+      }
+    } else {
+      canvas.dataset.estadoPronto = 'false';
+    }
   }
 
   function rotulos(vizFoco, apagado) {
@@ -3073,7 +3115,8 @@ const grafoCer = (() => {
       const a = forte ? 1 : Math.min(0.85, Math.max(0.35, P.r / 6));
       ctx.globalAlpha = a;
 
-      const w = ctx.measureText(txt).width;
+      if (!N._tw) N._tw = ctx.measureText(txt).width;
+      const w = N._tw;
       const rx = P.x - w / 2 - 4;
       const ry = P.y + P.r + 3;
 
@@ -3091,14 +3134,14 @@ const grafoCer = (() => {
       ctx.globalAlpha = 1;
     };
 
-    const ja = new Set();
-    for (const i of hubs) if (proj[i].vis && !apagado(i)) { escrever(i, true); ja.add(i); }
-    if (vizFoco) for (const i of vizFoco) if (!ja.has(i) && proj[i].vis && vizFoco.size <= 40) { escrever(i, i === hover || i === selecionado); ja.add(i); }
+    jaSet.clear();
+    for (const i of hubs) if (proj[i].vis && !apagado(i)) { escrever(i, true); jaSet.add(i); }
+    if (vizFoco) for (const i of vizFoco) if (!jaSet.has(i) && proj[i].vis && vizFoco.size <= 40) { escrever(i, i === hover || i === selecionado); jaSet.add(i); }
 
     let n = 0;
     for (let k = ordem.length - 1; k >= 0 && n < 45; k--) {
       const i = ordem[k];
-      if (ja.has(i) || !proj[i].vis || proj[i].r < 4.5 || apagado(i)) continue;
+      if (jaSet.has(i) || !proj[i].vis || proj[i].r < 4.5 || apagado(i)) continue;
       escrever(i, false);
       n++;
     }
@@ -3136,7 +3179,12 @@ const grafoCer = (() => {
     ctx.fillStyle = '#9aa0a6';
     ctx.fillText(linhas[1], x + 8, y + 17);
   }
-  function status(t) { $('graf-status').textContent = t; }
+  function status(t) {
+    if (ultimoStatus !== t) {
+      ultimoStatus = t;
+      $('graf-status').textContent = t;
+    }
+  }
 
   // ----- escolher, filtrar, detalhes -----
   function acharNo(mx, my) {
