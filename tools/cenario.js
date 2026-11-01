@@ -34,6 +34,8 @@ require('../app/main.js');
 const PREPARO = {
   A: "abas.mostrar('sys', { salvar: false }); true",
   B: "abas.mostrar('music', { salvar: false }); true",
+  C: "abas.mostrar('cerebro', { salvar: false }); true",
+  P: "abas.mostrar('projetos', { salvar: false }); true",
   D: "abas.mostrar('music', { salvar: false }); visualizador.tocando(true); true", // o ciclo da música pausa logo depois
 };
 const preparo = PREPARO[process.env.WIDGET_CENARIO];
