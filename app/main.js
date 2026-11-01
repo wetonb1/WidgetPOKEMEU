@@ -6,7 +6,7 @@ const os = require('os');
 
 // Se estiver rodando empacotado (.exe no Temp) e existir a pasta com o código do widget ao lado ou na config:
 // delega para o app/main.js externo para que o widget rode do código atualizado e permita auto-update via GitHub.
-if (app.isPackaged && !process.env._MEU_WIDGET_DELEGADO) {
+if (app && app.isPackaged && !process.env._MEU_WIDGET_DELEGADO) {
   try {
     const { pastaRaizWidget } = require('./cerebro');
     const raiz = pastaRaizWidget();
