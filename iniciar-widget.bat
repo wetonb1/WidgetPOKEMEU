@@ -1,4 +1,5 @@
 @echo off
 title Meu Widget
 cd /d "%~dp0"
-npm start
+set ELECTRON_RUN_AS_NODE=
+start "" "MeuWidget.exe"
