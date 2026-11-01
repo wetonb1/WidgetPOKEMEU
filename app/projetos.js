@@ -49,7 +49,7 @@ function invalidarCache() {
 function campos(c) {
   const saida = {};
   const origem = c && typeof c === 'object' ? c : {};
-  for (const [chave, max] of [['id', 40], ['nome', 100], ['pasta', 500], ['ia', 20], ['modelo_padrao', 40], ['descricao', 300], ['cor', 9]]) {
+  for (const [chave, max] of [['id', 40], ['nome', 100], ['pasta', 500], ['ia', 20], ['modelo_padrao', 40], ['descricao', 300], ['cor', 9], ['grupo', 60], ['pasta_organizacao', 60]]) {
     if (chave in origem) saida[chave] = texto(origem[chave], max);
   }
   // outra IA para "continuar em outra IA" (vazio/null tira) e o modelo de cada IA: só textos curtos; o projetos.py valida contra o ias-dados.json

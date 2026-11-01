@@ -139,6 +139,28 @@ class TestCadastro(Base):
         self.novo()
         self.assertEqual(projetos.validar(), [])
 
+    def test_grupo_organizacao(self):
+        # adiciona com grupo (pasta de organização)
+        r = self.novo(grupo="PIBIC")
+        p = r["projeto"]
+        self.assertEqual(p["grupo"], "PIBIC")
+        self.assertEqual(projetos.listar()[0]["grupo"], "PIBIC")
+
+        # edita o grupo
+        p2 = projetos.editar("jogo-do-roblox", {"grupo": "Estudos"})
+        self.assertEqual(p2["grupo"], "Estudos")
+        self.assertEqual(projetos.listar()[0]["grupo"], "Estudos")
+
+        # limpa o grupo (vazio remove)
+        p3 = projetos.editar("jogo-do-roblox", {"grupo": ""})
+        self.assertNotIn("grupo", p3)
+        self.assertNotIn("grupo", projetos.listar()[0])
+
+        # recusa grupo excessivamente longo (> 40 caracteres)
+        with self.assertRaises(ValueError) as e:
+            projetos.editar("jogo-do-roblox", {"grupo": "x" * 41})
+        self.assertIn("grupo com mais de 40", str(e.exception))
+
 
 class TestEscritaAtomica(Base):
     def test_falha_ao_renomear_nao_corrompe_nem_deixa_temporario(self):
