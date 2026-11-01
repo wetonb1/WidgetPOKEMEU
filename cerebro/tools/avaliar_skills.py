@@ -66,24 +66,6 @@ REGRAS_ESPECIFICAS = {
         "razao_padrao": "Auditoria de skills e economia contínua via /avaliar com leitura compacta (< 250 tokens).",
         "economia": "Alta (mantém apenas as skills necessárias ativas)",
     },
-    "cerebro-ler": {
-        "pontos_base": 78,
-        "nivel_padrao": "util",
-        "razao_padrao": "Leitura cirúrgica: abre até 3 arquivos do cérebro com resumo em 1 linha, sem despejar histórico desnecessário.",
-        "economia": "Média (~1.500 tokens por consulta)",
-    },
-    "cerebro-titulos": {
-        "pontos_base": 72,
-        "nivel_padrao": "util",
-        "razao_padrao": "Nível 1 de busca: vasculha nomes de conversas em milissegundos sem gastar tokens abrindo arquivos.",
-        "economia": "Média (varredura rápida com 0 tokens)",
-    },
-    "cerebro-cabecalho": {
-        "pontos_base": 68,
-        "nivel_padrao": "util",
-        "razao_padrao": "Nível 2 de busca: inspeciona palavras-chave nas 2 primeiras linhas para desempate ágil de tópicos.",
-        "economia": "Média (~800 tokens economizados)",
-    },
     "blender-modeler": {
         "pontos_base": 20,
         "nivel_padrao": "opcional",

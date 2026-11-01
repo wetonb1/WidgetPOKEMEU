@@ -141,7 +141,7 @@ class TestPorIA(Base):
             "gemini-4-argon-low": 0, "gemini-4-argon-medium": 0, "gemini-4-argon-high": 1,
             "claude-sonnet-5-5-low": 0, "claude-sonnet-5-5-medium": 0, "claude-sonnet-5-5-high": 0,
             "claude-opus-5-5-low": 0, "claude-opus-5-5-medium": 0, "claude-opus-5-5-high": 0,
-            "gpt-oss-120b-medium": 0, "outro": 1,
+            "gpt-oss-120b-low": 0, "gpt-oss-120b-medium": 0, "gpt-oss-120b-high": 0, "outro": 1,
         })
         self.assertEqual(r["por_ia"]["outra"]["total"], 1)
         # o "por_modelo" de sempre continua sendo só o do Claude (a tela de hoje não muda)
