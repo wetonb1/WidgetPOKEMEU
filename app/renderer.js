@@ -4576,12 +4576,19 @@ const projetos = (() => {
   const caixas = {
     form: $('pj-form'), estado: $('pe-form'), confirma: $('pc-caixa'), abrir: $('pa-form'), instalar: $('pi-caixa'),
     escolha: $('px-caixa'), rapido: $('pq-caixa'), pausa: $('pz-caixa'), trocar: $('pt-caixa'),
-    skills: $('pks-caixa'),
+    skills: $('pks-caixa'), pastaForm: $('pj-pasta-form'), moverForm: $('pj-mover-form'),
   };
   const f = {
-    titulo: $('pj-titulo'), pasta: $('pj-pasta'), nome: $('pj-nome'), id: $('pj-id'), descricao: $('pj-descricao'),
+    titulo: $('pj-titulo'), pasta: $('pj-pasta'), nome: $('pj-nome'), id: $('pj-id'), grupo: $('pj-grupo'), descricao: $('pj-descricao'),
     modelo: $('pj-modelo'), cor: $('pj-cor'), tags: $('pj-tags'), erro: $('pj-erro'), salvar: $('pj-salvar'),
     ia: $('pj-ia'), reserva: $('pj-ia-reserva'),
+  };
+  const fPasta = {
+    form: $('pj-pasta-form'), titulo: $('pjp-titulo'), nome: $('pjp-nome'), erro: $('pjp-erro'), salvar: $('pjp-salvar'),
+  };
+  const fMover = {
+    form: $('pj-mover-form'), titulo: $('pjm-titulo'), sub: $('pjm-sub'), destino: $('pjm-destino'),
+    sugestoes: $('pjm-sugestoes'), erro: $('pjm-erro'), salvar: $('pjm-salvar'),
   };
   const IOS = document.documentElement.dataset.estilo === 'ios';
   const INTERVALO = 10000;
@@ -4590,6 +4597,54 @@ const projetos = (() => {
   let avaliacaoSkillsAtual = null; // dados avaliados das skills do projeto
   let filtroSkills = 'todos'; // 'todos' | 'essencial' | 'util' | 'instaladas'
   let termoFiltro = ''; // filtro de texto da lista de projetos
+  let pastaFiltro = ''; // '' = todas; '__sem_pasta__' = sem pasta; ou nome da pasta
+  let editandoPasta = null; // nome da pasta sendo renomeada (null = criando)
+  let projetoMover = null; // projeto sendo movido de pasta
+
+  function carregarPastasCriadas() {
+    try {
+      const v = JSON.parse(localStorage.getItem('widget_pastas_projetos') || '[]');
+      return Array.isArray(v) ? v.filter(Boolean) : [];
+    } catch {
+      return [];
+    }
+  }
+  function salvarPastasCriadas(lista) {
+    try {
+      localStorage.setItem('widget_pastas_projetos', JSON.stringify(Array.from(new Set(lista)).filter(Boolean)));
+    } catch { /* ignora */ }
+  }
+  let pastasCriadas = carregarPastasCriadas();
+
+  function carregarPastasRecolhidas() {
+    try {
+      const v = JSON.parse(localStorage.getItem('widget_pastas_recolhidas') || '[]');
+      return new Set(Array.isArray(v) ? v : []);
+    } catch {
+      return new Set();
+    }
+  }
+  function salvarPastasRecolhidas(set) {
+    try {
+      localStorage.setItem('widget_pastas_recolhidas', JSON.stringify(Array.from(set)));
+    } catch { /* ignora */ }
+  }
+  const pastasRecolhidas = carregarPastasRecolhidas();
+
+  function obterTodasPastas() {
+    const doCadastro = cadastro.map((p) => (p.grupo || '').trim()).filter(Boolean);
+    return Array.from(new Set([...pastasCriadas, ...doCadastro])).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  }
+
+  function atualizarSugestoesPastas() {
+    const todas = obterTodasPastas();
+    const dl = $('pj-grupos-sugestoes');
+    if (dl) dl.replaceChildren(...todas.map((p) => {
+      const opt = document.createElement('option');
+      opt.value = p;
+      return opt;
+    }));
+  }
 
   let cadastro = [];
   let infoIAs = null; // { claude: { nome, modelos: {sonnet: 'dia a dia', ...}, instalada, instalar, docs } }
@@ -4745,6 +4800,16 @@ const projetos = (() => {
     const aberto = quando(p.ultima_abertura);
     const meta = el('div', 'proj-meta');
     meta.append(el('span', 'proj-chip-padrao', iaCurta(p.ia) + ' · ' + p.modelo_padrao));
+    if (p.grupo) {
+      const chipPasta = el('span', 'proj-chip-pasta', `pasta: ${p.grupo}`);
+      chipPasta.title = `Pasta de organização: ${p.grupo} (clique para filtrar só esta pasta)`;
+      chipPasta.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        pastaFiltro = (pastaFiltro === p.grupo ? '' : p.grupo);
+        desenhar();
+      });
+      meta.append(chipPasta);
+    }
     if (!p.pasta_existe) meta.append(el('span', 'proj-alerta', 'pasta não encontrada'));
     if (p.pular_permissoes) meta.append(el('span', 'proj-alerta', 'abre sem pedir permissões'));
     if (p.usar_api_key) meta.append(el('span', 'proj-alerta', 'cobra pela chave de API'));
@@ -4766,6 +4831,7 @@ const projetos = (() => {
     extra.append(
       (estado.retomar = botao('[escolher sessão anterior]', () => abrirSessao(p, estado.modelo, 'retomar', '', { ia: estado.ia }), '')),
       botao('[avaliar skills]', () => abrirSkillsModal(p), 'Diagnóstico de skills e otimização de tokens para este projeto'),
+      botao('[mover de pasta]', () => abrirMoverDePasta(p), 'Mover este projeto para outra pasta de organização (ou tirar da pasta)'),
       botao('[editar]', () => abrirForm(p), 'Editar nome, pasta, modelo, cor...'),
       botao('[preparar projeto]', () => preparar(p), 'Cria (ou acrescenta ao) CLAUDE.md da pasta do projeto, com as regras do cérebro'),
       botao('[pausar com segurança]', () => iniciarPausa(p), 'Chegou no limite de uso? Guia: compactar, atualizar o estado do projeto e anotar a pausa'),
@@ -4917,6 +4983,57 @@ const projetos = (() => {
     return linha;
   }
 
+  function desenharBarraPastas() {
+    const bar = $('proj-pastas-filtro');
+    if (!bar) return;
+    const todas = obterTodasPastas();
+    const temSemPasta = cadastro.some((p) => !(p.grupo || '').trim());
+    if (!todas.length && !pastasCriadas.length) {
+      bar.classList.add('oculto');
+      bar.replaceChildren();
+      return;
+    }
+    bar.classList.remove('oculto');
+    const chips = [];
+    const btnTodas = el('button', 'proj-pasta-chip' + (!pastaFiltro ? ' ativo' : ''), `todas (${cadastro.length})`);
+    btnTodas.type = 'button';
+    btnTodas.title = 'Mostrar projetos de todas as pastas';
+    btnTodas.addEventListener('click', () => { pastaFiltro = ''; desenhar(); });
+    chips.push(btnTodas);
+
+    for (const pasta of todas) {
+      const cnt = cadastro.filter((p) => (p.grupo || '').trim() === pasta).length;
+      const b = el('button', 'proj-pasta-chip' + (pastaFiltro === pasta ? ' ativo' : ''), `${pasta} (${cnt})`);
+      b.type = 'button';
+      b.title = `Filtrar apenas pasta "${pasta}"`;
+      b.addEventListener('click', () => {
+        pastaFiltro = (pastaFiltro === pasta ? '' : pasta);
+        desenhar();
+      });
+      chips.push(b);
+    }
+
+    if (temSemPasta && todas.length) {
+      const cntSem = cadastro.filter((p) => !(p.grupo || '').trim()).length;
+      const bSem = el('button', 'proj-pasta-chip' + (pastaFiltro === '__sem_pasta__' ? ' ativo' : ''), `sem pasta (${cntSem})`);
+      bSem.type = 'button';
+      bSem.title = 'Mostrar apenas projetos sem pasta';
+      bSem.addEventListener('click', () => {
+        pastaFiltro = (pastaFiltro === '__sem_pasta__' ? '' : '__sem_pasta__');
+        desenhar();
+      });
+      chips.push(bSem);
+    }
+
+    const btnNova = el('button', 'proj-pasta-chip proj-pasta-chip-add', '[+ nova pasta]');
+    btnNova.type = 'button';
+    btnNova.title = 'Criar uma nova pasta de organização';
+    btnNova.addEventListener('click', () => abrirCriarOuRenomearPasta());
+    chips.push(btnNova);
+
+    bar.replaceChildren(...chips);
+  }
+
   let ultimaAssinaturaCadastro = '';
   function desenhar() {
     let listaFiltrada = cadastro;
@@ -4925,23 +5042,121 @@ const projetos = (() => {
         (p.nome && p.nome.toLowerCase().includes(termoFiltro)) ||
         (p.id && p.id.toLowerCase().includes(termoFiltro)) ||
         (p.descricao && p.descricao.toLowerCase().includes(termoFiltro)) ||
-        (p.tags && p.tags.some((t) => t.toLowerCase().includes(termoFiltro)))
+        (p.tags && p.tags.some((t) => t.toLowerCase().includes(termoFiltro))) ||
+        (p.grupo && p.grupo.toLowerCase().includes(termoFiltro))
       );
     }
-    conta.textContent = cadastro.length ? (termoFiltro ? `${listaFiltrada.length}/${cadastro.length} projetos` : cadastro.length + (cadastro.length > 1 ? ' projetos' : ' projeto')) : '';
+    if (pastaFiltro) {
+      if (pastaFiltro === '__sem_pasta__') {
+        listaFiltrada = listaFiltrada.filter((p) => !(p.grupo || '').trim());
+      } else {
+        listaFiltrada = listaFiltrada.filter((p) => (p.grupo || '').trim() === pastaFiltro);
+      }
+    }
+
+    desenharBarraPastas();
+
+    conta.textContent = cadastro.length ? (termoFiltro || pastaFiltro ? `${listaFiltrada.length}/${cadastro.length} projetos` : cadastro.length + (cadastro.length > 1 ? ' projetos' : ' projeto')) : '';
     if (!cadastro.length) {
       ultimaAssinaturaCadastro = '';
       lista.replaceChildren(el('div', 'cer-aviso', 'Nenhum projeto ainda. Clique em [+ novo projeto] e escolha a pasta.'));
       return;
     }
     if (!listaFiltrada.length) {
-      lista.replaceChildren(el('div', 'cer-aviso', `Nenhum projeto combina com "${termoFiltro}".`));
+      lista.replaceChildren(el('div', 'cer-aviso', termoFiltro ? `Nenhum projeto combina com "${termoFiltro}".` : 'Nenhum projeto na pasta selecionada.'));
       return;
     }
-    const assinatura = JSON.stringify(listaFiltrada);
-    if (assinatura === ultimaAssinaturaCadastro && lista.children.length === listaFiltrada.length) return;
-    ultimaAssinaturaCadastro = assinatura;
-    lista.replaceChildren(...listaFiltrada.map(cartao));
+
+    const todasPastas = obterTodasPastas();
+    if (!todasPastas.length) {
+      const assinatura = JSON.stringify(listaFiltrada) + ':' + pastaFiltro;
+      if (assinatura === ultimaAssinaturaCadastro && lista.children.length === listaFiltrada.length) return;
+      ultimaAssinaturaCadastro = assinatura;
+      lista.replaceChildren(...listaFiltrada.map(cartao));
+      return;
+    }
+
+    const grupos = [];
+    const pastasParaExibir = pastaFiltro && pastaFiltro !== '__sem_pasta__'
+      ? [pastaFiltro]
+      : (pastaFiltro === '__sem_pasta__' ? [] : todasPastas);
+
+    for (const nomePasta of pastasParaExibir) {
+      const projs = listaFiltrada.filter((p) => (p.grupo || '').trim() === nomePasta);
+      if (projs.length || !termoFiltro) {
+        grupos.push({ nome: nomePasta, projs, ehSemPasta: false });
+      }
+    }
+
+    const projsSemPasta = listaFiltrada.filter((p) => !(p.grupo || '').trim());
+    if (projsSemPasta.length && (!pastaFiltro || pastaFiltro === '__sem_pasta__')) {
+      grupos.push({ nome: 'sem pasta', projs: projsSemPasta, ehSemPasta: true });
+    }
+
+    const secoes = grupos.map((g) => {
+      const secao = el('section', 'proj-pasta-secao');
+      const recolhido = pastasRecolhidas.has(g.nome);
+      const cab = el('div', 'proj-pasta-cab' + (recolhido ? ' recolhida' : ''));
+      cab.tabIndex = 0;
+      cab.setAttribute('role', 'button');
+      cab.title = 'Clique para expandir ou recolher esta pasta';
+
+      const seta = el('span', 'proj-pasta-seta', recolhido ? '▸' : '▾');
+      const tit = el('span', 'proj-pasta-nome', g.nome);
+      const cnt = el('span', 'proj-pasta-conta', `(${g.projs.length} ${g.projs.length === 1 ? 'projeto' : 'projetos'})`);
+
+      const acoes = el('div', 'proj-pasta-acoes');
+      const btnAdd = botao('[+ projeto]', (ev) => {
+        ev.stopPropagation();
+        abrirForm(null, '', g.ehSemPasta ? '' : g.nome);
+      }, `Cadastrar novo projeto nesta pasta (${g.nome})`);
+      acoes.append(btnAdd);
+
+      if (!g.ehSemPasta) {
+        acoes.append(
+          botao('[renomear]', (ev) => {
+            ev.stopPropagation();
+            abrirCriarOuRenomearPasta(g.nome);
+          }, `Renomear pasta "${g.nome}"`),
+          botao('[remover]', (ev) => {
+            ev.stopPropagation();
+            pedirRemocaoPasta(g.nome);
+          }, `Remover pasta "${g.nome}" (os projetos são mantidos em "sem pasta")`)
+        );
+      }
+
+      cab.append(seta, tit, cnt, acoes);
+
+      const alternar = () => {
+        const agoraRecolhido = !pastasRecolhidas.has(g.nome);
+        if (agoraRecolhido) pastasRecolhidas.add(g.nome); else pastasRecolhidas.delete(g.nome);
+        salvarPastasRecolhidas(pastasRecolhidas);
+        seta.textContent = agoraRecolhido ? '▸' : '▾';
+        cab.classList.toggle('recolhida', agoraRecolhido);
+        corpo.classList.toggle('oculto', agoraRecolhido);
+      };
+
+      cab.addEventListener('click', alternar);
+      cab.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          alternar();
+        }
+      });
+
+      const corpo = el('div', 'proj-pasta-corpo' + (recolhido ? ' oculto' : ''));
+      const grade = el('div', 'proj-pasta-grade');
+      if (!g.projs.length) {
+        grade.append(el('div', 'cer-aviso', 'Nenhum projeto nesta pasta ainda. Clique em [+ projeto] acima para adicionar.'));
+      } else {
+        grade.append(...g.projs.map(cartao));
+      }
+      corpo.append(grade);
+      secao.append(cab, corpo);
+      return secao;
+    });
+
+    lista.replaceChildren(...secoes);
   }
   async function carregar(forcar) {
     if (!forcar && Date.now() - ultimaCarga < INTERVALO) return;
@@ -5114,7 +5329,7 @@ const projetos = (() => {
   const fechar = () => { dialogo.classList.add('oculto'); acaoConfirma = null; };
 
   // adicionar / editar
-  function abrirForm(p, pasta) {
+  function abrirForm(p, pasta, grupoInicial) {
     editando = p ? p.id : null;
     nomeEditado = !!p;
     f.titulo.textContent = p ? 'editar projeto' : 'adicionar projeto';
@@ -5122,6 +5337,8 @@ const projetos = (() => {
     f.nome.value = p ? p.nome : nomeDaPasta(f.pasta.value);
     f.id.value = p ? p.id : '';
     f.id.readOnly = !!p; // o id liga o projeto ao cérebro: não muda
+    f.grupo.value = p ? (p.grupo || '') : (grupoInicial || '');
+    atualizarSugestoesPastas();
     f.descricao.value = p ? p.descricao : '';
     preencherIAs(p ? p.ia : idsIA()[0], p ? p.modelo_padrao : '', p ? p.ia_reserva : '');
     f.cor.value = p ? p.cor : CORES_PROJETO[cadastro.length % CORES_PROJETO.length];
@@ -5237,9 +5454,14 @@ const projetos = (() => {
     const dados = {
       pasta: f.pasta.value.trim(), nome: f.nome.value.trim(), descricao: f.descricao.value.trim(),
       ia: f.ia.value, modelo_padrao: f.modelo.value, ia_reserva: f.reserva.value || null, cor: f.cor.value, tags: f.tags.value,
+      grupo: f.grupo.value.trim(),
       pular_permissoes: $('pj-pular').checked, // desligado por padrão; o aviso aparece ao ligar
       usar_api_key: $('pj-chave').checked, // desligado por padrão: a sessão usa o login da assinatura
     };
+    if (dados.grupo && !pastasCriadas.includes(dados.grupo)) {
+      pastasCriadas.push(dados.grupo);
+      salvarPastasCriadas(pastasCriadas);
+    }
     if (!editando && f.id.value.trim()) dados.id = f.id.value.trim();
     const r = await chamar(() => (editando
       ? window.widget.projetosEditar(editando, dados)
@@ -5318,6 +5540,120 @@ const projetos = (() => {
       },
     });
   }
+
+  function abrirCriarOuRenomearPasta(nomeAtual = '') {
+    editandoPasta = nomeAtual || null;
+    fPasta.titulo.textContent = editandoPasta ? `renomear pasta "${editandoPasta}"` : 'nova pasta de organização';
+    fPasta.nome.value = editandoPasta || '';
+    fPasta.erro.textContent = '';
+    mostrarCaixa('pastaForm');
+    fPasta.nome.focus();
+  }
+
+  function pedirRemocaoPasta(nomePasta) {
+    confirmar({
+      titulo: 'remover pasta "' + nomePasta + '"?',
+      texto: 'Os projetos que estão nesta pasta não serão apagados: eles apenas serão movidos para "sem pasta".',
+      rotulo: 'remover pasta',
+      acao: async () => {
+        const afetados = cadastro.filter((p) => (p.grupo || '').trim() === nomePasta);
+        for (const p of afetados) {
+          await chamar(() => window.widget.projetosEditar(p.id, { grupo: '' }));
+        }
+        pastasCriadas = pastasCriadas.filter((x) => x !== nomePasta);
+        salvarPastasCriadas(pastasCriadas);
+        pastasRecolhidas.delete(nomePasta);
+        salvarPastasRecolhidas(pastasRecolhidas);
+        if (pastaFiltro === nomePasta) pastaFiltro = '';
+        await carregar(true);
+        dizer(`Pasta "${nomePasta}" removida. Os projetos agora estão em "sem pasta".`);
+        return '';
+      },
+    });
+  }
+
+  function abrirMoverDePasta(p) {
+    if (!p) return;
+    projetoMover = p;
+    fMover.titulo.textContent = `mover "${p.nome}" de pasta`;
+    fMover.sub.textContent = `Atualmente em: ${p.grupo ? `"${p.grupo}"` : 'sem pasta'}. Digite ou escolha a pasta:`;
+    fMover.destino.value = p.grupo || '';
+    const todas = obterTodasPastas();
+    fMover.sugestoes.replaceChildren(...todas.map((pasta) => {
+      const opt = document.createElement('option');
+      opt.value = pasta;
+      return opt;
+    }));
+    fMover.erro.textContent = '';
+    mostrarCaixa('moverForm');
+    fMover.destino.focus();
+  }
+
+  fPasta.form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    const nome = fPasta.nome.value.trim();
+    if (!nome) { fPasta.erro.textContent = 'digite o nome da pasta'; return; }
+    if (nome.length > 40) { fPasta.erro.textContent = 'o nome pode ter no máximo 40 caracteres'; return; }
+    if (editandoPasta) {
+      if (nome === editandoPasta) { fechar(); return; }
+      const todas = obterTodasPastas();
+      if (todas.includes(nome) && nome.toLowerCase() !== editandoPasta.toLowerCase()) {
+        fPasta.erro.textContent = 'já existe uma pasta com este nome';
+        return;
+      }
+      fPasta.salvar.disabled = true;
+      const afetados = cadastro.filter((p) => (p.grupo || '').trim() === editandoPasta);
+      for (const p of afetados) {
+        await chamar(() => window.widget.projetosEditar(p.id, { grupo: nome }));
+      }
+      pastasCriadas = pastasCriadas.map((x) => (x === editandoPasta ? nome : x));
+      if (!pastasCriadas.includes(nome)) pastasCriadas.push(nome);
+      salvarPastasCriadas(pastasCriadas);
+      if (pastasRecolhidas.has(editandoPasta)) {
+        pastasRecolhidas.delete(editandoPasta);
+        pastasRecolhidas.add(nome);
+        salvarPastasRecolhidas(pastasRecolhidas);
+      }
+      if (pastaFiltro === editandoPasta) pastaFiltro = nome;
+      fPasta.salvar.disabled = false;
+      fechar();
+      await carregar(true);
+      dizer(`Pasta renomeada para "${nome}"!`);
+    } else {
+      const todas = obterTodasPastas();
+      if (todas.some((x) => x.toLowerCase() === nome.toLowerCase())) {
+        fPasta.erro.textContent = 'já existe uma pasta com este nome';
+        return;
+      }
+      pastasCriadas.push(nome);
+      salvarPastasCriadas(pastasCriadas);
+      fechar();
+      desenhar();
+      dizer(`Pasta "${nome}" criada!`);
+    }
+  });
+  $('pjp-cancelar').addEventListener('click', fechar);
+
+  fMover.form.addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    if (!projetoMover || ocupado) return;
+    const destino = fMover.destino.value.trim();
+    if (destino.length > 40) { fMover.erro.textContent = 'o nome da pasta pode ter no máximo 40 caracteres'; return; }
+    ocupado = true;
+    fMover.salvar.disabled = true;
+    if (destino && !pastasCriadas.includes(destino)) {
+      pastasCriadas.push(destino);
+      salvarPastasCriadas(pastasCriadas);
+    }
+    const r = await chamar(() => window.widget.projetosEditar(projetoMover.id, { grupo: destino }));
+    ocupado = false;
+    fMover.salvar.disabled = false;
+    if (!r.ok) { fMover.erro.textContent = r.erro; return; }
+    fechar();
+    await carregar(true);
+    dizer(`Projeto "${projetoMover.nome}" movido para "${destino || 'sem pasta'}"!`);
+  });
+  $('pjm-cancelar').addEventListener('click', fechar);
 
   // preparar: primeiro só mostra o que mudaria; grava só depois do seu "confirmar"
   async function preparar(p) {
@@ -5989,6 +6325,7 @@ const projetos = (() => {
   });
 
   $('proj-adicionar').addEventListener('click', adicionar);
+  $('proj-nova-pasta').addEventListener('click', () => abrirCriarOuRenomearPasta());
 
   // Busca rápida de projetos
   const campoFiltro = $('proj-filtro');

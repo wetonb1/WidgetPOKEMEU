@@ -46,13 +46,13 @@ OPCIONAIS = ("pular_permissoes", "usar_api_key")
 # opcionais que só aparecem no arquivo quando usados: outra IA para "continuar em outra IA" e o modelo de cada IA
 OUTRA_IA = ("ia_reserva", "modelos_por_ia")
 BOOLEANOS = OPCIONAIS  # só true/false de verdade; nada de "sim" virar true
-EDITAVEIS = ("nome", "pasta", "ia", "modelo_padrao", "descricao", "tags", "cor") + OPCIONAIS + OUTRA_IA  # o id não muda: é o elo com o cérebro
+EDITAVEIS = ("nome", "pasta", "ia", "modelo_padrao", "descricao", "tags", "cor", "grupo", "pasta_organizacao") + OPCIONAIS + OUTRA_IA  # o id não muda: é o elo com o cérebro
 MODOS = ("novo", "continuar", "retomar")
 MOTIVOS_PAUSA = ("limite", "manual")
 RE_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,29}$")
 RE_COR = re.compile(r"^#[0-9a-fA-F]{6}$")
 RE_QUANDO = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$")
-MAX_DESCRICAO, MAX_NOME, MAX_TAGS, MAX_TAG = 200, 40, 10, 20
+MAX_DESCRICAO, MAX_NOME, MAX_TAGS, MAX_TAG, MAX_GRUPO = 200, 40, 10, 20, 40
 MAX_LINHAS_CLAUDE_MD = 20
 
 ESQUELETO_ESTADO = """palavras-chave: {chaves}
@@ -164,6 +164,9 @@ def _completar(p, indice=0):
         "usar_api_key": p.get("usar_api_key") is True,
     }
     # só entram no arquivo quando usados (os projetos antigos continuam iguais, sem migração)
+    grupo = _uma_linha(p.get("grupo") or p.get("pasta_organizacao") or "", 100)
+    if grupo:
+        completo["grupo"] = grupo
     if p.get("ia_reserva") not in (None, ""):
         completo["ia_reserva"] = p.get("ia_reserva")
     if p.get("modelos_por_ia") not in (None, "", {}):
@@ -198,6 +201,8 @@ def _problemas(p, exigir_pasta):
                     erros.append(f"modelos_por_ia: ia desconhecida: {ia_}")
                 elif modelo not in dados_ias.modelos(ia_):
                     erros.append(f"modelos_por_ia: modelo inválido para {ia_}: {modelo}")
+    if "grupo" in p and p["grupo"] and len(str(p["grupo"])) > MAX_GRUPO:
+        erros.append(f"grupo com mais de {MAX_GRUPO} caracteres")
     if len(p["descricao"]) > MAX_DESCRICAO:
         erros.append(f"descricao com mais de {MAX_DESCRICAO} caracteres")
     if not RE_COR.match(str(p["cor"])):
@@ -268,7 +273,15 @@ def editar(id_, campos, arq=None):
             raise ValueError(f"{campo} precisa ser true ou false")
     for chave in EDITAVEIS:
         if chave in campos:
-            novo[chave] = os.path.normpath(campos[chave]) if chave == "pasta" and campos[chave] else campos[chave]
+            val = campos[chave]
+            if chave in ("grupo", "pasta_organizacao"):
+                if val:
+                    novo["grupo"] = _uma_linha(val, 100)
+                else:
+                    novo.pop("grupo", None)
+                    novo.pop("pasta_organizacao", None)
+            else:
+                novo[chave] = os.path.normpath(val) if chave == "pasta" and val else val
     novo = _completar(novo, i)
     problemas = _problemas(novo, exigir_pasta=novo["pasta"] != atual["pasta"])  # pasta só é exigida se você a trocou
     if problemas:

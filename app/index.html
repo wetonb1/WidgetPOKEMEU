@@ -535,12 +535,15 @@
         <div class="proj-esq">
         <div class="proj-topo">
           <button type="button" id="proj-adicionar" class="botao-cmd proj-btn-add" title="Cadastrar um projeto: você escolhe a pasta (Shift+clique: digitar o caminho)">[+ novo projeto]</button>
+          <button type="button" id="proj-nova-pasta" class="botao-cmd proj-btn-pasta" title="Criar uma pasta de organização para agrupar projetos">[+ nova pasta]</button>
           <button type="button" id="proj-uso-abrir" class="botao-cmd" title="Como ver o uso, estimativa local, pausar ao chegar no limite, trocar de conta e economia">[uso & continuidade]</button>
-          <input type="search" id="proj-filtro" class="proj-filtro" placeholder="filtrar..." spellcheck="false" title="Filtrar projetos por nome, id ou tag">
+          <input type="search" id="proj-filtro" class="proj-filtro" placeholder="filtrar..." spellcheck="false" title="Filtrar projetos por nome, id, tag ou pasta">
           <span id="proj-conta" class="sub"></span>
           <span class="dialogo-espaco"></span>
           <span id="ps-conta" class="sub" title="Sessões abertas pelo widget agora / máximo (max_sessoes)"></span>
         </div>
+        <!-- barra de pastas de organização -->
+        <div id="proj-pastas-filtro" class="proj-pastas-filtro oculto"></div>
         <!-- sessões abertas pelo widget: atualiza só com a aba visível, a cada 10 s -->
         <div id="proj-sessoes" class="proj-sessoes oculto">
           <div class="ps-cab">sessões ativas</div>
@@ -616,6 +619,11 @@
               <input id="pj-nome" type="text" maxlength="40" spellcheck="false">
               <label for="pj-id">id</label>
               <input id="pj-id" type="text" maxlength="30" spellcheck="false" placeholder="automático" title="O id liga o projeto ao cérebro (estado/id.md). Não muda depois.">
+              <label for="pj-grupo">organização</label>
+              <div class="pj-grupo-wrap cc-largo">
+                <input id="pj-grupo" type="text" maxlength="40" spellcheck="false" list="pj-grupos-sugestoes" placeholder="pasta de organização (ex: PIBIC, Estudos - vazio = sem pasta)">
+                <datalist id="pj-grupos-sugestoes"></datalist>
+              </div>
               <label for="pj-descricao">descrição</label>
               <input id="pj-descricao" type="text" maxlength="200" spellcheck="false" class="cc-largo" placeholder="uma linha">
               <label for="pj-ia">IA</label>
@@ -768,6 +776,41 @@
             <pre id="pc-diff" class="cer-texto pj-diff oculto"></pre>
             <div id="pc-erro" class="cc-erro" role="alert"></div>
           </div>
+
+          <!-- diálogo para criar / renomear pasta de organização -->
+          <form id="pj-pasta-form" class="dialogo-caixa cc-caixa oculto" autocomplete="off">
+            <div class="cc-topo">
+              <h2 id="pjp-titulo">pasta de organização</h2>
+              <div class="dialogo-botoes">
+                <button type="button" id="pjp-cancelar">cancelar</button>
+                <button type="submit" id="pjp-salvar" class="principal">salvar</button>
+              </div>
+            </div>
+            <div class="sub pj-nota">Pastas agrupam seus projetos visualmente na aba Projects.</div>
+            <div class="cc-grade pj-grade-dialogo">
+              <label for="pjp-nome">nome</label>
+              <input id="pjp-nome" type="text" maxlength="40" spellcheck="false" placeholder="ex: PIBIC, Estudos, Pessoais">
+            </div>
+            <div id="pjp-erro" class="cc-erro" role="alert"></div>
+          </form>
+
+          <!-- diálogo para mover projeto de pasta -->
+          <form id="pj-mover-form" class="dialogo-caixa cc-caixa oculto" autocomplete="off">
+            <div class="cc-topo">
+              <h2 id="pjm-titulo">mover projeto</h2>
+              <div class="dialogo-botoes">
+                <button type="button" id="pjm-cancelar">cancelar</button>
+                <button type="submit" id="pjm-salvar" class="principal">mover</button>
+              </div>
+            </div>
+            <div class="sub pj-nota" id="pjm-sub">Escolha a pasta de destino para este projeto:</div>
+            <div class="cc-grade pj-grade-dialogo">
+              <label for="pjm-destino">pasta</label>
+              <input id="pjm-destino" type="text" maxlength="40" spellcheck="false" list="pjm-sugestoes" placeholder="nome da pasta (vazio = sem pasta)">
+              <datalist id="pjm-sugestoes"></datalist>
+            </div>
+            <div id="pjm-erro" class="cc-erro" role="alert"></div>
+          </form>
         </div>
       </section>
 
