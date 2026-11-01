@@ -56,9 +56,9 @@ fs.writeFileSync(
   '## Objetivo\nCriar app web.\n\n## Stack\nNode.js, React, Tailwind.\n'
 );
 
-function rodarPython(args) {
+function rodarPython(args, cwd = path.resolve(__dirname, '..')) {
   const env = { ...process.env, PROJETOS_JSON: tempProjetosJson, CAMINHO_CEREBRO: tempCerebro };
-  const p = spawnSync('python', args, { cwd: path.resolve(__dirname, '..'), encoding: 'utf-8', env });
+  const p = spawnSync('python', args, { cwd, encoding: 'utf-8', env });
   assert.strictEqual(p.status, 0, `Python falhou: ${p.stderr || p.stdout}`);
   return JSON.parse(p.stdout);
 }
@@ -102,7 +102,21 @@ try {
     console.log('ok   CLI python avaliar-skills (web/node: blender é opcional, cérebro é essencial)');
   }
 
-  // 3. Teste Ponte Node.js: app/projetos.js avaliarSkills
+  // 3. Teste CLI flexível: auto-detecção por pasta e argumentos "skills online"
+  {
+    const rCwd = rodarPython([path.resolve(__dirname, '../cerebro/tools/projetos.py'), 'avaliar-skills', '--json'], pastaMao);
+    assert.strictEqual(rCwd.ok, true, 'deve auto-detectar projeto pela pasta');
+    assert.strictEqual(rCwd.projeto.id, 'teste-3d');
+
+    const rSkillsOnline = rodarPython([path.resolve(__dirname, '../cerebro/tools/projetos.py'), 'avaliar-skills', 'skills', 'online', '--json'], pastaMao);
+    assert.strictEqual(rSkillsOnline.ok, true, 'deve aceitar argumentos "skills online"');
+    assert.strictEqual(rSkillsOnline.projeto.id, 'teste-3d');
+    assert.ok(rSkillsOnline.resumo.online > 0, 'deve buscar online quando solicitado');
+
+    console.log('ok   CLI python avaliar-skills flexível (auto-detecta pasta e aceita "skills online")');
+  }
+
+  // 4. Teste Ponte Node.js: app/projetos.js avaliarSkills
   (async () => {
     process.env.PROJETOS_JSON = tempProjetosJson;
     process.env.CAMINHO_CEREBRO = tempCerebro;
@@ -114,16 +128,21 @@ try {
     assert.ok(Array.isArray(dados.skills), 'skills deve ser array');
     console.log('ok   Ponte Node.js app/projetos.js avaliarSkills funciona');
 
-    // 4. Teste Skill /avaliar existe no catálogo
+    // 5. Teste Skills /avaliar e cerebro-avaliar no catálogo
     const catJson = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../skills-biblioteca/catalogo.json'), 'utf-8'));
     const listaCat = catJson.skills || [];
-    const sAvaliar = listaCat.find((s) => s.nome === 'cerebro-avaliar');
-    assert.ok(sAvaliar, 'cerebro-avaliar deve existir no catálogo de skills');
-    assert.ok(sAvaliar.compativel.includes('claude'), 'cerebro-avaliar deve ser compatível com claude');
-    assert.ok(sAvaliar.compativel.includes('antigravity'), 'cerebro-avaliar deve ser compatível com antigravity');
-    console.log('ok   Skill oficial cerebro-avaliar registrada e compatível');
+    const sCerebroAvaliar = listaCat.find((s) => s.nome === 'cerebro-avaliar');
+    assert.ok(sCerebroAvaliar, 'cerebro-avaliar deve existir no catálogo de skills');
+    assert.ok(sCerebroAvaliar.compativel.includes('claude'), 'cerebro-avaliar deve ser compatível com claude');
+    assert.ok(sCerebroAvaliar.compativel.includes('antigravity'), 'cerebro-avaliar deve ser compatível com antigravity');
 
-    // 5. Teste Busca Online com --online
+    const sAvaliar = listaCat.find((s) => s.nome === 'avaliar');
+    assert.ok(sAvaliar, 'avaliar deve existir no catálogo de skills');
+    assert.ok(sAvaliar.compativel.includes('claude'), 'avaliar deve ser compatível com claude');
+    assert.ok(sAvaliar.compativel.includes('antigravity'), 'avaliar deve ser compatível com antigravity');
+    console.log('ok   Skills oficiais avaliar e cerebro-avaliar registradas e compatíveis');
+
+    // 6. Teste Busca Online com --online
     const rOnline = await projetos.avaliarSkills('teste-web', true);
     if (!rOnline.ok) console.error('rOnline erro:', rOnline);
     assert.strictEqual(rOnline.ok, true, 'busca online deve retornar ok');

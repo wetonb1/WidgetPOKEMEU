@@ -796,7 +796,55 @@ def _cmd_worktree(args):
 
 def _cmd_avaliar_skills(args):
     import avaliar_skills
-    r = avaliar_skills.avaliar_skills_projeto(args.id, online=getattr(args, "online", False))
+    args_list = [str(x).strip() for x in (getattr(args, "argumentos", []) or []) if str(x).strip()]
+    online = bool(getattr(args, "online", False))
+
+    termos_online = {"online", "--online", "-online", "buscar-online", "--buscar-online"}
+    if any(t.lower() in termos_online for t in args_list):
+        online = True
+        args_list = [t for t in args_list if t.lower() not in termos_online]
+
+    termos_filtro = {"skills", "skill", "avaliar", "avaliacao", "/avaliar", "/avaliacao"}
+    args_limpos = [t for t in args_list if t.lower() not in termos_filtro]
+
+    lista = _ler(arquivo_projetos())
+    id_proj = None
+
+    if args_limpos:
+        candidato = args_limpos[0].lower()
+        for p in lista:
+            if isinstance(p, dict):
+                pid = str(p.get("id", "")).lower()
+                pnome = str(p.get("nome", "")).lower()
+                if candidato == pid or candidato == pnome:
+                    id_proj = p.get("id")
+                    break
+
+    if not id_proj:
+        cwd = Path.cwd().resolve()
+        for p in lista:
+            if not isinstance(p, dict) or not p.get("pasta"):
+                continue
+            try:
+                pasta_p = Path(p["pasta"]).resolve()
+                if cwd == pasta_p or cwd.is_relative_to(pasta_p) or pasta_p.is_relative_to(cwd):
+                    id_proj = p.get("id")
+                    break
+            except Exception:
+                if str(cwd).lower() == str(p["pasta"]).lower():
+                    id_proj = p.get("id")
+                    break
+
+    if not id_proj and args_limpos:
+        id_proj = args_limpos[0]
+
+    if not id_proj and lista:
+        id_proj = lista[0].get("id")
+
+    if not id_proj:
+        raise ValueError("ID do projeto não informado e não detectado a partir da pasta atual.")
+
+    r = avaliar_skills.avaliar_skills_projeto(id_proj, online=online)
     if args.json:
         print(json.dumps(r, ensure_ascii=False, indent=2))
     else:
@@ -824,7 +872,7 @@ def montar_parser():
         ("pausa-estado", _cmd_pausa_estado, "estado atual e próximos passos do projeto", True),
         ("pausa-salvar", _cmd_pausa_salvar, "atualiza estado atual e próximos passos", True),
         ("pausa-registrar", _cmd_pausa_registrar, "anota a pausa no sessoes.jsonl", True),
-        ("avaliar-skills", _cmd_avaliar_skills, "avalia as skills mais úteis para o projeto", True),
+        ("avaliar-skills", _cmd_avaliar_skills, "avalia as skills mais úteis para o projeto", False),
     ):
         p = sub.add_parser(nome, parents=[comum], help=ajuda)
         if com_id:
@@ -837,6 +885,7 @@ def montar_parser():
         if nome == "preparar":
             p.add_argument("--confirmar", action="store_true", help="grava (sem isso só mostra o diff)")
         if nome == "avaliar-skills":
+            p.add_argument("argumentos", nargs="*", help="id do projeto e/ou modificadores (ex: 'mao', 'online', 'skills online')")
             p.add_argument("--online", "--buscar-online", dest="online", action="store_true", help="avalia também em repositórios online (GitHub, Anthropic, OpenAI)")
         p.set_defaults(func=func)
     return parser
