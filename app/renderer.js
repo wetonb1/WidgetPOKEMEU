@@ -4448,7 +4448,7 @@ const terminalEmb = (() => {
   $('et-voltar').addEventListener('click', voltar);
   window.addEventListener('resize', () => { if (ampliado === null) aplicarVista(); });
   $('et-ampliar').addEventListener('click', () => { ampliado = !(ampliado === null ? window.innerWidth < 1000 : ampliado); aplicarVista(); const s = sessoes.get(atual); if (s) requestAnimationFrame(() => { ajustar(s); s.term.focus(); }); });
-  let aoAbrirPS = () => {};
+  aoAbrirPS = () => {};
   let aoAbrirPSEmNovaJanela = () => {};
   if ($('et-ps')) {
     $('et-ps').textContent = IOS ? '+ ps' : '[+ ps]';

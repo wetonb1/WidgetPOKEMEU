@@ -338,6 +338,8 @@ function criarJanela(posicao) {
     frame: false,
     transparent: ios,
     backgroundColor: ios ? '#00000000' : '#0c0c0c',
+    hasShadow: false,
+    thickFrame: false,
     icon: path.join(__dirname, '..', 'assets', 'icone.ico'), // a pokébola cúbica vermelha (tools/gerar-icone.js)
     resizable: true,
     maximizable: false,
@@ -1266,9 +1268,11 @@ function criarJanelaTerm(id, opcoes = {}) {
     frame: false,
     transparent: ios,
     backgroundColor: ios ? '#00000000' : '#0c0c0c',
+    hasShadow: false,
+    thickFrame: false,
     icon: path.join(__dirname, '..', 'assets', 'icone.ico'),
     resizable: true,
-    maximizable: true,
+    maximizable: false,
     fullscreenable: false,
     alwaysOnTop: cfg.fixado,
     skipTaskbar: false, // aparece na barra de tarefas para facilitar em múltiplos monitores
