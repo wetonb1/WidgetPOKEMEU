@@ -2397,6 +2397,45 @@ html[data-destacado="1"] #proj-term {
 }
 
 /* ---------- Antigravity Model & Strength Selectors ---------- */
+.proj-ia-topo.ia-antigravity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  width: 100%;
+}
+.proj-ia-topo.ia-antigravity .proj-ias {
+  order: 1;
+  flex-shrink: 0;
+}
+.proj-ia-topo.ia-antigravity .proj-abrir {
+  order: 2;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.proj-ia-topo.ia-antigravity .proj-modelo-zona {
+  order: 3;
+  flex: 1 1 100%;
+  width: 100%;
+  min-width: 100%;
+}
+.proj-ia-topo.ia-antigravity .proj-agy-seletor {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+}
+.proj-ia-topo.ia-antigravity .proj-agy-select {
+  flex: 1 1 160px;
+  min-width: 130px;
+  max-width: none;
+}
+.proj-ia-topo.ia-antigravity .proj-forca-pills {
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
 .proj-agy-seletor {
   display: inline-flex;
   align-items: center;

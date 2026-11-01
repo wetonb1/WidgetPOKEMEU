@@ -4797,51 +4797,12 @@ const projetos = (() => {
       if (estado.ia === 'antigravity') {
         const container = el('div', 'proj-agy-seletor');
         const s = el('select', 'cer-select proj-select proj-agy-select');
-        s.title = 'Modelo Antigravity (separado por família de IA e nível de força)';
-
-        const FAMILIAS = [
-          { prefix: 'gemini-3.8-flash', rotulo: 'Gemini 3.8 Flash' },
-          { prefix: 'gemini-4-argon', rotulo: 'Gemini 4 Argon' },
-          { prefix: 'claude-sonnet-5-5', rotulo: 'Claude Sonnet 5.5' },
-          { prefix: 'claude-opus-5-5', rotulo: 'Claude Opus 5.5' },
-          { prefix: 'gpt-oss-120b', rotulo: 'GPT-OSS 120B' },
-        ];
-        const ROTULO_FORCA = {
-          low: 'Low (rápido / leve)',
-          medium: 'Medium (dia a dia)',
-          high: 'High (esforço alto)',
-        };
-
+        s.title = 'Modelo Antigravity (com opções de esforço de raciocínio)';
         const modelos = Object.keys(ia.modelos);
-        const usados = new Set();
-
-        for (const fam of FAMILIAS) {
-          const itens = modelos.filter((m) => m.startsWith(fam.prefix));
-          if (itens.length) {
-            const grupo = document.createElement('optgroup');
-            grupo.label = fam.rotulo;
-            for (const forca of ['low', 'medium', 'high']) {
-              const m = itens.find((x) => x.endsWith('-' + forca));
-              if (m) {
-                usados.add(m);
-                grupo.append(new Option(`${fam.rotulo} · ${ROTULO_FORCA[forca] || forca}`, m));
-              }
-            }
-            itens.filter((x) => !usados.has(x)).forEach((m) => {
-              usados.add(m);
-              grupo.append(new Option(ia.modelos[m] || m, m));
-            });
-            s.append(grupo);
-          }
+        for (const m of modelos) {
+          const desc = ia.modelos[m];
+          s.append(new Option(desc ? `${m} · ${desc}` : m, m));
         }
-        const outros = modelos.filter((m) => !usados.has(m));
-        if (outros.length) {
-          const grupo = document.createElement('optgroup');
-          grupo.label = 'Outros modelos';
-          outros.forEach((m) => grupo.append(new Option(ia.modelos[m] || m, m)));
-          s.append(grupo);
-        }
-
         s.value = estado.modelo;
         if (!s.value && s.options.length) s.value = s.options[0].value;
         s.addEventListener('change', () => {
@@ -4899,9 +4860,12 @@ const projetos = (() => {
       botaoEl.disabled = !ok;
       botaoEl.title = ok ? (ia.titulos && ia.titulos[modo]) || '' : (ia.dicas && ia.dicas[modo]) || `${ia.nome} não tem esta opção`;
     };
+    const topoIA = el('div', 'proj-ia-topo');
     function aplicarIA() {
       const ia = iaInfo(estado.ia);
       estado.modelo = modeloInicial(p, estado.ia);
+      topoIA.classList.toggle('ia-antigravity', estado.ia === 'antigravity');
+      topoIA.dataset.ia = estado.ia;
       for (const b of iaPilulas.children) b.classList.toggle('ativa', b.dataset.ia === estado.ia);
       desenharModelo();
       abrirIA.textContent = IOS ? '▶ abrir ' + ia.executavel : '[▶ abrir ' + ia.executavel + ']';
@@ -4936,9 +4900,8 @@ const projetos = (() => {
       b.addEventListener('click', () => { if (estado.ia !== id) { estado.ia = id; aplicarIA(); } });
       iaPilulas.append(b);
     }
-    aplicarIA();
-    const topoIA = el('div', 'proj-ia-topo');
     topoIA.append(iaPilulas, zonaModelo, abrirIA);
+    aplicarIA();
     const acoesIA = el('div', 'proj-ia-acoes');
     acoesIA.append(...[
       continuar,
