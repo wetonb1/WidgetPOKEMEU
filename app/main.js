@@ -4,6 +4,19 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+if (process.platform !== 'win32') {
+  const caminhosExtras = [
+    path.join(os.homedir(), '.local', 'bin'),
+    path.join(os.homedir(), '.npm-global', 'bin'),
+    '/usr/local/bin',
+  ];
+  const atuais = String(process.env.PATH || '').split(path.delimiter).filter(Boolean);
+  for (const p of caminhosExtras) {
+    if (!atuais.includes(p)) atuais.unshift(p);
+  }
+  process.env.PATH = atuais.join(path.delimiter);
+}
+
 // Se estiver rodando empacotado (.exe no Temp) e existir a pasta com o código do widget ao lado ou na config:
 // delega para o app/main.js externo para que o widget rode do código atualizado e permita auto-update via GitHub.
 if (app && app.isPackaged && !process.env._MEU_WIDGET_DELEGADO) {
@@ -91,10 +104,10 @@ function limparTexto(t) {
   return String(t || '').trim().replace(/^["']+|["']+$/g, '').trim();
 }
 
-// AppID do Menu Iniciar / Microsoft Store (ex.: "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify").
-// Vai como UM argumento para o explorer.exe (sem shell), mas mesmo assim só
+// AppID do Menu Iniciar / Microsoft Store (ex.: "SpotifyAB.SpotifyMusic_zpdnekdrzrea0!Spotify") ou caminho .desktop no Linux.
+// Vai como UM argumento para o explorer.exe/gtk-launch (sem shell), mas mesmo assim só
 // aceita caracteres comuns.
-const APP_ID = /^[A-Za-z0-9_.!{}\\ ()\-]{1,300}$/;
+const APP_ID = /^[A-Za-z0-9_.!{}\\/ ()\-]{1,300}$/;
 
 // ícone escolhido por você para um app: só PNG em base64, até ~24 KB (a tela reduz para 64 px)
 const ICONE_PROPRIO = /^data:image\/png;base64,[A-Za-z0-9+/=]{20,32000}$/;
@@ -202,14 +215,23 @@ let modeloCache = null;
 let cfgCache = null;
 let cfgMtime = 0;
 function lerModelo() {
-  if (!modeloCache) modeloCache = JSON.parse(fs.readFileSync(ARQUIVO_MODELO, 'utf8'));
+  if (!modeloCache) {
+    modeloCache = JSON.parse(fs.readFileSync(ARQUIVO_MODELO, 'utf8'));
+    if (process.platform !== 'win32' && Array.isArray(modeloCache.apps)) {
+      modeloCache.apps = modeloCache.apps.map((a) => {
+        if (a.target === 'calc.exe') return { name: 'Calculadora', type: 'app', target: 'org.gnome.Calculator.desktop' };
+        if (a.target === 'notepad.exe') return { name: 'Editor de Texto', type: 'app', target: 'org.gnome.TextEditor.desktop' };
+        return a;
+      });
+    }
+  }
   return modeloCache;
 }
 
 // Copia o modelo para o %APPDATA%. Lê e grava em vez de copyFileSync porque,
 // no .exe, o modelo fica dentro do app.asar (que só dá para ler).
 function copiarModelo() {
-  fs.writeFileSync(ARQUIVO_CONFIG, fs.readFileSync(ARQUIVO_MODELO, 'utf8'), 'utf8');
+  fs.writeFileSync(ARQUIVO_CONFIG, JSON.stringify(lerModelo(), null, 2), 'utf8');
   cfgCache = null;
 }
 
@@ -276,6 +298,10 @@ if (!cfgInicial.aceleracaoGPU) app.disableHardwareAcceleration();
 // principal em vez de num processo próprio. Medido: -12 MB de RAM privada e um processo
 // a menos. Em troca, a rede perde o isolamento (sandbox) do processo separado; por isso
 // só liga se você pedir: "redeEmProcesso": true.
+if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('ozone-platform', 'x11');
+  app.commandLine.appendSwitch('enable-transparent-visuals');
+}
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
 if (cfgInicial.redeEmProcesso) app.commandLine.appendSwitch('enable-features', 'NetworkServiceInProcess2');
@@ -348,7 +374,7 @@ function criarJanela(posicao) {
     backgroundColor: ios ? '#00000000' : '#0c0c0c',
     hasShadow: false,
     thickFrame: false,
-    icon: path.join(__dirname, '..', 'assets', 'icone.ico'), // a pokébola cúbica vermelha (tools/gerar-icone.js)
+    icon: path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'icone.ico' : 'icone.png'),
     resizable: true,
     maximizable: false,
     fullscreenable: false,
@@ -389,11 +415,14 @@ function criarJanela(posicao) {
   esta.vidroPronto = Promise.resolve();
   if (ios) {
     // a janela transparente só aparece depois de pintada (senão mostraria o desktop um instante)
-    esta.vidroPronto = new Promise((ok) => esta.once('ready-to-show', ok));
+    esta.vidroPronto = new Promise((ok) => {
+      esta.once('ready-to-show', ok);
+      esta.webContents.once('did-finish-load', () => setTimeout(ok, 60));
+    });
     if (!posicao) {
       const mostrar = () => { if (!esta.isDestroyed() && !esta.isVisible()) esta.show(); };
       esta.vidroPronto.then(mostrar);
-      setTimeout(mostrar, 6000); // garantia: nunca fica escondida
+      setTimeout(mostrar, 2000); // garantia: nunca fica escondida
     }
     acompanharFundo(esta);
   }
@@ -643,6 +672,7 @@ let bufferSaida = '';
 // O medidor deu problema (não abre, morreu sem responder...): apaga o arquivo (a próxima
 // abertura compila de novo) e passa a usar o PowerShell
 function descartarAuxiliar(motivo) {
+  if (process.platform !== 'win32') return;
   if (!auxiliarExe) return;
   console.error('Medidor descartado (' + motivo + '); voltando ao PowerShell.');
   try { fs.rmSync(auxiliarExe, { force: true }); } catch { /* em uso: fica para a próxima */ }
@@ -793,26 +823,39 @@ async function iconeDeAppId(id) {
   if (url) iconesCache.set(chave, url); // falha não fica no cache: tenta de novo depois
   return url;
 }
-const pngParaUrl = (png) => (/^[A-Za-z0-9+/=]{20,}$/.test(png.trim()) ? 'data:image/png;base64,' + png.trim() : null);
+const pngParaUrl = (png) => {
+  const s = String(png || '').trim().replace(/^"+|"+$/g, '');
+  if (/^data:image\/(png|svg\+xml|x-xpixmap|jpeg);base64,[A-Za-z0-9+/=]{20,}$/.test(s)) return s;
+  return /^[A-Za-z0-9+/=]{20,}$/.test(s) ? 'data:image/png;base64,' + s : null;
+};
 
 // shell.openPath e getFileIcon exigem caminho completo. Um nome solto como
 // "notepad.exe" é procurado no System32, no Windows e nas pastas do PATH.
 function caminhoCompleto(alvo) {
   if (path.isAbsolute(alvo) || /[\\/]/.test(alvo)) return alvo;
-  const raiz = process.env.SystemRoot || 'C:\\Windows';
-  const pastas = [path.join(raiz, 'System32'), raiz, ...(process.env.PATH || '').split(';')];
-  const sufixos = path.extname(alvo) ? [''] : ['.exe', '.com', '.bat', '.cmd', '.lnk'];
-  for (const pasta of pastas) {
-    if (!pasta) continue;
-    for (const sufixo of sufixos) {
-      const candidato = path.join(pasta, alvo + sufixo);
+  if (process.platform === 'win32') {
+    const raiz = process.env.SystemRoot || 'C:\\Windows';
+    const pastas = [path.join(raiz, 'System32'), raiz, ...(process.env.PATH || '').split(';')];
+    const sufixos = path.extname(alvo) ? [''] : ['.exe', '.com', '.bat', '.cmd', '.lnk'];
+    for (const pasta of pastas) {
+      if (!pasta) continue;
+      for (const sufixo of sufixos) {
+        const candidato = path.join(pasta, alvo + sufixo);
+        if (fs.existsSync(candidato)) return candidato;
+      }
+    }
+  } else {
+    const pastas = (process.env.PATH || '/usr/local/bin:/usr/bin:/bin').split(':');
+    for (const pasta of pastas) {
+      if (!pasta) continue;
+      const candidato = path.join(pasta, alvo);
       if (fs.existsSync(candidato)) return candidato;
     }
   }
   return alvo; // não achou: o openPath devolve o erro
 }
 
-// Abre só sites http(s) ou caminhos que existem (.exe, .lnk, pasta, arquivo)
+// Abre só sites http(s) ou caminhos que existem (.exe, .lnk, pasta, arquivo, .desktop)
 ipcMain.handle('apps:abrir', async (e, indice) => {
   if (!daJanela(e)) return 'origem inválida';
   const a = lerApp(indice);
@@ -827,10 +870,22 @@ ipcMain.handle('apps:abrir', async (e, indice) => {
     }
   }
   if (a.type === 'app') {
-    // apps da Store / Menu Iniciar: o próprio Windows abre pelo AppID
+    // apps da Store / Menu Iniciar no Windows; .desktop ou comando no Linux
     if (!APP_ID.test(a.target)) return 'app inválido';
     if (await pedirServidorPS('focar-app ' + a.target) === 'true') return 'focado'; // já estava aberto
-    spawn('explorer.exe', ['shell:AppsFolder\\' + a.target], { detached: true, stdio: 'ignore' }).unref();
+    if (process.platform === 'win32') {
+      spawn('explorer.exe', ['shell:AppsFolder\\' + a.target], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      try {
+        if (a.target.endsWith('.desktop')) {
+          spawn('gtk-launch', [path.basename(a.target, '.desktop')], { detached: true, stdio: 'ignore' }).unref();
+        } else {
+          spawn(a.target, { shell: true, detached: true, stdio: 'ignore' }).unref();
+        }
+      } catch (err) {
+        return err.message;
+      }
+    }
     return '';
   }
   const caminho = caminhoCompleto(a.target);
@@ -840,13 +895,14 @@ ipcMain.handle('apps:abrir', async (e, indice) => {
   return shell.openPath(caminho); // texto vazio = deu certo
 });
 
-// O .exe por trás de um app: ele mesmo, ou o destino do atalho .lnk (null se não for programa)
+// O .exe/binário por trás de um app: ele mesmo, ou o destino do atalho .lnk (null se não for programa)
 const EXE_VALIDO = /^[A-Za-z]:\\[^"<>|*?\r\n]{1,300}\.exe$/i;
 function exeDoAtalho(caminho) {
   let exe = caminho;
   if (/\.lnk$/i.test(caminho)) {
     try { exe = shell.readShortcutLink(caminho).target || ''; } catch { return null; }
   }
+  if (process.platform !== 'win32') return exe;
   return EXE_VALIDO.test(exe) ? exe : null;
 }
 
@@ -944,6 +1000,7 @@ const SCRIPT_STARTAPPS = "[Console]::OutputEncoding = [Text.Encoding]::UTF8; "
   + "if ($i.Count -eq 0) { '[]' } else { ConvertTo-Json $i -Compress }";
 async function lerStartApps() {
   await auxiliarPronto;
+  if (process.platform !== 'win32') return pedirServidorPS('startapps');
   if (!auxiliarExe) return pedirServidorPS('startapps'); // sem medidor: o servidor PowerShell responde
   return new Promise((resolve) => {
     require('child_process').execFile('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', SCRIPT_STARTAPPS],
@@ -955,6 +1012,21 @@ async function listarInstalados() {
   if (instaladosCache && Date.now() - instaladosHora < 5 * 60000) return instaladosCache;
   let lista = [];
   try { lista = JSON.parse(await lerStartApps()); } catch { lista = []; }
+  if (process.platform !== 'win32') {
+    const itens = [];
+    const vistos = new Set();
+    for (const a of Array.isArray(lista) ? lista : []) {
+      if (!a || typeof a.n !== 'string' || typeof a.id !== 'string') continue;
+      const chave = a.n.toLowerCase();
+      if (vistos.has(chave)) continue;
+      vistos.add(chave);
+      itens.push({ nome: a.n, type: 'app', target: a.id });
+    }
+    itens.sort((x, y) => x.nome.localeCompare(y.nome, 'pt'));
+    instaladosCache = itens.slice(0, 500);
+    instaladosHora = Date.now();
+    return instaladosCache;
+  }
   const atalhos = atalhosDoMenu();
   const vistos = new Set();
   const itens = [];
@@ -1210,7 +1282,12 @@ ipcMain.handle('sessoes:focar', async (e, id) => {
     return { ok: false, erro: 'focar janelas precisa do medidor (helper.cs)' };
   }
 });
-ipcMain.handle('sessoes:encerrar', (e, id) => (daJanela(e) && typeof id === 'string' ? sessoesIA.encerrar(id) : RECUSADO));
+ipcMain.handle('sessoes:encerrar', async (e, id) => {
+  if (!daJanela(e) || typeof id !== 'string') return RECUSADO;
+  const s = sessoesIA.obter(id);
+  if (s && s.termId) embutidos.encerrar(s.termId);
+  return sessoesIA.encerrar(id);
+});
 // terminal embutido: a tela só manda teclas (o que você digita), tamanho e pedidos; o que roda é sempre o que o abrir.js montou
 ipcMain.handle('term:anexar', (e, id) => (daJanela(e) && typeof id === 'string' ? embutidos.anexar(id) : null));
 ipcMain.on('term:entrada', (e, id, texto) => { if (daJanela(e) && typeof id === 'string') embutidos.entrada(id, texto); });
@@ -1225,7 +1302,7 @@ ipcMain.handle('term:encerrar', (e, id) => {
   return true;
 });
 
-// Abrir um PowerShell na pasta do projeto (dentro do terminal do widget; não trava a pasta para o Claude/Antigravity)
+// Abrir um PowerShell / Bash na pasta do projeto (dentro do terminal do widget; não trava a pasta para o Claude/Antigravity)
 ipcMain.handle('projetos:abrir-ps', async (e, id) => {
   if (!daJanela(e) || !textoCurto(id)) return RECUSADO;
   const lista = await projetos.listar();
@@ -1234,13 +1311,21 @@ ipcMain.handle('projetos:abrir-ps', async (e, id) => {
   if (!p) return { ok: false, tipo: 'erro', erro: 'projeto não encontrado: ' + id };
   if (!p.pasta_existe) return { ok: false, tipo: 'erro', erro: 'a pasta do projeto não existe: ' + p.pasta };
   const env = ias.ambiente(ias.obter('claude'), process.env, { usarChave: false });
+  const prog = process.platform === 'win32' ? 'powershell.exe' : (process.env.SHELL || '/bin/bash');
+  const progArgs = process.platform === 'win32' ? ['-NoLogo'] : [];
+  const rotulo = process.platform === 'win32' ? 'powershell' : path.basename(prog);
   if (iniciarEmbutido) {
-    const r = await iniciarEmbutido({ pasta: p.pasta, programa: 'powershell.exe', args: ['-NoLogo'], env });
-    if (r && r.termId) return { ok: true, via: 'widget', termId: r.termId, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id };
+    const r = await iniciarEmbutido({ pasta: p.pasta, programa: prog, args: progArgs, env });
+    if (r && r.termId) return { ok: true, via: 'widget', termId: r.termId, nome: p.nome, modelo: rotulo, cor: p.cor, ia: rotulo, projetoId: p.id };
   }
-  spawn('cmd.exe', ['/d', '/s', '/c', `"start "PowerShell - ${p.nome.replace(/"/g, "'")}" /d "${p.pasta}" powershell.exe -NoLogo"`],
-    { detached: true, stdio: 'ignore', windowsVerbatimArguments: true, env }).unref();
-  return { ok: true, via: 'cmd', termId: null, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id };
+  if (process.platform === 'win32') {
+    spawn('cmd.exe', ['/d', '/s', '/c', `"start "PowerShell - ${p.nome.replace(/"/g, "'")}" /d "${p.pasta}" powershell.exe -NoLogo"`],
+      { detached: true, stdio: 'ignore', windowsVerbatimArguments: true, env }).unref();
+  } else {
+    const { abrirTerminalLinux } = require('./terminal');
+    if (typeof abrirTerminalLinux === 'function') abrirTerminalLinux(p.pasta, p.nome);
+  }
+  return { ok: true, via: process.platform === 'win32' ? 'cmd' : 'terminal', termId: null, nome: p.nome, modelo: rotulo, cor: p.cor, ia: rotulo, projetoId: p.id };
 });
 
 // Destacar somente o terminal/PowerShell numa janela própria mantendo a borda característica do widget (para usar em outro monitor)
@@ -1290,7 +1375,7 @@ function criarJanelaTerm(id, opcoes = {}) {
     backgroundColor: ios ? '#00000000' : '#0c0c0c',
     hasShadow: false,
     thickFrame: false,
-    icon: path.join(__dirname, '..', 'assets', 'icone.ico'),
+    icon: path.join(__dirname, '..', 'assets', process.platform === 'win32' ? 'icone.ico' : 'icone.png'),
     resizable: true,
     maximizable: false,
     fullscreenable: false,
@@ -1310,7 +1395,9 @@ function criarJanelaTerm(id, opcoes = {}) {
   w.loadFile(path.join(__dirname, 'index.html'), { query: { estilo: ios ? 'ios' : 'cmd', rapido: '1', destacado: '1', janelaId: winId } });
   w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
   w.webContents.on('will-navigate', (ev) => ev.preventDefault());
-  w.once('ready-to-show', () => { if (!w.isDestroyed()) { w.show(); w.focus(); } });
+  const mostrarTerm = () => { if (!w.isDestroyed() && !w.isVisible()) { w.show(); w.focus(); } };
+  w.once('ready-to-show', mostrarTerm);
+  w.webContents.once('did-finish-load', () => setTimeout(mostrarTerm, 60));
   w.webContents.on('did-finish-load', () => {
     if (!w.isDestroyed()) w.webContents.send('term:sincronizar', opcoes.estado || ultimoEstadoTerm);
   });
@@ -1493,8 +1580,21 @@ async function montarGerenciador() {
   mapaGerenciador = { apps, procs };
   return mapaGerenciador;
 }
-function taskkill(args) {
-  return new Promise((resolve) => require('child_process').execFile('taskkill', args, { windowsHide: true, timeout: 15000 }, (erro) => resolve(!erro)));
+function encerrarPid(pid, forcar = false) {
+  return new Promise((resolve) => {
+    if (process.platform === 'win32') {
+      const args = forcar ? ['/F', '/PID', String(pid)] : ['/PID', String(pid)];
+      require('child_process').execFile('taskkill', args, { windowsHide: true, timeout: 15000 }, (erro) => resolve(!erro));
+    } else {
+      const signal = forcar ? 'SIGKILL' : 'SIGTERM';
+      try {
+        process.kill(Number(pid), signal);
+        resolve(true);
+      } catch (e) {
+        require('child_process').execFile('kill', [forcar ? '-9' : '-15', String(pid)], { timeout: 15000 }, (erro) => resolve(!erro));
+      }
+    }
+  });
 }
 ipcMain.handle('sys:lista', async (e) => {
   if (!daJanela(e)) return RECUSADO;
@@ -1506,9 +1606,9 @@ ipcMain.handle('sys:fechar-app', async (e, id) => {
   if (!daJanela(e) || typeof id !== 'string') return RECUSADO;
   const a = mapaGerenciador.apps.get(id);
   if (!a) return { ok: false, erro: 'esse programa já fechou' };
-  if (a.protegido) return { ok: false, erro: 'este programa é do Windows ou do próprio widget: não dá para fechar daqui' };
+  if (a.protegido) return { ok: false, erro: 'este programa é do sistema ou do próprio widget: não dá para fechar daqui' };
   let enviados = 0;
-  for (const pid of a.pids) if (await taskkill(['/PID', String(pid)])) enviados++;
+  for (const pid of a.pids) if (await encerrarPid(pid, false)) enviados++;
   return { ok: true, enviados };
 });
 // encerrar à força (apps que não respondem, ou qualquer processo da lista Processes)
@@ -1516,10 +1616,10 @@ ipcMain.handle('sys:encerrar', async (e, id) => {
   if (!daJanela(e) || typeof id !== 'string') return RECUSADO;
   const x = mapaGerenciador.apps.get(id) || mapaGerenciador.procs.get(id);
   if (!x) return { ok: false, erro: 'esse processo já acabou' };
-  if (x.protegido) return { ok: false, erro: 'este processo é do Windows ou do próprio widget: não dá para encerrar daqui' };
+  if (x.protegido) return { ok: false, erro: 'este processo é do sistema ou do próprio widget: não dá para encerrar daqui' };
   const pids = x.pids.length ? x.pids : [];
   let mortos = 0;
-  for (const pid of pids) if (await taskkill(['/F', '/PID', String(pid)])) mortos++;
+  for (const pid of pids) if (await encerrarPid(pid, true)) mortos++;
   return { ok: true, mortos };
 });
 // "fechar todos os apps": primeiro MOSTRA o que seria fechado (sem o que é protegido); só fecha o que você confirmou
@@ -1535,7 +1635,7 @@ ipcMain.handle('sys:fechar-todos', async (e, ids) => {
   if (!daJanela(e) || !Array.isArray(ids)) return RECUSADO;
   const escolhidos = ids.filter((id) => typeof id === 'string' && previsaoFechar.has(id) && mapaGerenciador.apps.has(id) && !mapaGerenciador.apps.get(id).protegido);
   previsaoFechar = new Set();
-  for (const id of escolhidos) for (const pid of mapaGerenciador.apps.get(id).pids) await taskkill(['/PID', String(pid)]);
+  for (const id of escolhidos) for (const pid of mapaGerenciador.apps.get(id).pids) await encerrarPid(pid, false);
   await new Promise((r) => setTimeout(r, 2500)); // dá tempo de fechar (ou de aparecer o "deseja salvar?")
   const m = await montarGerenciador();
   const restantes = escolhidos.filter((id) => m.apps.has(id)).map((id) => publicoSys(m.apps.get(id)));
@@ -1543,7 +1643,7 @@ ipcMain.handle('sys:fechar-todos', async (e, ids) => {
 });
 
 // ---------- Desligar o PC ----------
-// Duas confirmações em sequência (a ordem é conferida AQUI, não só na tela) e uma contagem de 20 s que dá para cancelar (shutdown /a).
+// Duas confirmações em sequência (a ordem é conferida AQUI, não só na tela) e uma contagem de 20 s (Windows) ou 60 s (Linux) que dá para cancelar.
 // MEU_WIDGET_DESLIGAR_TESTE: só para os testes automáticos; em vez de desligar de verdade, anota o comando no arquivo indicado.
 const SEGUNDOS_DESLIGAR = 20;
 const JANELA_CONFIRMACAO = 60000;
@@ -1551,7 +1651,12 @@ let etapaDesligar = { n: 0, t: 0 };
 function comandoDeSistema(args) {
   const teste = process.env.MEU_WIDGET_DESLIGAR_TESTE;
   if (teste) { fs.appendFileSync(teste, 'shutdown ' + args.join(' ') + '\n'); return; }
-  require('child_process').execFile('shutdown', args, { windowsHide: true }, () => {});
+  if (process.platform === 'win32') {
+    require('child_process').execFile('shutdown', args, { windowsHide: true }, () => {});
+  } else {
+    const cmd = args.includes('/a') ? ['-c'] : ['+1', 'Desligando pelo Meu Widget. Para cancelar: shutdown -c'];
+    require('child_process').execFile('shutdown', cmd, {}, () => {});
+  }
 }
 ipcMain.handle('power:etapa', (e, n) => {
   if (!daJanela(e)) return RECUSADO;
@@ -1566,8 +1671,13 @@ ipcMain.handle('power:desligar', (e) => {
   const ok = etapaDesligar.n === 2 && Date.now() - etapaDesligar.t < JANELA_CONFIRMACAO;
   etapaDesligar = { n: 0, t: 0 };
   if (!ok) return { ok: false, erro: 'faltou confirmar as duas etapas' };
-  comandoDeSistema(['/s', '/t', String(SEGUNDOS_DESLIGAR), '/c', 'Desligando pelo Meu Widget. Para cancelar: shutdown /a']);
-  return { ok: true, segundos: SEGUNDOS_DESLIGAR };
+  if (process.platform === 'win32') {
+    comandoDeSistema(['/s', '/t', String(SEGUNDOS_DESLIGAR), '/c', 'Desligando pelo Meu Widget. Para cancelar: shutdown /a']);
+    return { ok: true, segundos: SEGUNDOS_DESLIGAR };
+  } else {
+    comandoDeSistema(['+1']);
+    return { ok: true, segundos: 60 };
+  }
 });
 ipcMain.handle('power:cancelar', (e) => {
   if (!daJanela(e)) return RECUSADO;
@@ -1576,12 +1686,26 @@ ipcMain.handle('power:cancelar', (e) => {
   return { ok: true };
 });
 
-// ---------- Iniciar com o Windows ----------
-// Só no .exe (app.isPackaged). No modo "npm start" quem abre o widget no login
-// é o atalho do iniciar-widget.vbs na pasta shell:startup (veja o README).
-// No .exe portátil, process.execPath aponta para uma pasta temporária que muda
-// a cada abertura; PORTABLE_EXECUTABLE_FILE é o caminho real do .exe.
+// ---------- Iniciar com o Sistema ----------
 function applyAutostart(on) {
+  if (process.platform !== 'win32') {
+    const autostartDir = path.join(os.homedir(), '.config', 'autostart');
+    const desktopFile = path.join(autostartDir, 'meu-widget.desktop');
+    try {
+      if (on) {
+        fs.mkdirSync(autostartDir, { recursive: true });
+        const appDesktop = path.join(os.homedir(), '.local', 'share', 'applications', 'meu-widget.desktop');
+        if (fs.existsSync(appDesktop)) {
+          fs.copyFileSync(appDesktop, desktopFile);
+        }
+      } else {
+        if (fs.existsSync(desktopFile)) fs.unlinkSync(desktopFile);
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
   if (!app.isPackaged) return false;
   app.setLoginItemSettings({
     openAtLogin: on === true,
@@ -1627,8 +1751,8 @@ ipcMain.handle('janela:modo', (e, modo) => {
     tamanhoAntesDoMini = { largura, altura, modo: modoAtual };
     janela.setMinimumSize(MINI.largura, MINI.altura);
     janela.setMaximumSize(MINI.largura, MINI.altura);
-    janela.setResizable(false);
     aplicarTamanho(MINI.largura, MINI.altura);
+    janela.setResizable(false);
   } else {
     if (modoAtual === 'mini') {
       // volta do mini: limites normais e o tamanho de antes
@@ -1666,8 +1790,11 @@ ipcMain.handle('janela:estilo', (e, estilo) => {
       if (!nova.isDestroyed()) nova.show();
       if (!antiga.isDestroyed()) antiga.destroy();
     };
-    Promise.all([new Promise((ok) => nova.once('ready-to-show', ok)), nova.vidroPronto]).then(trocar);
-    setTimeout(trocar, 4000); // garantia: nunca ficam as duas
+    Promise.race([
+      Promise.all([new Promise((ok) => nova.once('ready-to-show', ok)), nova.vidroPronto]),
+      new Promise((ok) => nova.webContents.once('did-finish-load', () => setTimeout(ok, 80))),
+    ]).then(trocar);
+    setTimeout(trocar, 2000); // garantia: nunca ficam as duas
   }, 60);
   return true;
 });
@@ -1807,6 +1934,7 @@ app.whenReady().then(() => {
   // principal (o vídeo é descartado na tela) + o áudio do sistema (loopback).
   // thumbnailSize 0x0 evita gerar miniaturas que não usamos.
   sessao.setDisplayMediaRequestHandler((_pedido, callback) => {
+    if (process.platform !== 'win32') return callback({});
     desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 0, height: 0 } })
       .then((fontes) => callback({ video: fontes[0], audio: 'loopback' }))
       .catch((erro) => {

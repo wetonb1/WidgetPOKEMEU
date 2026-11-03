@@ -179,6 +179,74 @@ def telacheia():
 
 # ---------- 5. Janelas Abertas e Foco ----------
 
+def _janelas_fallback():
+    """Descobre janelas/apps abertos via xprop (X11/XWayland) e systemd app.slice (Wayland/GNOME)."""
+    achados = []
+    vistos_pid = set()
+    meu_uid = os.getuid()
+
+    # 1. Janelas X11 / XWayland via xprop
+    if TEM_XPROP:
+        try:
+            saida = executar_cmd(["xprop", "-root", "_NET_CLIENT_LIST"])
+            ids = re.findall(r"0x[0-9a-fA-F]+", saida)
+            for wid in ids:
+                props = executar_cmd(["xprop", "-id", wid, "_NET_WM_PID", "_NET_WM_NAME", "WM_NAME", "WM_CLASS"])
+                m_pid = re.search(r"_NET_WM_PID\(CARDINAL\)\s*=\s*(\d+)", props)
+                pid = int(m_pid.group(1)) if m_pid else 0
+                if pid <= 0 or pid in vistos_pid:
+                    continue
+                m_cls = re.search(r'WM_CLASS\(STRING\)\s*=\s*"[^"]*",\s*"([^"]+)"', props)
+                nome_app = m_cls.group(1) if m_cls else ""
+                m_tit = re.search(r'_NET_WM_NAME\(UTF8_STRING\)\s*=\s*"([^"]+)"', props)
+                if not m_tit:
+                    m_tit = re.search(r'WM_NAME\([^)]+\)\s*=\s*"([^"]+)"', props)
+                titulo = m_tit.group(1) if m_tit else nome_app
+                if not nome_app and pid > 0:
+                    try:
+                        with open(f"/proc/{pid}/comm", "r", encoding="utf-8", errors="ignore") as f:
+                            nome_app = f.read().strip()
+                    except Exception:
+                        nome_app = "app"
+                if nome_app.lower() in ("meu-widget", "electron"):
+                    continue
+                vistos_pid.add(pid)
+                exe = os.path.realpath(f"/proc/{pid}/exe") if os.path.exists(f"/proc/{pid}/exe") else nome_app
+                achados.append({"i": pid, "t": titulo or nome_app, "n": nome_app, "d": nome_app, "p": exe})
+        except Exception:
+            pass
+
+    # 2. Apps Wayland/GNOME no systemd user app.slice
+    ignorar = {"gnome-session-s", "gsd-disk-utilit", "xdg-desktop-por", "xdg-document-po", "xdg-permission-", "evolution-alarm", "gvfsd", "at-spi-bus-laun", "meu-widget", "electron"}
+    escopos_vistos = set()
+    for p in glob.glob("/proc/[0-9]*/cgroup"):
+        try:
+            if os.stat(p).st_uid != meu_uid:
+                continue
+            pid = int(p.split("/")[2])
+            if pid in vistos_pid:
+                continue
+            with open(p, "r", encoding="utf-8", errors="ignore") as f:
+                cg = f.read()
+            m = re.search(r"/app\.slice/(app-[^\s/]+\.scope)", cg)
+            if not m:
+                continue
+            escopo = m.group(1)
+            if escopo in escopos_vistos:
+                continue
+            with open(f"/proc/{pid}/comm", "r", encoding="utf-8", errors="ignore") as f:
+                comm = f.read().strip()
+            if comm.lower() in ignorar or comm.startswith("gsd-"):
+                continue
+            escopos_vistos.add(escopo)
+            vistos_pid.add(pid)
+            exe = os.path.realpath(f"/proc/{pid}/exe") if os.path.exists(f"/proc/{pid}/exe") else comm
+            achados.append({"i": pid, "t": comm, "n": comm, "d": comm, "p": exe})
+        except Exception:
+            continue
+
+    return achados
+
 def lista_janelas():
     itens = []
     if TEM_WMCTRL:
@@ -196,6 +264,12 @@ def lista_janelas():
                 continue
             vistos.add(nome_app)
             itens.append({"n": nome_app, "p": nome_app})
+    else:
+        vistos = set()
+        for a in _janelas_fallback():
+            if a["n"] not in vistos:
+                vistos.add(a["n"])
+                itens.append({"n": a["n"], "p": a["p"]})
     return json.dumps(itens, ensure_ascii=False)
 
 def lista_apps_janelas():
@@ -225,20 +299,28 @@ def lista_apps_janelas():
                 "d": nome_app,
                 "p": f"/proc/{pid}/exe" if os.path.exists(f"/proc/{pid}/exe") else nome_app
             })
+    else:
+        itens = _janelas_fallback()
     return json.dumps(itens, ensure_ascii=False)
 
 def focar_pid(pid):
     if TEM_XDOTOOL:
-        executar_cmd(["xdotool", "search", "--pid", str(pid), "windowactivate"])
-        return "true"
-    elif TEM_WMCTRL:
-        executar_cmd(["wmctrl", "-k", "off"])
+        try:
+            r = subprocess.run(["xdotool", "search", "--pid", str(pid), "windowactivate"], capture_output=True, timeout=2.0)
+            if r.returncode == 0:
+                return "true"
+        except Exception:
+            pass
     return "false"
 
 def focar_app(app_nome):
     if TEM_WMCTRL:
-        executar_cmd(["wmctrl", "-x", "-a", app_nome])
-        return "true"
+        try:
+            r = subprocess.run(["wmctrl", "-x", "-a", app_nome], capture_output=True, timeout=2.0)
+            if r.returncode == 0:
+                return "true"
+        except Exception:
+            pass
     return "false"
 
 # ---------- 6. Aplicativos Instalados (.desktop) ----------
@@ -356,7 +438,9 @@ def tratar_comando(c):
         return volume_info()
     if c == "janelas":
         return lista_janelas()
-    if c in ("apps", "startapps"):
+    if c == "apps":
+        return lista_apps_janelas()
+    if c == "startapps":
         return listar_apps_sistema()
     if c == "gc":
         return "ok"

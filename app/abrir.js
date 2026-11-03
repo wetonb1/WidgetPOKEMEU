@@ -3,6 +3,8 @@
 // o worktree vêm do projetos.py, os argumentos de cada IA do ias.js, a janela do terminal.js e o
 // controle das sessões abertas do sessoes.js. Não depende do Electron: a área de transferência entra
 // como função (copiar), e "simular" monta tudo sem abrir nem registrar nada (testes).
+const fs = require('fs');
+const path = require('path');
 const ias = require('./ias');
 const terminal = require('./terminal');
 const projetos = require('./projetos');

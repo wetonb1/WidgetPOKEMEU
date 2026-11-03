@@ -3,7 +3,7 @@
 // retos. O tipo do Pokémon muda só a cor de destaque (como o comando "color" do
 // CMD), a animação do rosto e o bordão que ele solta na narração.
 
-const CMD = { bg: '#0c0c0c', text: '#cccccc', fonte: 'Consolas, "Cascadia Mono", "Lucida Console", monospace' };
+const CMD = { bg: '#0c0c0c', text: '#cccccc', fonte: 'Consolas, "Cascadia Mono", "JetBrains Mono", "Source Code Pro", "DejaVu Sans Mono", "Liberation Mono", "Lucida Console", monospace' };
 // Visual iOS: mesmo destaque por tipo, mas texto claro e fonte do sistema.
 // (--bg aqui é só a cor "escura" usada em contrastes; o fundo de verdade é o vidro.)
 const IOS = { bg: '#15151d', text: '#f2f2f7', fonte: '"Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif' };

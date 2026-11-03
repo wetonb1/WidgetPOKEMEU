@@ -37,6 +37,12 @@ setInterval(() => {}, 1000);
 `, 'utf8');
   fs.writeFileSync(path.join(falso, 'claude.cmd'), '@echo off\r\n"%FAKE_NODE%" "%FAKE_JS%" %*\r\n', 'utf8');
   fs.writeFileSync(path.join(falso, 'agy.cmd'), '@echo off\r\n"%FAKE_NODE%" "%FAKE_JS%" %*\r\n', 'utf8'); // o mesmo programa de mentira, chamado de agy
+  if (process.platform !== 'win32') {
+    for (const n of ['claude', 'agy']) {
+      const p = path.join(falso, n);
+      fs.writeFileSync(p, '#!/usr/bin/env bash\nexec "$FAKE_NODE" "$FAKE_JS" "$@"\n', { encoding: 'utf8', mode: 0o755 });
+    }
+  }
   const env = { ...process.env, PATH: falso + path.delimiter + process.env.PATH, FAKE_NODE: process.execPath, FAKE_JS: path.join(falso, 'fake.js'), FAKE_LOG: LOG,
     CEREBRO_CONFIG: path.join(tmp, 'cerebro.json'), CEREBRO_DIR: cerebroDir, PROJETOS_JSON: path.join(tmp, 'projetos.json'),
     MEU_WIDGET_PASTA: path.join(tmp, 'widget'), MEU_WIDGET_SESSOES: path.join(tmp, 'widget', 'sessoes.json') };
@@ -192,7 +198,11 @@ setInterval(() => {}, 1000);
     await foto('6-formulario');
     await ev(`document.getElementById('pj-cancelar').click()`);
   } catch (e) { console.log('ERRO DO TESTE:', e.message); falhas++; }
-  try { execSync(`taskkill /PID ${filho.pid} /T /F`, { stdio: 'ignore' }); } catch { /* já fechou */ }
+  if (process.platform === 'win32') {
+    try { execSync(`taskkill /PID ${filho.pid} /T /F`, { stdio: 'ignore' }); } catch { /* já fechou */ }
+  } else {
+    try { filho.kill('SIGTERM'); } catch { /* já fechou */ }
+  }
   await pausa(1500);
   try { fs.rmSync(tmp, { recursive: true, force: true }); } catch { /* em uso: o Windows limpa depois */ }
   console.log(falhas ? `\n${falhas} FALHA(S)` : '\ntudo certo');

@@ -7,6 +7,7 @@
 #   Quadro tipo 1: redimensionamento de terminal (cols, rows em uint16 LE)
 
 import fcntl
+import json
 import os
 import pty
 import select
@@ -16,7 +17,6 @@ import struct
 import subprocess
 import sys
 import termios
-import threading
 
 def redimensionar(fd_master, cols, rows):
     try:
@@ -37,14 +37,25 @@ def main():
     if not os.path.isdir(pasta):
         pasta = os.path.expanduser("~")
 
-    # Divide a linha de comando em argumentos para o processo
-    if isinstance(linha, str):
+    cmd_args = None
+    args_json = os.environ.get("WIDGET_PTY_ARGS_JSON")
+    if args_json:
         try:
-            cmd_args = shlex.split(linha)
+            parsed = json.loads(args_json)
+            if isinstance(parsed, list) and parsed:
+                cmd_args = [str(x) for x in parsed]
         except Exception:
+            cmd_args = None
+
+    # Divide a linha de comando em argumentos para o processo (fallback)
+    if not cmd_args:
+        if isinstance(linha, str):
+            try:
+                cmd_args = shlex.split(linha)
+            except Exception:
+                cmd_args = [linha]
+        else:
             cmd_args = [linha]
-    else:
-        cmd_args = [linha]
 
     if not cmd_args:
         cmd_args = ["/bin/bash"]
@@ -56,6 +67,13 @@ def main():
     env["TERM"] = "xterm-256color"
     env["COLORTERM"] = "truecolor"
 
+    def configurar_filho():
+        os.setsid()
+        try:
+            fcntl.ioctl(0, termios.TIOCSCTTY, 0)
+        except Exception:
+            pass
+
     try:
         proc = subprocess.Popen(
             cmd_args,
@@ -64,11 +82,11 @@ def main():
             stderr=slave,
             cwd=pasta,
             env=env,
-            preexec_fn=os.setsid,
+            preexec_fn=configurar_filho,
             close_fds=True,
         )
     except Exception as e:
-        sys.stderr.write(f"ERRO {str(e)}\n")
+        sys.stderr.write(f"ERRO falha ao iniciar: {str(e)}\n")
         sys.stderr.flush()
         os.close(master)
         os.close(slave)
@@ -76,80 +94,101 @@ def main():
 
     os.close(slave)
 
+    def ao_sinal(_sig, _frame):
+        raise SystemExit(0)
+
+    signal.signal(signal.SIGTERM, ao_sinal)
+    signal.signal(signal.SIGHUP, ao_sinal)
+    signal.signal(signal.SIGINT, ao_sinal)
+
     # Avisa o PID do processo filho ao pty.js
     sys.stderr.write(f"PID {proc.pid}\n")
     sys.stderr.flush()
 
-    encerrado = threading.Event()
+    fd_stdin = sys.stdin.fileno()
+    buf_entrada = bytearray()
+    stdin_aberto = True
 
-    # Thread para ler do master e repassar para stdout
-    def leitor_saida():
-        while not encerrado.is_set():
+    # Loop principal: multiplexa leitura do master (saída do programa) e do stdin (quadros do pty.js)
+    # Cabeçalho de 5 bytes no stdin: [tipo: 1 byte] [comprimento: 4 bytes uint32 LE]
+    try:
+        while True:
+            fds = [master] + ([fd_stdin] if stdin_aberto else [])
             try:
-                r, _, _ = select.select([master], [], [], 0.1)
-                if master in r:
+                r, _, _ = select.select(fds, [], [], 0.1)
+            except (OSError, ValueError):
+                break
+
+            if master in r:
+                try:
                     dados = os.read(master, 4096)
                     if not dados:
                         break
                     sys.stdout.buffer.write(dados)
                     sys.stdout.buffer.flush()
-            except (OSError, ValueError):
-                break
-        encerrado.set()
-
-    t_saida = threading.Thread(target=leitor_saida, daemon=True)
-    t_saida.start()
-
-    # Loop principal: lê quadros binários do stdin
-    # Cabeçalho de 5 bytes: [tipo: 1 byte] [comprimento: 4 bytes uint32 LE]
-    stdin_buf = sys.stdin.buffer
-    try:
-        while not encerrado.is_set():
-            cab = stdin_buf.read(5)
-            if not cab or len(cab) < 5:
-                break
-            tipo = cab[0]
-            comprimento = struct.unpack("<I", cab[1:5])[0]
-            dados = b""
-            while len(dados) < comprimento:
-                pedaco = stdin_buf.read(comprimento - len(dados))
-                if not pedaco:
+                except (OSError, ValueError):
                     break
-                dados += pedaco
 
-            if len(dados) < comprimento:
-                break
-
-            if tipo == 0:  # escrita
+            if fd_stdin in r:
                 try:
-                    os.write(master, dados)
+                    pedaco = os.read(fd_stdin, 4096)
                 except OSError:
+                    pedaco = b""
+                if not pedaco:
+                    stdin_aberto = False
                     break
-            elif tipo == 1:  # redimensionamento: 2 bytes cols + 2 bytes rows
-                if len(dados) >= 4:
-                    c, r = struct.unpack("<HH", dados[:4])
-                    redimensionar(master, c, r)
-    except Exception:
+                buf_entrada.extend(pedaco)
+                while len(buf_entrada) >= 5:
+                    tipo = buf_entrada[0]
+                    comprimento = struct.unpack("<I", buf_entrada[1:5])[0]
+                    if len(buf_entrada) < 5 + comprimento:
+                        break
+                    payload = bytes(buf_entrada[5:5 + comprimento])
+                    del buf_entrada[:5 + comprimento]
+                    if tipo == 0:  # escrita
+                        try:
+                            os.write(master, payload)
+                        except OSError:
+                            break
+                    elif tipo == 1 and len(payload) >= 4:  # redimensionamento
+                        c, l = struct.unpack("<HH", payload[:4])
+                        redimensionar(master, c, l)
+
+            if not r and proc.poll() is not None:
+                break
+    except BaseException:
         pass
     finally:
-        encerrado.set()
-        try:
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
-        except Exception:
-            pass
-        try:
-            proc.wait(timeout=1.5)
-        except Exception:
-            try:
-                os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
-            except Exception:
-                pass
         try:
             os.close(master)
         except Exception:
             pass
+        if proc.poll() is None:
+            try:
+                pgid = os.getpgid(proc.pid)
+                os.killpg(pgid, signal.SIGHUP)
+                os.killpg(pgid, signal.SIGTERM)
+            except Exception:
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+            try:
+                proc.wait(timeout=0.6)
+            except Exception:
+                try:
+                    os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+                except Exception:
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                try:
+                    proc.wait(timeout=0.4)
+                except Exception:
+                    pass
 
-    sys.exit(proc.returncode if proc.returncode is not None else 0)
+    sys.exit(proc.returncode if proc.returncode is not None and proc.returncode >= 0 else 0)
 
 if __name__ == "__main__":
     main()

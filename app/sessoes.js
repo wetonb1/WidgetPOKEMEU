@@ -21,6 +21,18 @@ function pidVivo(pid) {
 
 // [{ nome, pid, ppid }] de todos os processos, ou null se não deu
 function listarProcessos() {
+  if (process.platform !== 'win32') {
+    return new Promise((resolve) => {
+      execFile('ps', ['-eo', 'comm=,ppid=,pid='], { encoding: 'utf8', timeout: 10000 }, (erro, saida) => {
+        if (erro) { resolve(null); return; }
+        const linhas = saida.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        resolve(linhas.map((l) => {
+          const m = /^(\S+)\s+(\d+)\s+(\d+)$/.exec(l);
+          return m ? { nome: m[1].toLowerCase(), ppid: Number(m[2]), pid: Number(m[3]) } : null;
+        }).filter(Boolean));
+      });
+    });
+  }
   return new Promise((resolve) => {
     execFile('wmic', ['process', 'get', 'Name,ParentProcessId,ProcessId', '/format:csv'],
       { windowsHide: true, encoding: 'utf8', timeout: 15000, maxBuffer: 8 * 1024 * 1024 }, (erro, saida) => {
@@ -36,6 +48,19 @@ function listarProcessos() {
 
 // fecha a janela da sessão e o que roda nela
 function matarArvore(pid) {
+  if (process.platform !== 'win32') {
+    return new Promise((resolve) => {
+      const n = Number(pid);
+      let ok = false;
+      try { process.kill(-n, 'SIGTERM'); ok = true; } catch {}
+      try { process.kill(n, 'SIGTERM'); ok = true; } catch {}
+      setTimeout(() => {
+        try { process.kill(-n, 'SIGKILL'); } catch {}
+        try { process.kill(n, 'SIGKILL'); } catch {}
+      }, 800).unref();
+      resolve(ok);
+    });
+  }
   return new Promise((resolve) => {
     execFile('taskkill', ['/PID', String(pid), '/T', '/F'], { windowsHide: true, timeout: 15000 }, (erro) => resolve(!erro));
   });
@@ -72,7 +97,8 @@ function criarRegistro({ arquivo, processos = listarProcessos, vivo = pidVivo, m
       s.janelaPid = janela.pid;
       // o nome real do processo de cada IA vem do ias-dados.json (claude.exe, agy.exe); sessões antigas: {executavel}.exe
       const nomeProcesso = String(s.processo || `${s.executavel}.exe`).toLowerCase();
-      const ia = lista.find((p) => p.ppid === janela.pid && p.nome === nomeProcesso);
+      const nomeSemExe = nomeProcesso.replace(/\.exe$/i, '');
+      const ia = lista.find((p) => p.ppid === janela.pid && (p.nome === nomeProcesso || p.nome === nomeSemExe));
       if (ia) s.iaPid = ia.pid;
     }
   }
@@ -111,6 +137,9 @@ function criarRegistro({ arquivo, processos = listarProcessos, vivo = pidVivo, m
     const pid = s.janelaPid || s.iaPid;
     if (!pid) return { ok: false, erro: 'não sei qual é a janela desta sessão; feche-a pelo X' };
     const fechou = await matar(pid);
+    if (process.platform !== 'win32' && s.iaPid && s.iaPid !== pid) {
+      await matar(s.iaPid);
+    }
     sessoes = sessoes.filter((x) => x.id !== id);
     salvar();
     return { ok: true, fechou };

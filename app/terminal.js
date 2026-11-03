@@ -5,7 +5,7 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const { localizar } = require('./ias');
 
-const EMULADORES_LINUX = ['gnome-terminal', 'x-terminal-emulator', 'konsole', 'xfce4-terminal', 'alacritty', 'kitty', 'xterm'];
+const EMULADORES_LINUX = ['ptyxis', 'gnome-terminal', 'x-terminal-emulator', 'konsole', 'xfce4-terminal', 'alacritty', 'kitty', 'xterm'];
 
 function terminalLinux() {
   for (const t of EMULADORES_LINUX) {
@@ -46,6 +46,9 @@ function planejar({ pasta, titulo, programa, args = [] }, temWt = !!localizar('w
     const nome = String(titulo || programa).replace(/["'`$\\]/g, '');
     const cmd = [programa, ...args.map((a) => (/[\s"'$`\\!]/.test(a) || a === '' ? `"${String(a).replace(/(["\\$`!])/g, '\\$1')}"` : a))].join(' ');
     const script = `${cmd}; exec bash`;
+    if (term === 'ptyxis') {
+      return { via: 'ptyxis', exe: 'ptyxis', argv: ['--working-directory=' + pasta, '--', 'bash', '-c', script], verbatim: false };
+    }
     if (term === 'gnome-terminal') {
       return { via: 'gnome-terminal', exe: 'gnome-terminal', argv: ['--title', nome, '--working-directory', pasta, '--', 'bash', '-c', script], verbatim: false };
     }

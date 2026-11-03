@@ -77,12 +77,12 @@ function aspas(a) {
 // .exe roda direto (o prompt vai inteiro, com quebras de linha); .cmd/.bat passam pelo cmd.exe, que não aceita quebra de
 // linha nem aspas num argumento: ali os argumentos passam pelo mesmo filtro do terminal externo (terminal.argumentoSeguro).
 function linhaDeComando(programa, args = []) {
-  if (process.platform !== 'win32') {
-    return [programa, ...args.map((a) => (/[\s"'$`\\!]/.test(a) || a === '' ? `"${String(a).replace(/(["\\$`!])/g, '\\$1')}"` : a))].join(' ');
-  }
   if (/\.(cmd|bat)$/i.test(programa)) {
     const seguros = args.map((a) => argumentoSeguro(a));
     return `cmd.exe /d /s /c "${[aspas(programa), ...seguros.map(aspas)].join(' ')}"`;
+  }
+  if (process.platform !== 'win32') {
+    return [programa, ...args].map((a) => (/[\s"'$`\\!]/.test(a) || a === '' ? `"${String(a).replace(/(["\\$`!])/g, '\\$1')}"` : a)).join(' ');
   }
   return [programa, ...args].map(aspas).join(' ');
 }
@@ -98,8 +98,12 @@ function criar({ exe, pasta, programa, args = [], env = process.env, colunas = 1
     ? [exe, String(Math.max(2, colunas | 0)), String(Math.max(2, linhas | 0))]
     : [String(Math.max(2, colunas | 0)), String(Math.max(2, linhas | 0))];
 
+  const envFilho = { COLORTERM: 'truecolor', ...env, WIDGET_PTY_LINHA: linha, WIDGET_PTY_PASTA: pasta || '' };
+  if (ehLinux && !/\.(cmd|bat)$/i.test(programa)) {
+    envFilho.WIDGET_PTY_ARGS_JSON = JSON.stringify([String(programa), ...args.map(String)]);
+  }
   const filho = spawn(comando, cmdArgs, {
-    env: { COLORTERM: 'truecolor', ...env, WIDGET_PTY_LINHA: linha, WIDGET_PTY_PASTA: pasta || '' },
+    env: envFilho,
     stdio: ['pipe', 'pipe', 'pipe'],
     windowsHide: true,
   });
@@ -125,7 +129,7 @@ function criar({ exe, pasta, programa, args = [], env = process.env, colunas = 1
   });
   filho.stdout.on('data', (b) => aoDados(b));
   filho.on('error', (e) => { erroHost = erroHost || e.message; });
-  filho.on('exit', (codigo) => { acabou = true; aviso(); aoFim(codigo, erroHost); });
+  filho.on('close', (codigo) => { acabou = true; aviso(); aoFim(codigo, erroHost); });
   filho.stdin.on('error', () => { /* o host já acabou */ });
 
   const quadro = (tipo, dados) => {
@@ -154,9 +158,12 @@ function criar({ exe, pasta, programa, args = [], env = process.env, colunas = 1
           if (process.platform === 'win32') {
             execFile('taskkill', ['/PID', String(filho.pid), '/T', '/F'], { windowsHide: true }, () => {});
           } else {
-            try { process.kill(-filho.pid, 'SIGKILL'); } catch {
-              try { filho.kill('SIGKILL'); } catch {}
+            if (pidPrograma) {
+              try { process.kill(-pidPrograma, 'SIGKILL'); } catch {
+                try { process.kill(pidPrograma, 'SIGKILL'); } catch {}
+              }
             }
+            try { filho.kill('SIGKILL'); } catch {}
           }
         }
       }, 2000);

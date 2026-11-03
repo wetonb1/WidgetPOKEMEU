@@ -23,7 +23,6 @@ const carregamento = (() => {
   const barra = document.getElementById('carregando-progresso');
   const texto = document.getElementById('carregando-texto');
   const MINIMO = 1800, MAXIMO = 12000;
-  let inicio = null; // marcado no primeiro quadro: a janela nasce escondida e não anima antes disso
   let feito = false;
   let alvo = 0;       // quanto já carregou de verdade (%)
   let mostrado = 0;   // quanto a barra mostra (%)
@@ -36,15 +35,15 @@ const carregamento = (() => {
   // A barra corre suave atrás do progresso real, mas nunca mais rápido que o
   // tempo mínimo: assim ela sempre "enche" de forma visível, mesmo com tudo em cache.
   // (Só roda enquanto a tela existe, ~2 s.)
+  let inicio = performance.now();
   (function quadro() {
     if (!raiz.isConnected) return;
-    if (inicio === null) inicio = performance.now();
     const peloTempo = ((performance.now() - inicio) / MINIMO) * 100;
     mostrado += (Math.min(alvo, peloTempo) - mostrado) * 0.12;
     if (alvo >= 100 && mostrado > 99.4) mostrado = 100;
     barra.style.width = mostrado.toFixed(2) + '%';
     if (mostrado === 100 && aoEncher) { aoEncher(); aoEncher = null; }
-    requestAnimationFrame(quadro);
+    setTimeout(quadro, 16);
   })();
 
   function etapa(pct, msg) {
@@ -58,7 +57,7 @@ const carregamento = (() => {
     feito = true;
     clearTimeout(teto);
     alvo = 100;
-    await new Promise((ok) => { aoEncher = ok; });  // espera a barra chegar ao fim
+    await new Promise((ok) => { aoEncher = ok; setTimeout(ok, MINIMO + 400); });  // espera a barra chegar ao fim
     texto.textContent = 'C:\\> pronto!';
     raiz.classList.add('pronto');   // o botão acende e a pokébola dá um pulinho
     await esperar(450);
@@ -1022,9 +1021,13 @@ const pokemon = (() => {
   function recortarSprite(url) {
     if (recortes.has(url)) return Promise.resolve(recortes.get(url));
     return new Promise((resolve) => {
+      let resolvido = false;
+      const finalizar = (v) => { if (!resolvido) { resolvido = true; resolve(v); } };
+      const timer = setTimeout(() => finalizar(null), 3000);
       const imagem = new Image();
       imagem.crossOrigin = 'anonymous'; // o GitHub libera (CORS) a leitura dos pixels
       imagem.onload = () => {
+        clearTimeout(timer);
         let r = null;
         try {
           const c = document.createElement('canvas');
@@ -1056,9 +1059,9 @@ const pokemon = (() => {
           console.error('Não deu para recortar o sprite:', erro); // fica o original, inteiro
         }
         recortes.set(url, r);
-        resolve(r);
+        finalizar(r);
       };
-      imagem.onerror = () => resolve(null);
+      imagem.onerror = () => { clearTimeout(timer); finalizar(null); };
       imagem.src = url;
     });
   }
@@ -4243,7 +4246,7 @@ const terminalEmb = (() => {
   const cor = (nome, padrao) => estilo.getPropertyValue(nome).trim() || padrao;
 
   // o terminal precisa de fonte monoespaçada (o visual iOS usa uma fonte comum nos textos, que deixaria as letras separadas)
-  const FONTE = 'Consolas, "Cascadia Mono", "Lucida Console", monospace';
+  const FONTE = '"JetBrains Mono", "Source Code Pro", "DejaVu Sans Mono", "Liberation Mono", Consolas, "Cascadia Mono", "Lucida Console", monospace';
   const sessoes = new Map(); // termId -> { termId, nome, modelo, cor, sessaoId, term, fit, host, vivo, confirmando, ia, projetoId }
   let atual = '';
   let ampliado = null; // null = automático (em janela estreita o Pokémon se esconde sozinho); true/false = escolha do botão [ampliar]
@@ -4313,7 +4316,8 @@ const terminalEmb = (() => {
   }
 
   function criar(info) {
-    const host = el('div', 'et-term');
+    for (const x of sessoes.values()) x.host.classList.remove('ativo');
+    const host = el('div', 'et-term ativo');
     corpo.append(host);
     const term = new Terminal({
       fontFamily: FONTE, fontSize: 13, cursorBlink: true, scrollback: 2000, allowTransparency: true,
@@ -4407,17 +4411,24 @@ const terminalEmb = (() => {
     aba.classList.add('terminal');
     if (DESTACADO) {
       const tit = $('titulo');
-      if (tit) tit.textContent = `C:\\WINDOWS\\system32\\WindowsPowerShell\\v1.0\\powershell.exe — ${s.nome} (${s.modelo})`;
+      if (tit) tit.textContent = window.SHELL_NOME === 'PowerShell'
+        ? `C:\\WINDOWS\\system32\\WindowsPowerShell\\v1.0\\powershell.exe — ${s.nome} (${s.modelo})`
+        : `Terminal — ${s.nome} (${s.modelo})`;
     }
     desenharAbas();
     aplicarVista();
     requestAnimationFrame(() => { ajustar(s); s.term.focus(); });
+    setTimeout(() => { ajustar(s); s.term.focus(); }, 80);
   }
 
   // abre (ou volta para) a sessão: cria o xterm, pega o que o processo já escreveu e liga a saída ao vivo
   async function abrirSessao(info) {
     if (!info || typeof info.termId !== 'string') return false;
     if (!(await garantirXterm())) { dizer('O terminal embutido não carregou (xterm.js).'); return false; }
+    if (!DESTACADO && !destacado) {
+      aba.classList.add('terminal');
+      aplicarVista();
+    }
     let s = sessoes.get(info.termId);
     if (!s) {
       s = criar(info);
@@ -4499,14 +4510,18 @@ const terminalEmb = (() => {
   aoAbrirPS = () => {};
   let aoAbrirPSEmNovaJanela = () => {};
   if ($('et-ps')) {
-    $('et-ps').textContent = IOS ? '+ ps' : '[+ ps]';
+    const PS_CURTO = window.SHELL_NOME === 'PowerShell' ? 'ps' : 'term';
+    $('et-ps').textContent = IOS ? '+ ' + PS_CURTO : '[+ ' + PS_CURTO + ']';
+    $('et-ps').title = 'Abre um ' + window.SHELL_NOME + ' na pasta do projeto atual';
     $('et-ps').addEventListener('click', () => {
       const s = sessoes.get(atual);
       aoAbrirPS(s && s.projetoId ? s.projetoId : '');
     });
   }
   if ($('et-ps-destacar')) {
-    $('et-ps-destacar').textContent = IOS ? '+ ps ↗' : '[+ ps ↗]';
+    const PS_CURTO2 = window.SHELL_NOME === 'PowerShell' ? 'ps' : 'term';
+    $('et-ps-destacar').textContent = IOS ? '+ ' + PS_CURTO2 + ' ↗' : '[+ ' + PS_CURTO2 + ' ↗]';
+    $('et-ps-destacar').title = 'Abre um ' + window.SHELL_NOME + ' diretamente em uma nova janela destacada';
     $('et-ps-destacar').addEventListener('click', () => {
       const s = sessoes.get(atual);
       aoAbrirPSEmNovaJanela(s && s.projetoId ? s.projetoId : '');
@@ -4738,12 +4753,12 @@ const projetos = (() => {
     ocupado = true;
     const r = await chamar(() => window.widget.projetosAbrirPS(p.id));
     ocupado = false;
-    if (!r.ok) { dizer('Não consegui abrir o PowerShell: ' + r.erro); return; }
+    if (!r.ok) { dizer('Não consegui abrir o ' + window.SHELL_NOME + ': ' + r.erro); return; }
     if (r.via === 'widget' && r.termId) {
-      await terminalEmb.abrir({ termId: r.termId, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id });
-      dizer('Abri o PowerShell em ' + p.nome + '. Use [↗ destacar] para levar só o terminal para outro monitor.');
+      await terminalEmb.abrir({ termId: r.termId, nome: p.nome, modelo: r.modelo || 'powershell', cor: p.cor, ia: r.modelo || 'powershell', projetoId: p.id });
+      dizer('Abri o ' + window.SHELL_NOME + ' em ' + p.nome + '. Use [↗ destacar] para levar só o terminal para outro monitor.');
     } else {
-      dizer('Abri o PowerShell em ' + p.nome + ' numa janela externa.');
+      dizer('Abri o ' + window.SHELL_NOME + ' em ' + p.nome + ' numa janela externa.');
     }
   }
   async function abrirPSEmNovaJanela(p) {
@@ -4751,17 +4766,17 @@ const projetos = (() => {
     ocupado = true;
     const r = await chamar(() => window.widget.projetosAbrirPS(p.id));
     ocupado = false;
-    if (!r.ok) { dizer('Não consegui abrir o PowerShell: ' + r.erro); return; }
+    if (!r.ok) { dizer('Não consegui abrir o ' + window.SHELL_NOME + ': ' + r.erro); return; }
     if (r.via === 'widget' && r.termId) {
-      const info = { termId: r.termId, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id };
+      const info = { termId: r.termId, nome: p.nome, modelo: r.modelo || 'powershell', cor: p.cor, ia: r.modelo || 'powershell', projetoId: p.id };
       if (window.widget.termDestacar) {
         window.widget.termDestacar({ sessoes: [info], atual: r.termId }, { novaJanela: true });
-        dizer('Abri um novo PowerShell destacado em janela independente!');
+        dizer('Abri um novo ' + window.SHELL_NOME + ' destacado em janela independente!');
       } else {
         await terminalEmb.abrir(info);
       }
     } else {
-      dizer('Abri o PowerShell em ' + p.nome + ' numa janela externa.');
+      dizer('Abri o ' + window.SHELL_NOME + ' em ' + p.nome + ' numa janela externa.');
     }
   }
 
@@ -4776,7 +4791,7 @@ const projetos = (() => {
     if (p) {
       abrirPS(p);
     } else {
-      dizer('Nenhum projeto encontrado para abrir o PowerShell.');
+      dizer('Nenhum projeto encontrado para abrir o ' + window.SHELL_NOME + '.');
     }
   }, async (projId) => {
     if (!cadastro || !cadastro.length) {
@@ -4789,7 +4804,7 @@ const projetos = (() => {
     if (p) {
       abrirPSEmNovaJanela(p);
     } else {
-      dizer('Nenhum projeto encontrado para abrir o PowerShell.');
+      dizer('Nenhum projeto encontrado para abrir o ' + window.SHELL_NOME + '.');
     }
   });
 
@@ -4853,7 +4868,7 @@ const projetos = (() => {
     const abrirIA = botao('[▶ abrir]', () => abrirSessao(p, estado.modelo, 'novo', '', { semPrompt: true, ia: estado.ia }), '');
     abrirIA.classList.add('proj-abrir');
     const continuar = quadro('continuar');
-    const psBtn = botao('[powershell]', () => abrirPS(p), 'Abre um PowerShell na pasta deste projeto (dá para destacar só ele para outro monitor)');
+    const psBtn = botao(window.SHELL_NOME === 'PowerShell' ? '[powershell]' : '[terminal]', () => abrirPS(p), 'Abre um ' + window.SHELL_NOME + ' na pasta deste projeto (dá para destacar só ele para outro monitor)');
     psBtn.classList.add('proj-ps');
     const btnSkills = botao('[skills]', () => abrirSkillsModal(p), 'Ver e instalar as skills recomendadas para este projeto');
     btnSkills.classList.add('proj-btn-skills');
@@ -6316,7 +6331,7 @@ const projetos = (() => {
   $('pi-fechar').addEventListener('click', fechar);
   $('pi-copiar').addEventListener('click', async () => {
     const ok = await chamar(() => window.widget.cerebroCopiar($('pi-comando').textContent));
-    dizer(ok === true ? 'Comando copiado! Cole no PowerShell.' : 'Não consegui copiar.');
+    dizer(ok === true ? 'Comando copiado! Cole no ' + window.SHELL_NOME + '.' : 'Não consegui copiar.');
   });
   $('pi-docs').addEventListener('click', () => chamar(() => window.widget.iasDocs(instalando)));
   $('pj-pular').addEventListener('change', () => {
