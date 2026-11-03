@@ -32,26 +32,27 @@ const vivo = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { r
   const limpo = (t) => t.replace(/\x1b\[[0-9;?]*[ -\/]*[@-~]/g, '').replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, '');
 
   // ---- 1. programa de uma linha só ----
-  let s = sessao('cmd.exe', ['/d', '/c', 'echo OLA-PTY-123']);
+  const ehLinux = process.platform !== 'win32';
+  let s = ehLinux ? sessao('/bin/bash', ['-c', 'echo OLA-PTY-123']) : sessao('cmd.exe', ['/d', '/c', 'echo OLA-PTY-123']);
   ok(await esperar(() => s.fim), 'um programa curto termina sozinho');
   ok(/OLA-PTY-123/.test(limpo(s.texto)) && s.fim.codigo === 0, 'o que ele escreveu chega (saída 0)');
 
   // ---- 2. interativo: teclas entram, saída volta ----
-  s = sessao('cmd.exe', ['/d']);
+  s = ehLinux ? sessao('/bin/bash', ['--norc', '--noprofile']) : sessao('cmd.exe', ['/d']);
   const pidIA = await s.h.pronto;
   ok(Number.isInteger(pidIA) && vivo(pidIA), 'o host avisa o PID do programa (' + pidIA + ')');
-  await esperar(() => /[>]/.test(limpo(s.texto)));
+  await esperar(() => (ehLinux ? /[\$#]/.test(limpo(s.texto)) : /[>]/.test(limpo(s.texto))));
   s.h.escrever('echo TECLADO-OK-456\r');
   ok(await esperar(() => /TECLADO-OK-456/.test(limpo(s.texto).replace(/echo TECLADO-OK-456/, ''))), 'o que você digita chega ao programa e a resposta volta');
-  s.h.escrever('cd\r');
+  s.h.escrever(ehLinux ? 'pwd\r' : 'cd\r');
   ok(await esperar(() => limpo(s.texto).includes('pasta com açento')), 'a pasta de trabalho (com acento e espaços) é a pedida');
   s.h.escrever('echo çãé-ÁÇ-🙂\r');
   ok(await esperar(() => /çãé-ÁÇ/.test(limpo(s.texto).split('echo çãé').pop())), 'acentos viajam nos dois sentidos');
   // ---- 3. redimensionar ----
   s.h.redimensionar(60, 18);
   await pausa(300);
-  s.h.escrever('mode con\r');
-  ok(await esperar(() => /Colunas:\s+60|Columns:\s+60/i.test(limpo(s.texto))), 'redimensionar muda o tamanho que o programa enxerga (60 colunas)');
+  s.h.escrever(ehLinux ? 'stty size\r' : 'mode con\r');
+  ok(await esperar(() => (ehLinux ? /\b18\s+60\b/.test(limpo(s.texto)) : /Colunas:\s+60|Columns:\s+60/i.test(limpo(s.texto)))), 'redimensionar muda o tamanho que o programa enxerga (60 colunas)');
   // ---- 4. sair normalmente ----
   s.h.escrever('exit\r');
   ok(await esperar(() => s.fim), 'quando o programa sai, o fim é avisado');
@@ -66,24 +67,26 @@ const vivo = (pid) => { try { process.kill(pid, 0); return true; } catch (e) { r
   ok(JSON.stringify(recebidos) === JSON.stringify(bruto), 'um .exe recebe cada argumento exatamente como foi escrito' + (recebidos ? '' : ' (nada recebido: ' + limpo(s.texto).slice(0, 120) + ')'));
 
   // ---- 6. encerrar mata o programa e tudo o que ele abriu ----
-  s = sessao('cmd.exe', ['/d', '/c', 'ping -t 127.0.0.1 > nul']);
+  s = ehLinux ? sessao('/bin/bash', ['-c', 'sleep 30 & wait']) : sessao('cmd.exe', ['/d', '/c', 'ping -t 127.0.0.1 > nul']);
   const pidCmd = await s.h.pronto;
-  await pausa(1200);
-  const filhos = require('child_process').execFileSync('wmic', ['process', 'where', `ParentProcessId=${pidCmd}`, 'get', 'ProcessId', '/value'], { encoding: 'utf8', windowsHide: true }).match(/\d+/g) || [];
+  await pausa(600);
+  const filhos = ehLinux
+    ? (require('child_process').spawnSync('ps', ['--ppid', String(pidCmd), '-o', 'pid='], { encoding: 'utf8' }).stdout.match(/\d+/g) || [])
+    : (require('child_process').execFileSync('wmic', ['process', 'where', `ParentProcessId=${pidCmd}`, 'get', 'ProcessId', '/value'], { encoding: 'utf8', windowsHide: true }).match(/\d+/g) || []);
   ok(vivo(pidCmd), 'o programa roda (cmd ' + pidCmd + (filhos.length ? ', filho ' + filhos.join(',') : '') + ')');
   s.h.encerrar();
   ok(await esperar(() => s.fim, 6000), 'encerrar() acaba com a sessão');
   ok(await esperar(() => !vivo(pidCmd) && filhos.every((p) => !vivo(Number(p))), 6000), 'e com o programa e os filhos dele (nada fica órfão)');
 
   // ---- 7. se o widget some (o canal fecha), o programa não fica rodando ----
-  s = sessao('cmd.exe', ['/d', '/c', 'ping -t 127.0.0.1 > nul']);
+  s = ehLinux ? sessao('/bin/bash', ['-c', 'sleep 30']) : sessao('cmd.exe', ['/d', '/c', 'ping -t 127.0.0.1 > nul']);
   const pid2 = await s.h.pronto;
   s.h.encerrar();
   ok(await esperar(() => !vivo(pid2), 6000), 'canal fechado = programa encerrado');
 
   // ---- 8. exe que não existe: erro claro, sem travar ----
-  s = sessao('C:\\nao\\existe\\xyz.exe', []);
-  ok(await esperar(() => s.fim) && s.fim.codigo !== 0 && /CreateProcess/.test(s.fim.erro), 'programa inexistente: o host acaba com um erro legível (' + (s.fim && s.fim.erro) + ')');
+  s = sessao(ehLinux ? '/nao/existe/xyz' : 'C:\\nao\\existe\\xyz.exe', []);
+  ok(await esperar(() => s.fim) && s.fim.codigo !== 0 && /CreateProcess|No such file|FileNotFoundError/i.test(s.fim.erro), 'programa inexistente: o host acaba com um erro legível (' + (s.fim && s.fim.erro) + ')');
 
   fs.rmSync(pasta, { recursive: true, force: true });
   fs.rmSync(cwd, { recursive: true, force: true });

@@ -4,7 +4,7 @@
   --accent: #f2f2f2;
   --bg: #0c0c0c;
   --text: #cccccc;
-  --font: Consolas, "Cascadia Mono", "Lucida Console", monospace;
+  --font: Consolas, "Cascadia Mono", "JetBrains Mono", "Source Code Pro", "DejaVu Sans Mono", "Liberation Mono", "Lucida Console", monospace;
   --apagado: #6e6e6e;        /* texto secundário */
   --linha: #2b2b2b;          /* divisórias */
   --barra-titulo: #1f1f1f;   /* barra de título e status, como no Windows */
@@ -1979,7 +1979,17 @@ html[data-estilo="ios"] {
   --vidro-borda: rgba(255, 255, 255, 0.09);
   --vidro-forte: rgba(255, 255, 255, 0.14);  /* hover / selecionado */
   --mola: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --c-esq: rgb(24, 24, 32);
+  --c-dir: rgb(24, 24, 32);
+  --c-topo: rgb(24, 24, 32);
+  --c-baixo: rgb(24, 24, 32);
+  --c-media: rgb(22, 22, 30);
 }
+@property --c-esq { syntax: '<color>'; inherits: true; initial-value: rgb(24, 24, 32); }
+@property --c-dir { syntax: '<color>'; inherits: true; initial-value: rgb(24, 24, 32); }
+@property --c-topo { syntax: '<color>'; inherits: true; initial-value: rgb(24, 24, 32); }
+@property --c-baixo { syntax: '<color>'; inherits: true; initial-value: rgb(24, 24, 32); }
+@property --c-media { syntax: '<color>'; inherits: true; initial-value: rgb(22, 22, 30); }
 html[data-estilo="ios"],
 html[data-estilo="ios"] body,
 html[data-destacado="1"],
