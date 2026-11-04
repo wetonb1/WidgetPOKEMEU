@@ -430,7 +430,7 @@ function criarJanela(posicao) {
   // Guarda o tamanho que você escolheu (só no modo normal; 1 s depois de soltar)
   janela.on('resized', () => {
     verificarBordasJanela(janela);
-    if (modoAtual !== 'normal') return;
+    if (modoAtual !== 'normal' || janela._expandido) return;
     clearTimeout(salvarTamanhoTimer);
     salvarTamanhoTimer = setTimeout(() => {
       if (!janela || janela.isDestroyed()) return;
@@ -1783,11 +1783,14 @@ ipcMain.handle('janela:modo', (e, modo) => {
   const [largura, altura] = janela.getSize();
 
   if (modo === 'mini') {
+    const expandidaAgora = !!janela._expandido;
     if (janela && !janela.isDestroyed() && janela._expandido) {
       janela._expandido = false;
       janela.webContents.send('janela:expandido', false);
     }
-    tamanhoAntesDoMini = { largura, altura, modo: modoAtual };
+    // expandido -> mini: o tamanho para voltar é o de antes de expandir, não o da tela inteira
+    const antes = janela._boundsAntesExpandir && expandidaAgora ? janela._boundsAntesExpandir : { width: largura, height: altura };
+    tamanhoAntesDoMini = { largura: antes.width, altura: antes.height, modo: modoAtual };
     janela.setMinimumSize(MINI.largura, MINI.altura);
     janela.setMaximumSize(MINI.largura, MINI.altura);
     janela.setResizable(false);
@@ -1822,12 +1825,18 @@ ipcMain.handle('janela:alternar-expandir', (e) => {
   if (!w._expandido) {
     w._boundsAntesExpandir = { x: b.x, y: b.y, width: b.width, height: b.height };
     if (w === janela && modoAtual === 'mini') {
+      // saindo do mini direto para o expandido: "restaurar" volta ao tamanho normal, não aos 280x150
+      if (tamanhoAntesDoMini) Object.assign(w._boundsAntesExpandir, { width: tamanhoAntesDoMini.largura, height: tamanhoAntesDoMini.altura });
       modoAtual = 'normal';
       janela.webContents.send('tela:modo', 'normal');
     }
     w.setResizable(true);
-    w.setMaximumSize(area.width + 300, area.height + 300);
-    w.setBounds({ x: area.x, y: area.y, width: area.width, height: area.height });
+    w.setMinimumSize(1, 1);
+    w.setMaximumSize(0, 0); // 0 = sem limite (o MAX de 1400x900 cortaria monitores maiores)
+    // disp.bounds e não workArea: o expandido cobre também a barra de tarefas
+    w.setBounds(disp.bounds);
+    w.moveTop();
+    w.focus();
     w._expandido = true;
     snapBordasJanela(w);
     verificarBordasJanela(w, true);
@@ -1851,6 +1860,13 @@ ipcMain.handle('janela:alternar-expandir', (e) => {
     return { expandido: false };
   }
 });
+
+// Resolução ou escala mudou com o widget expandido: acompanha o monitor
+function reajustarExpandidas() {
+  for (const w of [janela, ...janelasTerm.values()]) {
+    if (w && !w.isDestroyed() && w._expandido) w.setBounds(screen.getDisplayMatching(w.getBounds()).bounds);
+  }
+}
 
 ipcMain.handle('janela:obter-expandido', (e) => {
   const w = obterJanelaOrigem(e);
@@ -1926,7 +1942,7 @@ function verificarBordasJanela(w = janela, forcar = false) {
 }
 
 function snapBordasJanela(w = janela) {
-  if (!w || w.isDestroyed()) return;
+  if (!w || w.isDestroyed() || w._expandido) return;
   const b = w.getBounds();
   const disp = screen.getDisplayMatching(b);
   if (!disp) return;
@@ -2170,6 +2186,7 @@ function executarSetupInicial() {
 }
 
 app.whenReady().then(() => {
+  screen.on('display-metrics-changed', reajustarExpandidas);
   executarSetupInicial();
   const sessao = session.defaultSession;
 

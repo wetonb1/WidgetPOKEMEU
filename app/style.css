@@ -3364,6 +3364,25 @@ html[data-destacado="1"] #cartao.tela-cheia #proj-term {
   height: 100% !important;
 }
 
+/* Expandido não se arrasta (nem entra no encaixe das bordas) */
+#cartao.tela-cheia #cabecalho { -webkit-app-region: no-drag; }
+
+/* [ampliar]: a coluna do Pokémon some de verdade. O vão entre as colunas e o grid fixo do expandido (acima, com
+   !important) deixavam uma faixa vazia de até 460 px no lugar dele. Expandido + [ampliar] = só o terminal na tela. */
+#cartao.term-largo, #cartao.cer-largo,
+[data-estilo="ios"] #cartao.term-largo, [data-estilo="ios"] #cartao.cer-largo { column-gap: 0; }
+#cartao.tela-cheia.term-largo, #cartao.tela-cheia.cer-largo,
+[data-estilo="ios"] #cartao.tela-cheia.term-largo, [data-estilo="ios"] #cartao.tela-cheia.cer-largo {
+  grid-template-columns: 0 1fr !important;
+}
+#cartao.tela-cheia.term-largo { grid-template-rows: 32px 1fr 0 !important; }
+[data-estilo="ios"] #cartao.tela-cheia.term-largo { grid-template-rows: 46px 1fr 0 !important; padding: 0 8px 8px; }
+#cartao.tela-cheia.term-largo .status { display: none; }
+#cartao.tela-cheia.term-largo .conteudo { padding: 6px; }
+#cartao.tela-cheia.term-largo #aba-projetos.ativo.terminal:not(.usando) { display: flex; flex-direction: column; }
+#cartao.tela-cheia.term-largo #aba-projetos.terminal:not(.usando) .proj-esq { display: none; }
+#cartao.tela-cheia.term-largo #aba-projetos.terminal:not(.usando) .proj-term { flex: 1; }
+
 /* ---------- Botão de Posições e Menu Flutuante ---------- */
 .cab-btn.posicoes svg {
   width: 12px;
