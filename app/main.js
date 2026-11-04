@@ -1129,14 +1129,17 @@ function salvarPrintDaAreaDeTransferencia() {
     try { const p = path.join(PASTA_PRINTS, f); if (fs.statSync(p).mtimeMs < limite) fs.unlinkSync(p); } catch { /* em uso: fica para a próxima */ }
   }
   const arquivo = path.join(PASTA_PRINTS, `print-${Date.now()}.png`);
-  fs.writeFileSync(arquivo, img.toPNG());
-  return arquivo;
+  const png = img.toPNG();
+  fs.writeFileSync(arquivo, png);
+  if (fs.statSync(arquivo).size !== png.length) throw new Error('o arquivo do print ficou incompleto');
+  const { width, height } = img.getSize();
+  return { imagem: arquivo, largura: width, altura: height, bytes: png.length, miniatura: img.resize({ height: 48 }).toDataURL() };
 }
 ipcMain.handle('term:colar', async (e) => {
   if (!daJanela(e)) return { texto: '', imagem: '' };
   const texto = String((await clipboard.readText()) || '').slice(0, 200000);
   if (texto) return { texto, imagem: '' };
-  try { return { texto: '', imagem: salvarPrintDaAreaDeTransferencia() }; } catch { return { texto: '', imagem: '' }; }
+  try { return { texto: '', imagem: '', ...salvarPrintDaAreaDeTransferencia() }; } catch (erro) { return { texto: '', imagem: '', erro: erro.message }; }
 });
 ipcMain.handle('cerebro:copiar', (e, texto) => {
   if (!daJanela(e) || typeof texto !== 'string' || texto.length > 300000) return false;

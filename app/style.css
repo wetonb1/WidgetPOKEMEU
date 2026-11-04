@@ -1847,6 +1847,28 @@ button { font-family: var(--font); }
 .et-term.ativo { display: block; }
 .et-term .xterm { height: 100%; }
 .et-term .xterm-viewport { background-color: transparent !important; }
+.et-colagem {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100% - 20px);
+  padding: 5px 10px;
+  border: 1px solid #3c3c3c;
+  background: #161616;
+  color: #cfeccf;
+  font: 12px var(--font);
+  pointer-events: none; /* nunca pega o clique nem o foco do terminal */
+}
+.et-colagem img { width: auto; height: 36px; max-width: 72px; object-fit: cover; flex-shrink: 0; }
+.et-colagem span { min-width: 0; overflow-wrap: anywhere; }
+.et-colagem.pendente { color: var(--text); }
+.et-colagem.erro { color: var(--alerta); border-color: var(--alerta); }
+[data-estilo="ios"] .et-colagem { border-color: rgba(255, 255, 255, 0.16); border-radius: 12px; background: rgba(24, 26, 38, 0.94); box-shadow: var(--brilho-topo), 0 6px 16px rgba(0, 0, 0, 0.3); }
+[data-estilo="ios"] .et-colagem img { border-radius: 7px; }
 .et-aviso { flex-shrink: 0; font-size: 11px; color: var(--apagado); }
 .et-aviso.atencao { color: var(--accent); }
 #cartao.term-largo, #cartao.cer-largo { grid-template-columns: 0 1fr; }

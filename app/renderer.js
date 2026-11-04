@@ -4418,6 +4418,7 @@ const terminalEmb = (() => {
   let destacado = false; // na janela principal: se o terminal está aberto na janela destacada (outro monitor)
   let emTela = false;
   let timerAviso = null;
+  let timerColagem = null;
   let aoMudar = () => {};
   let aoUso = () => {};
   let aoAbrirPS = () => {};
@@ -4443,6 +4444,39 @@ const terminalEmb = (() => {
     aviso.classList.toggle('atencao', atencao);
     aviso.classList.toggle('oculto', !texto);
     if (texto && ms) timerAviso = setTimeout(() => aviso.classList.add('oculto'), ms);
+  }
+
+  // Selo de colagem: confirma na própria sessão o que o Ctrl+V fez de verdade. Fica por cima do terminal, sem tocar no foco.
+  function seloColagem(texto, tipo = 'ok', miniatura) {
+    clearTimeout(timerColagem);
+    const selo = $('et-colagem');
+    const img = selo.querySelector('img');
+    selo.querySelector('span').textContent = texto;
+    if (miniatura !== undefined) { img.src = miniatura; img.classList.toggle('oculto', !miniatura); }
+    selo.classList.toggle('erro', tipo === 'erro');
+    selo.classList.toggle('pendente', tipo === 'pendente');
+    selo.classList.remove('oculto');
+    if (tipo !== 'pendente') timerColagem = setTimeout(() => selo.classList.add('oculto'), tipo === 'erro' ? 7000 : 4000);
+  }
+  // Cola o print e confere na tela: o Claude troca o caminho por "[Image #N]"; os outros deixam o caminho no prompt.
+  // Só diz que chegou o que dá para ver; se nada aparecer, avisa em vez de fingir que deu certo.
+  function colarPrint(term, r) {
+    const tam = r.bytes >= 1048576 ? (r.bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(r.bytes / 1024)) + ' KB';
+    const detalhe = `${r.largura}×${r.altura}, ${tam}`;
+    const nome = r.imagem.split(/[\\/]/).pop();
+    const marcas = (t) => (t.match(/\[Image #\d+\]/g) || []).length;
+    const antes = marcas(textoDaTela({ term }));
+    term.paste(r.imagem);
+    seloColagem(`Print gravado (${detalhe}), enviando...`, 'pendente', r.miniatura || '');
+    let tentativas = 0;
+    const conferir = () => {
+      const tela = textoDaTela({ term }).replace(/\n/g, ''); // sem as quebras: o caminho pode cair em duas linhas
+      if (marcas(tela) > antes) seloColagem(`✓ Print anexado pela IA (${detalhe})`);
+      else if (tela.includes(nome)) seloColagem(`✓ Print colado no prompt (${detalhe}): a IA anexa ao enviar`);
+      else if (++tentativas < 6) setTimeout(conferir, 400);
+      else seloColagem(`Print gravado (${detalhe}), mas não apareceu no terminal`, 'erro');
+    };
+    setTimeout(conferir, 400);
   }
 
   function ajustar(s) {
@@ -4501,9 +4535,16 @@ const terminalEmb = (() => {
     // Ctrl+A em terminal envia \x01 (início da linha / prompt) em vez do navegador selecionar todo o histórico.
     const colar = async () => {
       const r = await window.widget.termColar();
-      if (r.texto) term.paste(r.texto); // com "bracketed paste" quando o programa pede (o Claude pede)
-      else if (r.imagem) { term.paste(r.imagem); dizerNoTerminal('Print colado como arquivo: a IA anexa a imagem ao enviar.', false, 4000); } // imagem: cola o caminho do PNG temporário
-      else window.widget.termEntrada(info.termId, '\x16'); // área de transferência vazia: mantém o Ctrl+V do programa
+      if (r.texto) {
+        term.paste(r.texto); // com "bracketed paste" quando o programa pede (o Claude pede)
+        const linhas = r.texto.split('\n').length;
+        if (linhas > 1 || r.texto.length >= 300) seloColagem(`✓ Texto colado (${linhas} ${linhas === 1 ? 'linha' : 'linhas'})`, 'ok', '');
+      } else if (r.imagem) colarPrint(term, r); // imagem: cola o caminho do PNG temporário
+      else if (r.erro) seloColagem(`Não consegui colar o print: ${r.erro}`, 'erro', '');
+      else {
+        window.widget.termEntrada(info.termId, '\x16'); // área de transferência vazia: mantém o Ctrl+V do programa
+        seloColagem('Nada para colar: não há texto nem imagem copiados', 'erro', '');
+      }
     };
     const copiarSelecao = () => { window.widget.cerebroCopiar(term.getSelection()); term.clearSelection(); };
     term.attachCustomKeyEventHandler((e) => {
