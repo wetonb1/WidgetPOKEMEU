@@ -3167,6 +3167,11 @@ html[data-destacado="1"] #proj-term {
   animation: mini-entra 0.28s var(--mola, ease-out) 1;
   -webkit-app-region: drag; /* sem barra de título: o cartão todo arrasta */
 }
+/* app-region é herdada e, no Chromium, a região que vem depois no HTML vence: herdando "drag", a coluna de status
+   (que passa por baixo dos botões) religava o arrasto em cima deles e o Windows engolia o clique. Com initial, elas
+   não declaram região própria: continuam arrastando pelo cartão, atrás, e não cobrem nenhum "no-drag". */
+#cartao#cartao.mini .lado-poke,
+#cartao#cartao.mini .status { -webkit-app-region: initial; }
 [data-estilo="ios"] #cartao#cartao.mini {
   border: 1px solid color-mix(in srgb, var(--accent, #ffffff) 38%, rgba(255, 255, 255, 0.14)) !important;
 }
