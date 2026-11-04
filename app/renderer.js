@@ -580,9 +580,12 @@ const musica = (() => {
     el.icoPause.classList.toggle('oculto', !tocando);
   }
 
+  let ultimoStatusMusica = '';
   function desenhar(info) {
     if (!info.title) {
-      // nada tocando (ou erro do PowerShell, que chega como {})
+      if (atual === '__vazio__') return;
+      atual = '__vazio__';
+      ultimoStatusMusica = '';
       el.titulo.textContent = 'nada tocando';
       el.titulo.removeAttribute('title');
       el.artista.textContent = '';
@@ -590,14 +593,17 @@ const musica = (() => {
       el.capa.removeAttribute('src');
       el.status.textContent = '--';
       desenharPlayPause(false);
-      atual = '';
       return;
     }
-    el.titulo.textContent = info.title;
-    el.titulo.title = info.title; // tooltip com o nome inteiro
-    el.artista.textContent = info.artist || '';
-    el.status.textContent = (info.status === 'Playing' ? '' : '[pausado] ') + info.title + (info.artist ? ' — ' + info.artist : '');
-    desenharPlayPause(info.status === 'Playing');
+    const statusTxt = (info.status === 'Playing' ? '' : '[pausado] ') + info.title + (info.artist ? ' — ' + info.artist : '');
+    if (statusTxt !== ultimoStatusMusica) {
+      ultimoStatusMusica = statusTxt;
+      el.titulo.textContent = info.title;
+      el.titulo.title = info.title; // tooltip com o nome inteiro
+      el.artista.textContent = info.artist || '';
+      el.status.textContent = statusTxt;
+      desenharPlayPause(info.status === 'Playing');
+    }
   }
 
   // setTimeout recursivo: o próximo ciclo só é agendado depois que o atual termina
@@ -875,11 +881,28 @@ const sistema = (() => {
     desenharBarra(el.ramBarra, el.ramValor, pctRam);
     el.ramTexto.textContent = `${um(s.ramUsada / GB)} / ${um(s.ramTotal / GB)} GB de memória em uso`;
   }
+  let ultimoTextoCpu = '';
+  let ultimoTextoRam = '';
+  let ultimoTextoWidget = '';
   function desenhar(s) {
-    el.stCpu.textContent = `cpu ${Math.round(s.cpu)}%`;
-    el.stCpu.classList.toggle('alta', s.cpu > 85);
-    el.stRam.textContent = `ram ${um(s.ramUsada / GB)}G`;
-    if (s.ramWidget > 0) el.stWidget.textContent = `widget ${Math.round(s.ramWidget / 1048576)} MB`;
+    const tCpu = `cpu ${Math.round(s.cpu)}%`;
+    if (tCpu !== ultimoTextoCpu) {
+      ultimoTextoCpu = tCpu;
+      el.stCpu.textContent = tCpu;
+      el.stCpu.classList.toggle('alta', s.cpu > 85);
+    }
+    const tRam = `ram ${um(s.ramUsada / GB)}G`;
+    if (tRam !== ultimoTextoRam) {
+      ultimoTextoRam = tRam;
+      el.stRam.textContent = tRam;
+    }
+    if (s.ramWidget > 0) {
+      const tWid = `widget ${Math.round(s.ramWidget / 1048576)} MB`;
+      if (tWid !== ultimoTextoWidget) {
+        ultimoTextoWidget = tWid;
+        el.stWidget.textContent = tWid;
+      }
+    }
     el.stModo.classList.toggle('oculto', !economico);
     if (economico !== economicoAntes) {
       dizer(economico
@@ -1464,8 +1487,9 @@ const pokemon = (() => {
 
     if (el.img) {
       el.img.classList.remove('shiny-flash-sprite');
-      void el.img.offsetWidth;
-      el.img.classList.add('shiny-flash-sprite');
+      requestAnimationFrame(() => {
+        if (el.img) el.img.classList.add('shiny-flash-sprite');
+      });
       setTimeout(() => { if (el.img) el.img.classList.remove('shiny-flash-sprite'); }, 850);
     }
 

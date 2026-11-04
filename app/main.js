@@ -278,6 +278,13 @@ if (!cfgInicial.aceleracaoGPU) app.disableHardwareAcceleration();
 // só liga se você pedir: "redeEmProcesso": true.
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 app.commandLine.appendSwitch('disable-renderer-backgrounding');
+app.commandLine.appendSwitch('disable-component-update');
+app.commandLine.appendSwitch('disable-domain-reliability');
+app.commandLine.appendSwitch('disable-print-preview');
+app.commandLine.appendSwitch('disable-speech-api');
+app.commandLine.appendSwitch('disable-sync');
+app.commandLine.appendSwitch('disk-cache-size', '16777216');
+app.commandLine.appendSwitch('media-cache-size', '16777216');
 if (cfgInicial.redeEmProcesso) app.commandLine.appendSwitch('enable-features', 'NetworkServiceInProcess2');
 
 let modoAtual = 'normal';
@@ -364,6 +371,7 @@ function criarJanela(posicao) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      spellcheck: false,
       devTools: !app.isPackaged, // ferramentas de desenvolvedor só ao rodar com "npm start"
       backgroundThrottling: false,
       // necessário: a captura de áudio do visualizador (AudioContext) começa sem clique
@@ -1359,6 +1367,7 @@ function criarJanelaTerm(id, opcoes = {}) {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      spellcheck: false,
       devTools: !app.isPackaged,
       backgroundThrottling: false,
     },
@@ -1766,6 +1775,7 @@ ipcMain.handle('janela:fixar', (e, fixar) => {
 });
 
 // ---------- Detecção de Bordas (Dock estilo Coucou) e Posicionamento Fluido ----------
+let ultimoDock = '';
 function verificarBordasJanela(w = janela) {
   if (!w || w.isDestroyed()) return;
   const b = w.getBounds();
@@ -1779,7 +1789,11 @@ function verificarBordasJanela(w = janela) {
     esquerda: b.x <= area.x + SNAP,
     direita: (b.x + b.width) >= (area.x + area.width - SNAP),
   };
-  w.webContents.send('tela:dock', dock);
+  const chave = `${dock.topo ? 1 : 0}${dock.baixo ? 1 : 0}${dock.esquerda ? 1 : 0}${dock.direita ? 1 : 0}`;
+  if (chave !== ultimoDock) {
+    ultimoDock = chave;
+    w.webContents.send('tela:dock', dock);
+  }
 }
 
 function snapBordasJanela(w = janela) {
