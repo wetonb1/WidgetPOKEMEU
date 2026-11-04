@@ -2093,35 +2093,47 @@ html.mini body {
 }
 
 #cartao.mini {
-  grid-template-columns: 1fr 96px !important;
-  grid-template-rows: 32px 1fr !important;
-  grid-template-areas:
-    "cab cab"
-    "poke status";
-  border-radius: 46px !important;
-  padding: 0 14px 8px 14px !important;
+  grid-template-columns: 130px 1fr !important;
+  grid-template-rows: 1fr !important;
+  grid-template-areas: "poke status" !important;
+  border-radius: 65px !important;
+  padding: 0 16px 0 10px !important;
   overflow: hidden !important;
+  position: relative !important;
 }
 .mini .abas, .mini .conteudo, .mini .narracao, .mini .poke-cabecalho, .mini .poke-tipos { display: none !important; }
 .mini #cabecalho {
-  padding: 0 4px !important;
-  height: 32px !important;
-  min-height: 32px !important;
+  position: absolute !important;
+  top: 6px !important;
+  right: 14px !important;
+  height: 20px !important;
+  min-height: 20px !important;
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  z-index: 20 !important;
+  width: auto !important;
 }
 .mini #cabecalho .titulo {
-  font-size: 13px !important;
-  font-weight: 700 !important;
+  display: none !important;
 }
 .mini .cab-botoes {
   gap: 3px !important;
 }
 .mini .cab-btn {
-  width: 22px !important;
-  height: 22px !important;
+  width: 18px !important;
+  height: 18px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  opacity: 0.75;
+}
+.mini .cab-btn:hover {
+  opacity: 1;
+  background: rgba(255, 255, 255, 0.2) !important;
 }
 .mini .cab-btn svg {
-  width: 10px !important;
-  height: 10px !important;
+  width: 9px !important;
+  height: 9px !important;
 }
 .mini .lado-poke {
   padding: 0 !important;
@@ -2134,8 +2146,10 @@ html.mini body {
   height: 100% !important;
   overflow: visible !important;
   background: transparent !important;
+  box-shadow: none !important;
 }
-.mini .poke-tela {
+.mini .poke-tela,
+.mini .poke-anim {
   min-height: 0 !important;
   width: 100% !important;
   height: 100% !important;
@@ -2143,22 +2157,18 @@ html.mini body {
   align-items: center !important;
   justify-content: center !important;
   overflow: visible !important;
-}
-.mini .poke-anim {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  overflow: visible !important;
+  border: none !important;
+  background: transparent !important;
 }
 .mini .poke-img {
-  max-width: 80px !important;
-  max-height: 60px !important;
+  max-width: 105px !important;
+  max-height: 96px !important;
   width: auto !important;
   height: auto !important;
   object-fit: contain !important;
-  transform: scale(1.12) !important;
+  transform: scale(1.35) !important;
   transform-origin: center center !important;
-  filter: drop-shadow(0 3px 10px var(--pet-glow, rgba(255, 255, 255, 0.35))) !important;
+  filter: drop-shadow(0 4px 16px var(--pet-glow, rgba(255, 255, 255, 0.45))) !important;
   image-rendering: pixelated !important;
   margin: auto !important;
 }
@@ -2168,28 +2178,30 @@ html.mini body {
   flex-direction: column !important;
   align-items: flex-start !important;
   justify-content: center !important;
-  gap: 1.5px !important;
+  gap: 2px !important;
   margin: 0 !important;
-  padding: 5px 8px !important;
-  border-radius: 14px !important;
-  background: var(--bg);
+  padding: 16px 0 0 4px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
   box-sizing: border-box !important;
-  width: 96px !important;
+  width: 100% !important;
 }
 .mini .st {
   border: none !important;
-  padding: 0 2px !important;
-  line-height: 11px !important;
-  font-size: 8.5px !important;
+  padding: 0 !important;
+  line-height: 13px !important;
+  font-size: 9.5px !important;
   color: var(--apagado) !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  max-width: 82px !important;
+  max-width: 90px !important;
 }
 .mini .st b {
   font-weight: 600 !important;
-  font-size: 8.5px !important;
+  font-size: 9.5px !important;
   color: var(--text) !important;
 }
 .mini .st-musica {
@@ -2765,11 +2777,12 @@ html[data-destacado="1"] body {
 }
 [data-estilo="ios"] .carregando-barra { background: rgba(255, 255, 255, 0.1); }
 [data-estilo="ios"] #cartao.mini {
-  grid-template-columns: 1fr 96px !important;
-  grid-template-rows: 32px 1fr !important;
-  padding: 0 14px 8px 14px !important;
+  grid-template-columns: 130px 1fr !important;
+  grid-template-rows: 1fr !important;
+  grid-template-areas: "poke status" !important;
+  padding: 0 16px 0 10px !important;
   overflow: hidden !important;
-  border-radius: 46px !important;
+  border-radius: 65px !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
@@ -2781,47 +2794,54 @@ html[data-destacado="1"] body {
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     0 14px 40px rgba(0, 0, 0, 0.45) !important;
+  position: relative !important;
 }
+[data-estilo="ios"] #cartao.mini .lado-poke,
 [data-estilo="ios"] .mini .lado-poke {
   padding: 0 !important;
   border-radius: 0 !important;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.08) 0%, transparent 72%) !important;
+  background: transparent !important;
   border: none !important;
   box-shadow: none !important;
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
+  width: 100% !important;
+  height: 100% !important;
   overflow: visible !important;
 }
+[data-estilo="ios"] #cartao.mini .status,
 [data-estilo="ios"] .mini .status {
   display: flex !important;
   flex-direction: column !important;
   justify-content: center !important;
   align-items: flex-start !important;
-  gap: 1.5px !important;
+  gap: 2px !important;
   margin: 0 !important;
-  padding: 5px 8px !important;
-  border-radius: 14px !important;
-  background: rgba(255, 255, 255, 0.05) !important;
-  border: 1px solid rgba(255, 255, 255, 0.09) !important;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14) !important;
-  width: 96px !important;
+  padding: 16px 0 0 4px !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  width: 100% !important;
   box-sizing: border-box !important;
 }
+[data-estilo="ios"] #cartao.mini .st,
 [data-estilo="ios"] .mini .st {
   border: none !important;
-  line-height: 11px !important;
-  font-size: 8.5px !important;
-  color: var(--glass-text-sub, rgba(235, 235, 245, 0.65)) !important;
-  padding: 0 2px !important;
+  line-height: 13px !important;
+  font-size: 9.5px !important;
+  color: var(--glass-text-sub, rgba(235, 235, 245, 0.70)) !important;
+  padding: 0 !important;
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  max-width: 82px !important;
+  max-width: 90px !important;
 }
+[data-estilo="ios"] #cartao.mini .st b,
 [data-estilo="ios"] .mini .st b {
   font-weight: 600 !important;
-  font-size: 8.5px !important;
+  font-size: 9.5px !important;
   color: var(--glass-text-main, #ffffff) !important;
 }
 

@@ -127,6 +127,7 @@ contextBridge.exposeInMainWorld('widget', {
   janelaModo: (modo) => ipcRenderer.invoke('janela:modo', String(modo)),
   janelaFixar: (fixar) => ipcRenderer.invoke('janela:fixar', fixar === true),
   janelaPosicionar: (direcao) => ipcRenderer.invoke('janela:posicionar', String(direcao)),
+  obterDock: () => ipcRenderer.invoke('janela:obter-dock'),
   onDock: (cb) => {
     ipcRenderer.removeAllListeners('tela:dock');
     ipcRenderer.on('tela:dock', (_e, dock) => cb(dock));

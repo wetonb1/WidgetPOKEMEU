@@ -4491,7 +4491,6 @@ const terminalEmb = (() => {
     corpo.append(host);
     const term = new Terminal({
       fontFamily: FONTE, fontSize: 13, cursorBlink: true, scrollback: 2000, allowTransparency: true,
-      windowsPty: { backend: 'conpty', buildNumber: 19045 },
       theme: { background: 'rgba(0, 0, 0, 0)', foreground: cor('--text', '#cccccc'), cursor: cor('--accent', '#ffffff'), selectionBackground: 'rgba(255, 255, 255, 0.28)' },
     });
     const fit = new (typeof FitAddon === 'function' ? FitAddon : FitAddon.FitAddon)();
@@ -4499,6 +4498,7 @@ const terminalEmb = (() => {
     term.open(host);
     // Ctrl+C com texto selecionado copia (sem selecionar nada, é o Ctrl+C do programa: interromper).
     // Ctrl+V, Ctrl+Shift+V e Shift+Insert colam: o xterm.js trataria o Ctrl+V como tecla comum (^V) e cancelaria o "colar" do navegador.
+    // Ctrl+A em terminal envia \x01 (início da linha / prompt) em vez do navegador selecionar todo o histórico.
     const colar = async () => {
       const texto = await window.widget.termColar();
       if (texto) term.paste(texto); // com "bracketed paste" quando o programa pede (o Claude pede)
@@ -4510,6 +4510,11 @@ const terminalEmb = (() => {
       const tecla = String(e.key).toLowerCase();
       if (e.ctrlKey && !e.altKey && tecla === 'c' && term.hasSelection()) { e.preventDefault(); copiarSelecao(); return false; }
       if ((e.ctrlKey && !e.altKey && tecla === 'v') || (e.shiftKey && !e.ctrlKey && e.key === 'Insert')) { e.preventDefault(); colar(); return false; }
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && tecla === 'a') {
+        e.preventDefault();
+        window.widget.termEntrada(info.termId, '\x01');
+        return false;
+      }
       return true;
     });
     // botão direito: com texto selecionado copia, sem seleção cola (como no Windows Terminal)
@@ -4551,10 +4556,7 @@ const terminalEmb = (() => {
   }
 
   function garantirTickQuests() {
-    const temExecutando = [...sessoes.values()].some((s) => (s.quest || questsPorTermId.get(s.termId))?.estado === 'executando');
-    if (temExecutando && !timerTickQuests) {
-      timerTickQuests = setInterval(atualizarVisualQuests, 1000);
-    } else if (!temExecutando && timerTickQuests) {
+    if (timerTickQuests) {
       clearInterval(timerTickQuests);
       timerTickQuests = null;
     }
@@ -4562,20 +4564,7 @@ const terminalEmb = (() => {
 
   function atualizarQuestStatusTopo() {
     const elStatus = $('et-quest-status');
-    if (!elStatus) return;
-    const s = sessoes.get(atual);
-    const q = s ? (s.quest || questsPorTermId.get(s.termId)) : null;
-    if (!s || !q || (q.estado !== 'executando' && !q.duracaoMs)) {
-      elStatus.classList.add('oculto');
-      return;
-    }
-    const executando = q.estado === 'executando';
-    const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
-    elStatus.className = 'et-quest-status ' + (executando ? 'executando' : 'concluido');
-    elStatus.textContent = executando ? `quest: ${formatarTempoQuest(ms)}` : `✓ quest: ${formatarTempoQuest(ms)}`;
-    elStatus.title = executando
-      ? `Quest em andamento (${s.nome}): ${formatarTempoQuest(ms)}`
-      : `Última quest concluída (${s.nome}): ${formatarTempoQuest(ms)}`;
+    if (elStatus) elStatus.classList.add('oculto');
   }
 
   function destacarGuiaIndividual(s) {
@@ -4611,19 +4600,6 @@ const terminalEmb = (() => {
       b.style.setProperty('--cor', /^#[0-9a-f]{6}$/i.test(s.cor || '') ? s.cor : '#6e6e6e');
       b.title = s.vivo ? `${s.nome} · ${s.modelo}` : `${s.nome} · encerrada`;
       b.append(el('span', 'et-bolinha'), el('span', null, `${s.nome} · ${s.modelo}`));
-
-      const q = s.quest || questsPorTermId.get(s.termId);
-      if (q && (q.estado === 'executando' || q.duracaoMs > 0)) {
-        const executando = q.estado === 'executando';
-        const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
-        const chip = el('span', 'et-quest-tempo ' + (executando ? 'executando' : 'concluido'));
-        chip.dataset.termId = s.termId;
-        chip.textContent = (executando ? '' : '✓ ') + formatarTempoQuest(ms);
-        chip.title = executando
-          ? `Quest em andamento: ${formatarTempoQuest(ms)}`
-          : `Última quest concluída em: ${formatarTempoQuest(ms)}`;
-        b.append(chip);
-      }
 
       const btnDest = el('button', 'et-dest-aba', '↗');
       btnDest.type = 'button';
@@ -6149,19 +6125,7 @@ const projetos = (() => {
       const selo = el('span', 'ps-ia' + (s.ia && s.ia !== 'claude' ? ' agy' : ''), iaCurta(s.ia)); // "claude" ou "agy"
       selo.title = nomeIA(s.ia || 'claude');
 
-      const q = s.termId ? (terminalEmb.obterQuest(s.termId) || questsPorTermId.get(s.termId)) : null;
-      let chipQuest = null;
-      if (q && (q.estado === 'executando' || q.duracaoMs > 0)) {
-        const executando = q.estado === 'executando';
-        const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
-        chipQuest = el('span', 'ps-quest-chip ' + (executando ? 'executando' : 'concluido'));
-        chipQuest.dataset.termId = s.termId || '';
-        chipQuest.textContent = (executando ? '' : '✓ ') + formatarTempoQuest(ms);
-        chipQuest.title = executando ? `Quest em andamento: ${formatarTempoQuest(ms)}` : `Última quest: ${formatarTempoQuest(ms)}`;
-      }
-
       const itens = [el('span', 'ps-bolinha'), selo, desc];
-      if (chipQuest) itens.push(chipQuest);
       itens.push(
         s.via === 'widget'
           ? botao('[abrir]', () => focar(s), 'Mostra o terminal desta sessão aqui no widget')
@@ -7584,6 +7548,15 @@ const abas = (() => {
     for (const [nome, modulo] of Object.entries(MODULOS)) modulo.visivel(!mini && nome === atual);
     try {
       await window.widget.janelaModo(mini ? 'mini' : 'normal');
+      if (window.widget.obterDock) {
+        const d = await window.widget.obterDock();
+        if (d) {
+          cartao.classList.toggle('dock-topo', !!d.topo);
+          cartao.classList.toggle('dock-baixo', !!d.baixo);
+          cartao.classList.toggle('dock-esquerda', !!d.esquerda);
+          cartao.classList.toggle('dock-direita', !!d.direita);
+        }
+      }
     } catch (erro) {
       console.error('Erro ao mudar a janela:', erro);
     }
@@ -7639,13 +7612,18 @@ const abas = (() => {
   }
 
   // ----- dock nas bordas da tela (estilo Coucou) -----
+  const aplicarDock = (dock) => {
+    if (!dock) return;
+    cartao.classList.toggle('dock-topo', !!dock.topo);
+    cartao.classList.toggle('dock-baixo', !!dock.baixo);
+    cartao.classList.toggle('dock-esquerda', !!dock.esquerda);
+    cartao.classList.toggle('dock-direita', !!dock.direita);
+  };
   if (window.widget.onDock) {
-    window.widget.onDock((dock) => {
-      cartao.classList.toggle('dock-topo', !!dock.topo);
-      cartao.classList.toggle('dock-baixo', !!dock.baixo);
-      cartao.classList.toggle('dock-esquerda', !!dock.esquerda);
-      cartao.classList.toggle('dock-direita', !!dock.direita);
-    });
+    window.widget.onDock(aplicarDock);
+  }
+  if (window.widget.obterDock) {
+    window.widget.obterDock().then(aplicarDock).catch(() => {});
   }
 
   document.getElementById('btn-fechar').addEventListener('click', () => window.widget.fechar());

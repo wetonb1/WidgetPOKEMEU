@@ -29,7 +29,7 @@ if (app && app.isPackaged && !process.env._MEU_WIDGET_DELEGADO) {
 const TAMANHO_PADRAO = { largura: 900, altura: 400 };
 const MIN = { largura: 720, altura: 320 };
 const MAX = { largura: 1400, altura: 900 };
-const MINI = { largura: 345, altura: 116 };
+const MINI = { largura: 250, altura: 130 };
 const MARGEM = 12; // distância da borda da tela
 
 // A config do usuário fica em %APPDATA%\meu-widget\config.json
@@ -441,16 +441,16 @@ function criarJanela(posicao) {
   });
 
   let timerDockMove = null;
-  janela.on('move', () => {
-    if (!timerDockMove) {
-      timerDockMove = setTimeout(() => {
-        timerDockMove = null;
-        verificarBordasJanela(janela);
-      }, 120);
-    }
-  });
+  const aoMoverJanela = () => {
+    verificarBordasJanela(janela);
+    clearTimeout(timerDockMove);
+    timerDockMove = setTimeout(() => {
+      snapBordasJanela(janela);
+      verificarBordasJanela(janela);
+    }, 100);
+  };
+  janela.on('move', aoMoverJanela);
   janela.on('moved', () => {
-    if (timerDockMove) { clearTimeout(timerDockMove); timerDockMove = null; }
     snapBordasJanela(janela);
     verificarBordasJanela(janela);
   });
@@ -1410,6 +1410,15 @@ function criarJanelaTerm(id, opcoes = {}) {
   w.webContents.on('did-finish-load', () => {
     if (!w.isDestroyed()) w.webContents.send('term:sincronizar', opcoes.estado || ultimoEstadoTerm);
   });
+  let timerTermMoveFim = null;
+  w.on('move', () => {
+    verificarBordasJanela(w);
+    clearTimeout(timerTermMoveFim);
+    timerTermMoveFim = setTimeout(() => {
+      snapBordasJanela(w);
+      verificarBordasJanela(w);
+    }, 100);
+  });
   w.on('moved', () => {
     snapBordasJanela(w);
     verificarBordasJanela(w);
@@ -1816,13 +1825,13 @@ ipcMain.handle('janela:fixar', (e, fixar) => {
 });
 
 // ---------- Detecção de Bordas (Dock estilo Coucou) e Posicionamento Fluido ----------
-function verificarBordasJanela(w = janela) {
-  if (!w || w.isDestroyed()) return;
+function verificarBordasJanela(w = janela, forcar = false) {
+  if (!w || w.isDestroyed()) return null;
   const b = w.getBounds();
   const disp = screen.getDisplayMatching(b);
-  if (!disp) return;
+  if (!disp) return null;
   const area = disp.workArea;
-  const SNAP = 18;
+  const SNAP = 24;
   const dock = {
     topo: b.y <= area.y + SNAP,
     baixo: (b.y + b.height) >= (area.y + area.height - SNAP),
@@ -1830,10 +1839,11 @@ function verificarBordasJanela(w = janela) {
     direita: (b.x + b.width) >= (area.x + area.width - SNAP),
   };
   const chave = `${dock.topo ? 1 : 0}${dock.baixo ? 1 : 0}${dock.esquerda ? 1 : 0}${dock.direita ? 1 : 0}`;
-  if (chave !== w._ultimoDock) {
+  if (forcar || chave !== w._ultimoDock) {
     w._ultimoDock = chave;
     w.webContents.send('tela:dock', dock);
   }
+  return dock;
 }
 
 function snapBordasJanela(w = janela) {
@@ -1842,21 +1852,35 @@ function snapBordasJanela(w = janela) {
   const disp = screen.getDisplayMatching(b);
   if (!disp) return;
   const area = disp.workArea;
-  const SNAP = 18;
+  const SNAP = 24;
   let nx = b.x;
   let ny = b.y;
   let mudou = false;
 
-  if (Math.abs(b.y - area.y) <= SNAP) { ny = area.y; mudou = true; }
-  else if (Math.abs((b.y + b.height) - (area.y + area.height)) <= SNAP) { ny = area.y + area.height - b.height; mudou = true; }
+  if (Math.abs(b.y - area.y) <= SNAP || (b.y < area.y && b.y >= area.y - SNAP)) {
+    ny = area.y;
+    mudou = true;
+  } else if (Math.abs((b.y + b.height) - (area.y + area.height)) <= SNAP || ((b.y + b.height) > (area.y + area.height) && (b.y + b.height) <= area.y + area.height + SNAP)) {
+    ny = area.y + area.height - b.height;
+    mudou = true;
+  }
 
-  if (Math.abs(b.x - area.x) <= SNAP) { nx = area.x; mudou = true; }
-  else if (Math.abs((b.x + b.width) - (area.x + area.width)) <= SNAP) { nx = area.x + area.width - b.width; mudou = true; }
+  if (Math.abs(b.x - area.x) <= SNAP || (b.x < area.x && b.x >= area.x - SNAP)) {
+    nx = area.x;
+    mudou = true;
+  } else if (Math.abs((b.x + b.width) - (area.x + area.width)) <= SNAP || ((b.x + b.width) > (area.x + area.width) && (b.x + b.width) <= area.x + area.width + SNAP)) {
+    nx = area.x + area.width - b.width;
+    mudou = true;
+  }
 
   if (mudou) {
     w.setBounds({ x: nx, y: ny, width: b.width, height: b.height });
   }
 }
+
+ipcMain.handle('janela:obter-dock', (e) => {
+  return verificarBordasJanela(janela, true);
+});
 
 function animarJanelaPara(w, xFinal, yFinal, duracaoMs = 280) {
   const win = w || janela;

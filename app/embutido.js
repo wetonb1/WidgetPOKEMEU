@@ -129,13 +129,6 @@ function criarGerenciador({ pastaPty, enviar = () => {}, localizar = (p) => p, a
       t.lote.push(b);
       if (!t.timerLote) t.timerLote = setTimeout(() => { t.timerLote = null; descarregar(t); }, LOTE_MS);
     }
-    if (t.quest && t.quest.estado === 'executando') {
-      if (t.timerSilencioQuest) clearTimeout(t.timerSilencioQuest);
-      t.timerSilencioQuest = setTimeout(() => {
-        t.timerSilencioQuest = null;
-        checarFimQuest(t);
-      }, SILENCIO_MS + 50);
-    }
   }
   function descarregar(t) {
     if (!t.lote.length) return;
@@ -149,7 +142,6 @@ function criarGerenciador({ pastaPty, enviar = () => {}, localizar = (p) => p, a
     clearInterval(t.timerCmd);
     if (t.timerSilencioQuest) { clearTimeout(t.timerSilencioQuest); t.timerSilencioQuest = null; }
     if (t.timerLote) { clearTimeout(t.timerLote); t.timerLote = null; }
-    if (t.quest && t.quest.estado === 'executando') concluirQuest(t);
     descarregar(t);
     enviar('term:fim', t.id, codigo, erro || '');
     // fica um pouco guardado: a tela pode estar se ligando agora e ainda precisa ler o que ele escreveu
@@ -162,7 +154,6 @@ function criarGerenciador({ pastaPty, enviar = () => {}, localizar = (p) => p, a
     if (!t) return null;
     if (t.timerLote) { clearTimeout(t.timerLote); t.timerLote = null; t.lote = []; }
     t.anexado = true;
-    if (t.quest) enviar('term:quest', t.id, { ...t.quest });
     return Buffer.concat(t.replay);
   }
   const entrada = (id, texto) => {
@@ -170,24 +161,17 @@ function criarGerenciador({ pastaPty, enviar = () => {}, localizar = (p) => p, a
     if (!t || t.acabou || typeof texto !== 'string') return;
     t.h.escrever(texto.slice(0, 200000));
 
-    // Ctrl+C (ASCII 3) interrompe a execução e conclui/cancela a quest
+    // Ctrl+C (ASCII 3) limpa entrada
     if (texto.includes('\x03')) {
       t.entradaBuffer = '';
-      if (t.quest && t.quest.estado === 'executando') {
-        concluirQuest(t);
-      }
       return;
     }
 
     t.entradaBuffer = (t.entradaBuffer + texto).slice(-2000);
 
-    // Enter envia comando/prompt
+    // Enter limpa buffer de entrada (sem rastreamento automático de quests)
     if (texto.includes('\r') || texto.includes('\n')) {
-      const comandoTexto = limparBufferEntrada(t.entradaBuffer).trim();
       t.entradaBuffer = '';
-      if (comandoTexto.length > 0) {
-        iniciarQuest(t, comandoTexto);
-      }
     }
   };
   const tamanho = (id, c, l) => {
