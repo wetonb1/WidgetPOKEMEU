@@ -7907,6 +7907,29 @@ const ajustes = (() => {
     atualizacao: document.getElementById('cfg-atualizacao'),
   };
 
+  // a GPU só muda ao nascer o processo: salva e avisa
+  caixa.gpu.addEventListener('change', () => {
+    const ligar = caixa.gpu.checked;
+    mudarConfig((cfg) => { cfg.aceleracaoGPU = ligar; })
+      .then(() => dizer(ligar ? 'GPU ligada: vale quando você reabrir o widget.' : 'GPU desligada: vale quando você reabrir o widget. Vou ficar menos fluido.'))
+      .catch((erro) => console.error('Erro ao salvar:', erro));
+  });
+
+  // Mini: a gota troca o estilo do vidro na hora e o título mostra o nome
+  const VIDROS = [['cristal', 'Cristal'], ['ambar', 'Âmbar'], ['nevoa', 'Névoa'], ['prisma', 'Prisma'], ['meia-noite', 'Meia-noite'], ['gelo', 'Gelo']];
+  const btnVidro = document.getElementById('btn-mini-vidro');
+  const aplicarVidro = (id) => {
+    document.documentElement.dataset.miniVidro = id;
+    const i = VIDROS.findIndex(([v]) => v === id);
+    btnVidro.title = `Vidro: ${VIDROS[i][1]} (clique para o próximo: ${VIDROS[(i + 1) % VIDROS.length][1]})`;
+  };
+  btnVidro.addEventListener('click', () => {
+    const i = VIDROS.findIndex(([v]) => v === document.documentElement.dataset.miniVidro);
+    const proximo = VIDROS[(i + 1) % VIDROS.length][0];
+    aplicarVidro(proximo);
+    mudarConfig((cfg) => { cfg.miniVidro = proximo; }).catch((erro) => console.error('Erro ao salvar:', erro));
+  });
+
   // avisar de atualizações: ligar confere já (é um clique seu); desligar esconde o botão
   caixa.atualizacao.addEventListener('change', () => {
     const ligar = caixa.atualizacao.checked;
@@ -7981,6 +8004,8 @@ const ajustes = (() => {
       caixa.visualizador.checked = cfg.visualizador !== false;
       caixa.animacoes.checked = cfg.animacoes !== false;
       caixa.atualizacao.checked = cfg.avisarAtualizacao !== false;
+      caixa.gpu.checked = cfg.aceleracaoGPU !== false;
+      aplicarVidro(cfg.miniVidro || 'cristal');
     },
   };
 })();

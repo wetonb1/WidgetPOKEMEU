@@ -162,6 +162,8 @@ function tamanhoValidoJanela(t) {
   };
 }
 
+const VIDROS_MINI = ['cristal', 'ambar', 'nevoa', 'prisma', 'meia-noite', 'gelo'];
+
 function sanitizarConfig(cfg, modelo) {
   const bv = cfg.boasVindas && typeof cfg.boasVindas === 'object' ? cfg.boasVindas : {};
   const mbv = modelo.boasVindas;
@@ -169,7 +171,10 @@ function sanitizarConfig(cfg, modelo) {
     pokemon: slug(cfg.pokemon) ? cfg.pokemon : modelo.pokemon,
     shiny: bool(cfg.shiny, modelo.shiny),
     gifAnimado: bool(cfg.gifAnimado, modelo.gifAnimado),
-    aceleracaoGPU: bool(cfg.aceleracaoGPU, modelo.aceleracaoGPU),
+    // o false antigo ficava gravado em toda config: migra 1 vez para o novo padrão (ligada); depois vale a chave em Settings
+    aceleracaoGPU: cfg.gpuMigrada === true ? bool(cfg.aceleracaoGPU, modelo.aceleracaoGPU) : true,
+    gpuMigrada: true,
+    miniVidro: VIDROS_MINI.includes(cfg.miniVidro) ? cfg.miniVidro : VIDROS_MINI[0], // estilo de vidro do mini (botão de gota)
     redeEmProcesso: bool(cfg.redeEmProcesso, false), // veja a nota perto do disableHardwareAcceleration
     desempenho: cfg.desempenho === 'economico' ? 'economico' : 'normal',
     economiaAutomatica: bool(cfg.economiaAutomatica, modelo.economiaAutomatica),
