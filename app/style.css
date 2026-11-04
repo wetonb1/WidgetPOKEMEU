@@ -424,6 +424,7 @@ button { font-family: var(--font); }
   flex-direction: column;
   gap: 8px;
   padding: 8px 12px;
+  overflow: hidden;
 }
 .prompt { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex-shrink: 0; }
 .ps1 { color: var(--text); }
@@ -864,6 +865,16 @@ button { font-family: var(--font); }
 .icone-btn:disabled, .icone-btn:disabled:hover { opacity: 0.3; background: transparent; color: var(--accent); cursor: not-allowed; }
 
 /* ---------- Aba poke ---------- */
+#aba-poke.ativo {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
 .icone-btn {
   display: inline-flex;
   align-items: center;
@@ -888,10 +899,10 @@ button { font-family: var(--font); }
 .icone-btn.ativo { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: var(--accent); color: #ffffff; }
 #poke-fav.ativo .btn-ico { color: #ffd700; text-shadow: 0 0 6px rgba(255, 215, 0, 0.7); }
 #poke-shiny.ativo .btn-ico { color: #ffd700; text-shadow: 0 0 6px rgba(255, 215, 0, 0.7); }
-.poke-favs { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; }
+.poke-favs { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; max-height: 52px; overflow-y: auto; }
 .fav-btn { color: var(--text); }
-.ajustes { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 12px; }
-.caixa { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.ajustes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.caixa { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 11px; }
 .caixa input { accent-color: var(--accent); cursor: pointer; margin: 0; }
 
 /* ---------- Diálogo / Pop-ups característicos do widget ---------- */
@@ -2407,13 +2418,14 @@ html[data-destacado="1"] body {
 }
 
 /* ----- aba poke: chaves no lugar das caixinhas ----- */
-[data-estilo="ios"] .ajustes { gap: 8px 14px; }
-[data-estilo="ios"] .caixa { gap: 8px; }
+[data-estilo="ios"] #aba-poke.ativo { gap: 5px; }
+[data-estilo="ios"] .ajustes { gap: 5px 12px; }
+[data-estilo="ios"] .caixa { gap: 7px; font-size: 11px; }
 [data-estilo="ios"] .caixa input {
   appearance: none;
   position: relative;
-  width: 34px;
-  height: 20px;
+  width: 30px;
+  height: 18px;
   flex-shrink: 0;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.18);
@@ -2424,15 +2436,15 @@ html[data-destacado="1"] body {
   position: absolute;
   top: 2px;
   left: 2px;
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: #ffffff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
   transition: transform 0.25s var(--mola);
 }
 [data-estilo="ios"] .caixa input:checked { background: var(--accent); }
-[data-estilo="ios"] .caixa input:checked::before { transform: translateX(14px); }
+[data-estilo="ios"] .caixa input:checked::before { transform: translateX(12px); }
 [data-estilo="ios"] .estilo-escolha { gap: 2px; align-self: flex-start; padding: 3px; border-radius: 11px; background: rgba(255, 255, 255, 0.08); }
 [data-estilo="ios"] .estilo-escolha span { margin: 0 8px 0 6px; color: var(--apagado); }
 [data-estilo="ios"] .estilo-op {
