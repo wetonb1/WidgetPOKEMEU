@@ -2782,7 +2782,21 @@ const grafoCer = (() => {
   const canvas = $('graf-canvas');
   const area = $('graf-area');
   const INTERVALO = 15000; // reabrir em menos de 15 s não recarrega os dados
-  const RAIO = { p: 7.5, e: 4.8, c: 3.6 };
+  const RAIO = { p: 7.5, e: 4.8, c: 3.6, k: 3.4 };
+  const LIMITE_LEVE = 1500; // acima disto: sem brilho e sem nuvens (cada quadro precisa continuar barato)
+  const LADRILHO = 512;
+  const DUR_NASCER = 460;
+  const DUR_SALTO = 230; // ms por salto da onda do clique
+  const CORES = ['projeto', 'tema', 'tempo', 'relevancia'];
+  const FONTE_UI = IOS ? '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' : '11px "Segoe UI", -apple-system, sans-serif';
+  // Cada estilo é só este conjunto de valores (fundo do canvas no CSS: #graf-area[data-graf=...])
+  const ESTILOS = {
+    constelacao: { fundo: 'estrelas', linha: [150, 178, 225], ligacoes: 0.17, espessura: 0.8, brilho: 0.9, nuvem: 0.35, forma: 'estrela', fonte: FONTE_UI, texto: '#e9eefb', fundoRotulo: 'rgba(7, 9, 20, 0.66)', fundoDica: 'rgba(10, 13, 28, 0.95)', papel: '#ffffff', conceito: '#ffd479', destaque: '#ffffff' },
+    neural: { fundo: 'poeira', linha: [190, 130, 255], ligacoes: 0.24, espessura: 0.9, curvas: true, brilho: 0.75, nuvem: 0.22, forma: 'neuronio', fonte: FONTE_UI, texto: '#f0e8ff', fundoRotulo: 'rgba(16, 7, 30, 0.7)', fundoDica: 'rgba(20, 9, 36, 0.95)', papel: '#f4eaff', conceito: '#7cf7d4', destaque: '#f5d0ff' },
+    nebulosa: { fundo: 'estrelas', linha: [200, 170, 255], ligacoes: 0.09, espessura: 0.7, brilho: 1, nuvem: 0.55, forma: 'estrela', fonte: FONTE_UI, texto: '#fbeeff', fundoRotulo: 'rgba(14, 6, 26, 0.6)', fundoDica: 'rgba(18, 8, 32, 0.95)', papel: '#ffffff', conceito: '#ffe9a8', destaque: '#ffffff' },
+    atlas: { fundo: 'grade', linha: [110, 190, 255], ligacoes: 0.3, espessura: 0.8, brilho: 0, nuvem: 0, forma: 'alvo', fonte: '10px Consolas, "Cascadia Mono", monospace', maiusculas: true, texto: '#bfe3ff', fundoRotulo: 'rgba(6, 22, 44, 0.82)', fundoDica: 'rgba(6, 22, 44, 0.97)', papel: '#0a2038', conceito: '#ffd166', destaque: '#ffffff' },
+    manuscrito: { fundo: 'papel', linha: [86, 58, 30], ligacoes: 0.36, espessura: 0.85, curvas: true, brilho: 0, nuvem: 0.16, forma: 'tinta', claro: true, tinta: '#2c1c0d', fonte: 'italic 12px Georgia, "Times New Roman", serif', texto: '#2c1c0d', fundoRotulo: '', fundoDica: 'rgba(246, 236, 214, 0.97)', papel: '#f1e6cc', conceito: '#8f2d1f', destaque: '#8f2d1f' },
+  };
   let passoMs = 0;
   let ultimoMovido = -1; // a última bolinha que você arrastou (diagnóstico)
   let passosFeitos = 0;
@@ -2796,17 +2810,21 @@ const grafoCer = (() => {
   let ultimoFoco = -999;
   let vizFocoCache = null;
   let ultimoStatus = '';
-  const hubColors = new Map();
-  const corHub = (hex, a) => {
-    const k = hex + '_' + a.toFixed(2);
-    let c = hubColors.get(k);
-    if (!c) {
-      const [r, g, b] = rgb(hex);
-      c = `rgba(${r}, ${g}, ${b}, ${0.2 * a})`;
-      hubColors.set(k, c);
-    }
-    return c;
-  };
+  const padroes = new Map();
+  const brilhos = new Map();
+  const ativos = new Set(); // nós com o destaque ainda animando
+  const pulsos = [];
+  const visual = { estilo: 'constelacao', cor: 'projeto', conceitos: false };
+  let analise = null; // resultado do mente.analisar: temas, relevância, pontes...
+  let coresVis = [];
+  let nosConceito = 0;
+  let maisQuadros = false; // alguma animação visual (nascer, destaque, onda) ainda pede o próximo quadro
+  let fadeFoco = 0;
+  let modoCaminho = -1; // escolhendo o destino do caminho a partir deste nó
+  let rota = null;
+  let rotaSet = null;
+  let rotaT0 = 0;
+  let timerTempo = 0;
 
   let aberto = false;
   let emTela = false;
@@ -2818,6 +2836,7 @@ const grafoCer = (() => {
   let ligs = []; // [a, b, peso, tipo]
   let viz = []; // vizinhos de cada nó
   let hubs = []; // índices dos projetos
+  let hubsPorGrau = [];
   let proj = []; // projeção da última imagem: {x, y, z, s, r, vis}
   let ordem = [];
   const cam = { yaw: 0.7, pitch: -0.32, dist: 900, panX: 0, panY: 0 };
@@ -2858,7 +2877,8 @@ const grafoCer = (() => {
     if (!hex || typeof hex !== 'string' || !hex.startsWith('#')) return [154, 164, 178];
     if (!rgbCache.has(hex)) {
       const h = hex.length === 4 ? '#' + hex[1] + hex[1] + hex[2] + hex[2] + hex[3] + hex[3] : hex;
-      rgbCache.set(hex, [parseInt(h.slice(1, 3), 16) || 154, parseInt(h.slice(3, 5), 16) || 164, parseInt(h.slice(5, 7), 16) || 178]);
+      const canal = (a, padrao) => { const v = parseInt(h.slice(a, a + 2), 16); return Number.isNaN(v) ? padrao : v; };
+      rgbCache.set(hex, [canal(1, 154), canal(3, 164), canal(5, 178)]);
     }
     return rgbCache.get(hex);
   };
@@ -2882,14 +2902,17 @@ const grafoCer = (() => {
     dadosReais = r.dados;
     montar(modoDemo ? fundirComDemoCerebro(dadosReais) : dadosReais);
   }
-  function montar(d) {
+  function montar(dados) {
+    const d = visual.conceitos ? window.mente.comConceitos(dados) : dados;
     const antigos = new Map(nos.map((n) => [n.id, n]));
+    const primeiraVez = !antigos.size;
     const corProjeto = new Map(d.nos.filter((n) => n.t === 'p').map((n) => [n.p, n.cor]));
     nos = d.nos.map((n) => ({ ...n, cor: n.cor || corProjeto.get(n.p), x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, grau: 0, preso: false }));
     ligs = d.ligacoes;
     viz = nos.map(() => []);
     for (const [a, b] of ligs) { viz[a].push(b); viz[b].push(a); nos[a].grau++; nos[b].grau++; }
     hubs = nos.map((n, i) => (n.t === 'p' ? i : -1)).filter((i) => i >= 0);
+    hubsPorGrau = [...hubs].sort((a, b) => nos[b].grau - nos[a].grau); // os rótulos dos maiores têm preferência
     // posições: o que já existia fica onde estava; projetos novos numa esfera; arquivos novos perto do seu projeto
     const rh = 70 + 45 * Math.sqrt(hubs.length);
     hubs.forEach((i, k) => {
@@ -2914,8 +2937,23 @@ const grafoCer = (() => {
     });
     proj = nos.map(() => ({ x: 0, y: 0, z: 0, s: 1, r: 1, vis: false }));
     ordem = nos.map((_, i) => i);
-    if (selecionado >= nos.length) selecionado = -1;
+    nosConceito = nos.filter((n) => n.t === 'k').length;
+    // os índices mudam ao remontar: nada do que aponta para eles pode sobreviver
+    selecionar(-1);
+    limparRota();
+    pulsos.length = 0;
+    ativos.clear();
+    ultimoFoco = -999;
+    fadeFoco = 0;
     hover = -1;
+    analise = window.mente.analisar(nos, ligs);
+    recolorir();
+    renderMente();
+    if (primeiraVez) { // os projetos nascem primeiro; as memórias brotam em volta, as mais relevantes antes
+      const agora = performance.now();
+      nos.forEach((n, i) => { n._t0 = agora + (n.t === 'p' ? 40 * (i % 12) : 260 + (1 - analise.rel[i]) * 620 + Math.random() * 120); });
+    }
+    if (!$('graf-tempo').classList.contains('oculto')) alternarTempo(true);
     aplicarFiltro();
     if (novos || !antigos.size) { enquadrarAoParar = true; reaquecer(1); }
     else pedir();
@@ -3069,8 +3107,8 @@ const grafoCer = (() => {
 
     desenhar();
 
-    // Se a física e a câmera pararam, dorme! Zero consumo de CPU.
-    if (precisaProximoQuadro) {
+    // Se a física, a câmera e as animações pararam, dorme! Zero consumo de CPU.
+    if (precisaProximoQuadro || maisQuadros) {
       pedir();
     }
   }
@@ -3123,7 +3161,7 @@ const grafoCer = (() => {
       const y2 = N.y * cp - z1 * sp;
       const z2 = N.y * sp + z1 * cp + cam.dist;
       const P = proj[i];
-      P.vis = z2 > 8;
+      P.vis = z2 > 8 && !N._oculto;
       P.z = z2;
       P.s = foco / Math.max(z2, 8);
       P.x = ox + x1 * P.s;
@@ -3133,117 +3171,218 @@ const grafoCer = (() => {
     }
   }
 
+  // ----- fundos: um ladrilho pintado 1x; depois só é carimbado (paralaxe leve ao girar, nunca redesenha estrela por estrela) -----
+  function padrao(tipo) {
+    if (padroes.has(tipo)) return padroes.get(tipo);
+    const c = document.createElement('canvas');
+    c.width = c.height = LADRILHO;
+    const g = c.getContext('2d');
+    let semente = 1234567;
+    const sorte = () => { semente = (semente * 16807) % 2147483647; return semente / 2147483647; };
+    if (tipo === 'grade') {
+      for (let v = 0; v < LADRILHO; v += 32) {
+        g.fillStyle = v % 128 ? 'rgba(120, 190, 255, 0.05)' : 'rgba(120, 190, 255, 0.13)';
+        g.fillRect(v, 0, 1, LADRILHO);
+        g.fillRect(0, v, LADRILHO, 1);
+      }
+    } else if (tipo === 'papel') {
+      for (let v = 0; v < LADRILHO; v += 26) { g.fillStyle = 'rgba(92, 62, 30, 0.055)'; g.fillRect(0, v, LADRILHO, 1); }
+      for (let i = 0; i < 260; i++) { g.fillStyle = `rgba(92, 62, 30, ${0.02 + sorte() * 0.05})`; g.fillRect(sorte() * LADRILHO, sorte() * LADRILHO, 1 + sorte() * 5, 1); }
+    } else {
+      const total = tipo === 'estrelas' ? 130 : 46;
+      for (let i = 0; i < total; i++) {
+        const r = sorte();
+        g.fillStyle = r > 0.93 ? 'rgba(170, 205, 255, 0.85)' : r > 0.86 ? 'rgba(255, 216, 170, 0.75)' : `rgba(255, 255, 255, ${0.12 + sorte() * 0.5})`;
+        g.beginPath();
+        g.arc(sorte() * LADRILHO, sorte() * LADRILHO, 0.35 + sorte() * sorte() * 1.15, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    padroes.set(tipo, c);
+    return c;
+  }
+  function pintarFundo() {
+    const E = ESTILOS[visual.estilo];
+    const lado = LADRILHO;
+    const vel = E.fundo === 'grade' || E.fundo === 'papel' ? 1 : 0.1; // a grade anda com a vista; as estrelas, bem devagar
+    const px = (((cam.panX * vel - cam.yaw * (vel === 1 ? 0 : 120)) % lado) + lado) % lado;
+    const py = (((cam.panY * vel + cam.pitch * (vel === 1 ? 0 : 120)) % lado) + lado) % lado;
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.fillStyle = ctx.createPattern(padrao(E.fundo), 'repeat');
+    ctx.fillRect(-lado, -lado, W + 2 * lado, H + 2 * lado);
+    ctx.restore();
+  }
+  function brilho(hex) {
+    let c = brilhos.get(hex);
+    if (!c) {
+      c = document.createElement('canvas');
+      c.width = c.height = 64;
+      const g = c.getContext('2d');
+      const [r, b, d] = rgb(hex);
+      const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+      grad.addColorStop(0, `rgba(${r}, ${b}, ${d}, 0.62)`);
+      grad.addColorStop(0.32, `rgba(${r}, ${b}, ${d}, 0.2)`);
+      grad.addColorStop(1, `rgba(${r}, ${b}, ${d}, 0)`);
+      g.fillStyle = grad;
+      g.fillRect(0, 0, 64, 64);
+      brilhos.set(hex, c);
+    }
+    return c;
+  }
+  const carimbar = (hex, x, y, r) => ctx.drawImage(brilho(hex), x - r, y - r, r * 2, r * 2);
+
+  function tracar(A, B, a, b, curvas) {
+    ctx.moveTo(A.x, A.y);
+    if (!curvas) { ctx.lineTo(B.x, B.y); return; }
+    const k = (a + b) % 2 ? 0.13 : -0.13;
+    ctx.quadraticCurveTo((A.x + B.x) / 2 - (B.y - A.y) * k, (A.y + B.y) / 2 + (B.x - A.x) * k, B.x, B.y);
+  }
+  // quanto o nó já nasceu (0 a 1, com um leve passar do ponto no fim)
+  function nascido(N, agora) {
+    if (!N._t0) return 1;
+    const u = (agora - N._t0) / DUR_NASCER;
+    maisQuadros = true;
+    if (u <= 0) return 0.001;
+    if (u >= 1) { N._t0 = 0; return 1; }
+    const v = u - 1;
+    return 1 + 2.2 * v * v * v + 1.2 * v * v;
+  }
+
   function desenhar() {
     const t0 = performance.now();
     if (!ctx || canvas.clientWidth !== W || canvas.clientHeight !== H) medir();
     ctx.clearRect(0, 0, W, H);
+    pintarFundo();
+    maisQuadros = false;
     if (!nos.length) { status(carregando ? 'carregando...' : 'o cérebro está vazio'); return; }
     projetar();
+    const E = ESTILOS[visual.estilo];
+    const leve = nos.length > LIMITE_LEVE;
 
     let zmin = Infinity; let zmax = -Infinity;
     for (const P of proj) if (P.vis) { if (P.z < zmin) zmin = P.z; if (P.z > zmax) zmax = P.z; }
     const faixa = Math.max(1, zmax - zmin);
+    const zMeio = (zmin + zmax) / 2;
     const nevoa = (z) => limitar(1.08 - ((z - zmin) / faixa) * 0.55, 0.35, 1);
 
     const foco_ = selecionado >= 0 ? selecionado : hover;
     if (foco_ !== ultimoFoco) {
+      if (foco_ >= 0) ativos.add(foco_);
+      if (ultimoFoco >= 0) ativos.add(ultimoFoco);
       ultimoFoco = foco_;
-      vizFocoCache = foco_ >= 0 ? new Set([foco_, ...viz[foco_]]) : null;
+      if (foco_ >= 0) vizFocoCache = new Set([foco_, ...viz[foco_]]);
     }
-    const vizFoco = vizFocoCache;
-    const vizSel = selecionado >= 0 ? vizFoco : null;
-    // No Obsidian: quando tem foco, todo o resto do grafo atenua suavemente
-    const apagado = (i) => (casam && !casam.has(i)) || (foco_ >= 0 && !vizFoco.has(i));
-
-    // 1. Ligações normais/atenuadas (em uma única passada ultra-rápida)
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = foco_ >= 0 ? 'rgba(150, 165, 190, 0.05)' : 'rgba(150, 165, 190, 0.16)';
-    ctx.beginPath();
-    for (const [a, b] of ligs) {
-      const A = proj[a]; const B = proj[b];
-      if (!A.vis || !B.vis) continue;
-      if (casam && (!casam.has(a) || !casam.has(b))) continue;
-      if (foco_ >= 0 && (vizFoco.has(a) && vizFoco.has(b))) continue; // desenhadas depois no destaque
-      ctx.moveTo(A.x, A.y); ctx.lineTo(B.x, B.y);
+    // o resto do grafo atenua aos poucos (e volta aos poucos)
+    const alvoFade = foco_ >= 0 ? 1 : 0;
+    fadeFoco += (alvoFade - fadeFoco) * 0.2;
+    if (Math.abs(alvoFade - fadeFoco) < 0.01) fadeFoco = alvoFade; else maisQuadros = true;
+    for (const i of ativos) {
+      const N = nos[i];
+      if (!N) { ativos.delete(i); continue; }
+      const alvo = i === foco_ ? 1 : 0;
+      N._h = (N._h || 0) + (alvo - (N._h || 0)) * 0.24;
+      if (Math.abs(alvo - N._h) < 0.01) { N._h = alvo; if (!alvo) ativos.delete(i); } else maisQuadros = true;
     }
-    ctx.stroke();
+    const vizFoco = fadeFoco > 0 ? vizFocoCache : null;
+    const fora = (i) => (casam && !casam.has(i)) || (rotaSet && !rotaSet.has(i));
+    const apagado = (i) => fora(i) || (!rotaSet && fadeFoco > 0.5 && vizFoco && !vizFoco.has(i));
+    const opacidade = (i, z) => {
+      if (fora(i)) return 0.09;
+      const base = nevoa(z);
+      return vizFoco && !vizFoco.has(i) && !rotaSet ? base + (0.12 - base) * fadeFoco : base;
+    };
 
-    // 2. Ligações destacadas do nó em foco (Obsidian style)
-    if (foco_ >= 0 && proj[foco_] && proj[foco_].vis) {
-      const corFoco = corDe(nos[foco_]);
-      ctx.strokeStyle = corFoco;
-      ctx.lineWidth = 1.6;
-      ctx.globalAlpha = 0.9;
-      ctx.beginPath();
-      for (const j of viz[foco_]) {
-        const B = proj[j];
-        if (B && B.vis) {
-          ctx.moveTo(proj[foco_].x, proj[foco_].y);
-          ctx.lineTo(B.x, B.y);
+    // 1. ligações: duas passadas (longe e perto) dão profundidade sem pagar um traço por linha
+    if (E.ligacoes) {
+      const curvas = E.curvas && ligs.length < 1400;
+      const [lr, lg, lb] = E.linha;
+      const alfaLig = E.ligacoes * (1 - 0.65 * fadeFoco);
+      ctx.lineWidth = E.espessura;
+      for (const perto of [false, true]) {
+        ctx.strokeStyle = `rgba(${lr}, ${lg}, ${lb}, ${perto ? alfaLig : alfaLig * 0.55})`;
+        ctx.beginPath();
+        for (const [a, b] of ligs) {
+          const A = proj[a]; const B = proj[b];
+          if (!A.vis || !B.vis) continue;
+          if ((casam && (!casam.has(a) || !casam.has(b))) || (rotaSet && !(rotaSet.has(a) && rotaSet.has(b)))) continue;
+          if ((A.z + B.z) / 2 <= zMeio !== perto) continue;
+          if (vizFoco && foco_ >= 0 && (a === foco_ || b === foco_)) continue; // desenhadas no destaque
+          tracar(A, B, a, b, curvas);
         }
+        ctx.stroke();
       }
+    }
+
+    // 2. ligações do nó em foco, na cor dele
+    if (foco_ >= 0 && proj[foco_] && proj[foco_].vis) {
+      ctx.strokeStyle = coresVis[foco_] || corDe(nos[foco_]);
+      ctx.lineWidth = 1.5;
+      ctx.globalAlpha = 0.85 * fadeFoco;
+      ctx.beginPath();
+      for (const j of viz[foco_]) if (proj[j] && proj[j].vis) tracar(proj[foco_], proj[j], foco_, j, E.curvas);
       ctx.stroke();
       ctx.globalAlpha = 1;
     }
 
-    // 3. Halos suaves dos Hubs de Projeto (estilo Obsidian)
-    for (const i of hubs) {
-      const P = proj[i];
-      if (!P.vis || P.x < -30 || P.y < -30 || P.x > W + 30 || P.y > H + 30) continue;
-      const a = apagado(i) ? 0.08 : nevoa(P.z);
-      if (a <= 0.15) continue;
-      ctx.fillStyle = corHub(corDe(nos[i]), a);
-      ctx.beginPath();
-      ctx.arc(P.x, P.y, P.r * 2.3, 0, Math.PI * 2);
-      ctx.fill();
+    // 3. nuvens dos projetos
+    if (E.nuvem && !leve) {
+      ctx.globalCompositeOperation = E.claro ? 'source-over' : 'lighter';
+      for (const i of hubs) {
+        const P = proj[i];
+        if (!P.vis) continue;
+        ctx.globalAlpha = (fora(i) ? 0.05 : nevoa(P.z)) * E.nuvem;
+        carimbar(coresVis[i], P.x, P.y, (P.r + 16) * (visual.estilo === 'nebulosa' ? 6.5 : 3));
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.globalAlpha = 1;
     }
 
-    // 4. Bolinhas / Nós (do fundo para a frente, renderização direta sem garbage collection)
+    // 4. rota entre duas ideias: vai se revelando de um nó ao outro
+    if (rota) {
+      const u = (t0 - rotaT0) / 230;
+      if (u < rota.length) maisQuadros = true;
+      ctx.lineWidth = 2.4;
+      ctx.strokeStyle = E.destaque;
+      ctx.beginPath();
+      for (let k = 0; k + 1 < rota.length; k++) {
+        const A = proj[rota[k]]; const B = proj[rota[k + 1]];
+        if (!A.vis || !B.vis || u <= k) continue;
+        const f = limitar(u - k, 0, 1);
+        ctx.moveTo(A.x, A.y);
+        ctx.lineTo(A.x + (B.x - A.x) * f, A.y + (B.y - A.y) * f);
+      }
+      ctx.stroke();
+    }
+
+    // 5. nós, do fundo para a frente
     ordem.sort((a, b) => proj[b].z - proj[a].z);
     for (const i of ordem) {
       const P = proj[i];
       if (!P.vis || P.x < -40 || P.y < -40 || P.x > W + 40 || P.y > H + 40) continue;
       const N = nos[i];
-      const cor = corDe(N);
-      const ehFoco = (i === foco_);
-      const a = apagado(i) ? 0.12 : nevoa(P.z);
-      const r = ehFoco ? P.r * 1.35 : P.r;
-
-      ctx.globalAlpha = a;
-      ctx.fillStyle = N.t === 'e' ? '#ffffff' : N.t === 'c' ? clara(cor) : cor;
-      ctx.beginPath();
-      ctx.arc(P.x, P.y, r, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (N.t === 'e') {
-        ctx.strokeStyle = cor;
-        ctx.lineWidth = Math.max(1, r * 0.45);
-        ctx.stroke();
-      }
-      if (N.preso) {
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-      }
-      if (i === selecionado) {
-        ctx.globalAlpha = 1;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(P.x, P.y, r + 3, 0, Math.PI * 2);
-        ctx.stroke();
-      }
+      const nasce = nascido(N, t0);
+      const a = opacidade(i, P.z) * Math.min(1, nasce);
+      const r = P.r * (1 + 0.4 * (N._h || 0)) * nasce;
+      P.rv = r;
+      pintarNo(N, i, P, coresVis[i] || corDe(N), a, r, E, leve);
       ctx.globalAlpha = 1;
     }
 
-    rotulos(vizFoco, apagado);
-    if (hover >= 0 && hover !== selecionado) dica(hover);
+    pintarPulsos(t0, E);
+    rotulos(vizFoco && foco_ >= 0 ? vizFoco : null, apagado, E);
+    if (hover >= 0 && hover !== selecionado) dica(hover, E);
 
     const ms = performance.now() - t0;
     ultimoMs = ms;
-    status(`${nos.length - hubs.length} arquivos · ${hubs.length} projetos · ${ligs.length} ligações` + (simulando ? ' · organizando...' : '')
-      + (casam ? ` · ${casam.size} combinam` : ''));
-    if (!simulando && !camAnim && Math.abs(velYaw) < 0.0001 && Math.abs(velPitch) < 0.0001 && !arraste) {
+    if (modoCaminho >= 0) status(`caminho a partir de “${nos[modoCaminho].n}”: clique no destino (Esc cancela)`);
+    else if (rota) status(`${rota.length - 1} ${rota.length === 2 ? 'salto' : 'saltos'} entre as duas ideias`);
+    else {
+      const arquivos = nos.length - hubs.length - nosConceito;
+      status(`${arquivos} memórias · ${hubs.length} projetos · ${nosConceito ? nosConceito + ' conceitos · ' : ''}${ligs.length} ligações` + (simulando ? ' · organizando...' : '')
+        + (casam ? ` · ${casam.size} combinam` : ''));
+    }
+    if (!simulando && !camAnim && !maisQuadros && Math.abs(velYaw) < 0.0001 && Math.abs(velPitch) < 0.0001 && !arraste) {
       if (canvas.dataset.estadoPronto !== 'true') {
         canvas.dataset.estadoPronto = 'true';
         canvas.dataset.estado = JSON.stringify({ yaw: +cam.yaw.toFixed(3), pitch: +cam.pitch.toFixed(3), dist: Math.round(cam.dist), panX: Math.round(cam.panX),
@@ -3258,41 +3397,151 @@ const grafoCer = (() => {
     }
   }
 
-  function rotulos(vizFoco, apagado) {
-    ctx.font = IOS ? '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' : '11px "Segoe UI", -apple-system, sans-serif';
+  function pintarNo(N, i, P, cor, a, r, E, leve) {
+    const hub = N.t === 'p';
+    const x = P.x; const y = P.y;
+    // brilho antes do corpo: as estrelas "respiram" luz sem custar um gradiente por quadro
+    if (E.brilho && !leve) {
+      ctx.globalAlpha = a * E.brilho * (N.t === 'k' ? 0.5 : 1) * (0.55 + 0.45 * (analise ? analise.rel[i] : 0) + 0.5 * (N._h || 0));
+      carimbar(cor, x, y, r * (hub ? 4.6 : 4));
+    }
+    ctx.globalAlpha = a;
+    if (N.t === 'k') { // conceito: losango
+      ctx.fillStyle = E.conceito;
+      ctx.beginPath();
+      ctx.moveTo(x, y - r); ctx.lineTo(x + r, y); ctx.lineTo(x, y + r); ctx.lineTo(x - r, y);
+      ctx.closePath();
+      ctx.fill();
+    } else if (E.forma === 'alvo') { // atlas: projetos quadrados, arquivos com mira
+      ctx.strokeStyle = cor;
+      ctx.lineWidth = hub ? 1.6 : 1.1;
+      ctx.beginPath();
+      if (hub) ctx.rect(x - r, y - r, r * 2, r * 2); else ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = cor;
+      ctx.fillRect(x - 0.9, y - 0.9, 1.8, 1.8);
+      if (hub) { ctx.beginPath(); ctx.moveTo(x - r - 4, y); ctx.lineTo(x - r, y); ctx.moveTo(x + r, y); ctx.lineTo(x + r + 4, y); ctx.moveTo(x, y - r - 4); ctx.lineTo(x, y - r); ctx.moveTo(x, y + r); ctx.lineTo(x, y + r + 4); ctx.stroke(); }
+    } else {
+      ctx.fillStyle = N.t === 'e' ? E.papel : N.t === 'c' && !E.claro ? clara(cor) : cor;
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fill();
+      if (N.t === 'e') { ctx.strokeStyle = cor; ctx.lineWidth = Math.max(1, r * 0.45); ctx.stroke(); }
+      if (hub && E.forma === 'neuronio') { ctx.strokeStyle = cor; ctx.lineWidth = 1; ctx.globalAlpha = a * 0.5; ctx.beginPath(); ctx.arc(x, y, r + 3.5, 0, Math.PI * 2); ctx.stroke(); ctx.globalAlpha = a; }
+      if (hub && E.forma === 'tinta') { ctx.strokeStyle = cor; ctx.lineWidth = 0.9; ctx.beginPath(); ctx.arc(x + 0.6, y - 0.4, r + 2.6, 0.2, Math.PI * 2.05); ctx.stroke(); }
+      if (hub && E.forma === 'estrela') { // raios finos da estrela maior
+        ctx.strokeStyle = cor;
+        ctx.lineWidth = 0.8;
+        ctx.globalAlpha = a * 0.65;
+        const raio = r * 2.6;
+        ctx.beginPath();
+        ctx.moveTo(x - raio, y); ctx.lineTo(x + raio, y); ctx.moveTo(x, y - raio); ctx.lineTo(x, y + raio);
+        ctx.stroke();
+        ctx.globalAlpha = a;
+      }
+    }
+    if (N.preso) { ctx.strokeStyle = E.texto; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(x, y, r + 1, 0, Math.PI * 2); ctx.stroke(); }
+    if (i === selecionado) {
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = E.destaque;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(x, y, r + 3.5, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  }
+
+  // A onda do clique: faíscas correm pelas ligações, salto a salto, e cada nó alcançado solta um anel. Dura ~1 s e some.
+  function lancarPulso(i) {
+    if (!nos[i] || !window.mente) return;
+    pulsos.length = 0;
+    pulsos.push({ t0: performance.now(), ...window.mente.onda(nos.length, viz, i, 3, nos.length > LIMITE_LEVE ? 40 : 160), cor: coresVis[i] || corDe(nos[i]) });
+    pedir();
+  }
+  function pintarPulsos(agora, E) {
+    for (let k = pulsos.length - 1; k >= 0; k--) {
+      const onda = pulsos[k];
+      const t = (agora - onda.t0) / DUR_SALTO;
+      if (t > onda.maxSalto + 2) { pulsos.splice(k, 1); continue; }
+      maisQuadros = true;
+      for (const [a, b, s] of onda.arestas) {
+        const u = t - s;
+        if (u < 0 || u > 1) continue;
+        const A = proj[a]; const B = proj[b];
+        if (!A.vis || !B.vis) continue;
+        const f = 1 - (1 - u) * (1 - u);
+        const x = A.x + (B.x - A.x) * f;
+        const y = A.y + (B.y - A.y) * f;
+        const f2 = Math.max(0, f - 0.22);
+        ctx.globalAlpha = 0.85 * (1 - u * 0.4);
+        ctx.strokeStyle = onda.cor;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(A.x + (B.x - A.x) * f2, A.y + (B.y - A.y) * f2);
+        ctx.lineTo(x, y);
+        ctx.stroke();
+        if (!E.claro) { ctx.globalAlpha = 1 - u * 0.5; carimbar(onda.cor, x, y, 10); }
+        ctx.fillStyle = E.claro ? onda.cor : '#ffffff';
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      for (let i = 0; i < onda.saltos.length; i++) {
+        const s = onda.saltos[i];
+        if (s < 0) continue;
+        const u = t - s - (s ? 0.75 : 0);
+        if (u < 0 || u > 1) continue;
+        const P = proj[i];
+        if (!P || !P.vis) continue;
+        ctx.globalAlpha = (1 - u) * (1 - u) * 0.8;
+        ctx.strokeStyle = onda.cor;
+        ctx.lineWidth = 1.4;
+        ctx.beginPath();
+        ctx.arc(P.x, P.y, (P.rv || P.r) + 2 + u * (s ? 12 : 26), 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  function rotulos(vizFoco, apagado, E) {
+    ctx.font = E.fonte;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
+    const caixas = [];
+    const livre = (x, y, w, h) => !caixas.some((c) => x < c[0] + c[2] && x + w > c[0] && y < c[1] + c[3] && y + h > c[1]);
 
-    const escrever = (i, forte) => {
+    const escrever = (i, forte, obrigatorio) => {
       const P = proj[i];
       const N = nos[i];
-      let txt = N.n;
+      let txt = E.maiusculas ? N.n.toUpperCase() : N.n;
       if (txt.length > 32) txt = txt.slice(0, 30) + '…';
-      const a = forte ? 1 : Math.min(0.85, Math.max(0.35, P.r / 6));
-      ctx.globalAlpha = a;
-
-      if (!N._tw) N._tw = ctx.measureText(txt).width;
+      if (N._tf !== E.fonte) { N._tf = E.fonte; N._tw = ctx.measureText(txt).width; }
       const w = N._tw;
-      const rx = P.x - w / 2 - 4;
-      const ry = P.y + P.r + 3;
-
-      ctx.fillStyle = 'rgba(14, 16, 22, 0.76)';
-      if (ctx.roundRect) {
+      const r = P.rv || P.r;
+      const lugares = [[P.x - w / 2 - 4, P.y + r + 3], [P.x - w / 2 - 4, P.y - r - 17], [P.x + r + 5, P.y - 7], [P.x - r - w - 13, P.y - 7]];
+      const lugar = lugares.find(([x, y]) => livre(x, y, w + 8, 14)) || (obrigatorio ? lugares[0] : null);
+      if (!lugar) return;
+      const [rx, ry] = lugar;
+      caixas.push([rx, ry, w + 8, 14]);
+      ctx.globalAlpha = forte ? 1 : Math.min(0.85, Math.max(0.4, P.r / 6));
+      if (E.fundoRotulo) {
+        ctx.fillStyle = E.fundoRotulo;
         ctx.beginPath();
-        ctx.roundRect(rx, ry, w + 8, 14, 4);
+        if (ctx.roundRect) ctx.roundRect(rx, ry, w + 8, 14, 4); else ctx.rect(rx, ry, w + 8, 14);
         ctx.fill();
-      } else {
-        ctx.fillRect(rx, ry, w + 8, 14);
       }
-
-      ctx.fillStyle = N.t === 'p' ? corDe(N) : '#e6e6e6';
-      ctx.fillText(txt, P.x, ry + 2);
+      ctx.fillStyle = N.t === 'p' ? coresVis[i] || corDe(N) : N.t === 'k' ? E.conceito : E.texto;
+      ctx.fillText(txt, rx + 4 + w / 2, ry + 2);
       ctx.globalAlpha = 1;
     };
 
     jaSet.clear();
-    for (const i of hubs) if (proj[i].vis && !apagado(i)) { escrever(i, true); jaSet.add(i); }
-    if (vizFoco) for (const i of vizFoco) if (!jaSet.has(i) && proj[i].vis && vizFoco.size <= 40) { escrever(i, i === hover || i === selecionado); jaSet.add(i); }
+    const emFoco = selecionado >= 0 ? selecionado : hover;
+    if (emFoco >= 0 && proj[emFoco].vis) { escrever(emFoco, true, true); jaSet.add(emFoco); }
+    if (rota) for (const i of rota) if (!jaSet.has(i) && proj[i].vis) { escrever(i, true, true); jaSet.add(i); }
+    if (vizFoco && vizFoco.size <= 40) for (const i of vizFoco) if (!jaSet.has(i) && proj[i] && proj[i].vis) { escrever(i, false); jaSet.add(i); }
+    for (const i of hubsPorGrau) if (!jaSet.has(i) && proj[i].vis && !apagado(i)) { escrever(i, true); jaSet.add(i); }
 
     let n = 0;
     for (let k = ordem.length - 1; k >= 0 && n < 45; k--) {
@@ -3303,37 +3552,34 @@ const grafoCer = (() => {
     }
   }
 
-  function dica(i) {
+  function dica(i, E) {
     const P = proj[i];
     const N = nos[i];
-    const tipo = N.t === 'p' ? 'projeto' : N.t === 'e' ? 'estado' : 'conversa';
-    const linhas = [N.n, N.t === 'p' ? `projeto · ${viz[i].length} arquivo(s)` : `${tipo} · ${N.p}${N.d ? ' · ' + N.d : ''}`];
-    ctx.font = IOS ? '11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' : '11px "Segoe UI", -apple-system, sans-serif';
+    const tipo = { p: 'projeto', e: 'estado', c: 'memória', k: 'conceito' }[N.t];
+    const linhas = [N.n, N.t === 'p' ? `projeto · ${viz[i].length} ligações` : N.t === 'k' ? `conceito · em ${viz[i].length} memórias` : `${tipo} · ${N.p}${N.d ? ' · ' + N.d : ''}`];
+    ctx.font = E.fonte;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
-    const w = Math.max(...linhas.map((l) => ctx.measureText(l).width)) + 16;
+    const w = Math.max(...linhas.map((l) => ctx.measureText(l).width)) + 18;
     let x = P.x + P.r + 8;
     let y = P.y - 10;
     if (x + w > W - 6) x = P.x - P.r - 8 - w;
     if (y + 34 > H) y = H - 36;
     if (y < 6) y = 6;
 
-    ctx.fillStyle = 'rgba(18, 20, 26, 0.92)';
-    if (ctx.roundRect) {
-      ctx.beginPath();
-      ctx.roundRect(x, y, w, 32, 6);
-      ctx.fill();
-    } else {
-      ctx.fillRect(x, y, w, 32);
-    }
+    ctx.fillStyle = E.fundoDica;
+    ctx.beginPath();
+    if (ctx.roundRect) ctx.roundRect(x, y, w, 32, 6); else ctx.rect(x, y, w, 32);
+    ctx.fill();
 
-    ctx.fillStyle = corDe(N);
+    ctx.fillStyle = coresVis[i] || corDe(N);
     ctx.fillRect(x, y + 2, 3, 28);
 
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = E.texto;
     ctx.fillText(linhas[0], x + 8, y + 3);
-    ctx.fillStyle = '#9aa0a6';
+    ctx.globalAlpha = 0.65;
     ctx.fillText(linhas[1], x + 8, y + 17);
+    ctx.globalAlpha = 1;
   }
   function status(t) {
     if (ultimoStatus !== t) {
@@ -3366,29 +3612,278 @@ const grafoCer = (() => {
       if (norm(N.n).includes(f) || norm(N.p).includes(f) || (N.k || []).some((k) => norm(k).includes(f)) || norm(N.a).includes(f)) casam.add(i);
     });
   }
-  function selecionar(i) {
+  function filtrarPor(texto) {
+    $('graf-filtro').value = texto;
+    filtroTexto = texto;
+    aplicarFiltro();
+    pedir();
+  }
+  const chip = (texto, titulo, aoClicar) => {
+    const b = el('button', 'graf-chip', texto);
+    b.type = 'button';
+    if (titulo) b.title = titulo;
+    b.addEventListener('click', aoClicar);
+    return b;
+  };
+  function selecionar(i, semPulso) {
     selecionado = i;
     const info = $('graf-info');
     if (i < 0) { info.classList.add('oculto'); pedir(); return; }
     const N = nos[i];
-    info.style.setProperty('--cor', corDe(N));
-    const tipo = { p: 'projeto', c: 'conversa', e: 'estado do projeto' }[N.t];
-    const meta = N.t === 'p' ? `${tipo} · ${viz[i].length} arquivo(s) ligado(s)` : `${tipo} · ${N.p}${N.d ? ' · ' + N.d : ''} · ${viz[i].length} ligação(ões)`;
+    info.style.setProperty('--cor', coresVis[i] || corDe(N));
+    const tema = analise && analise.temas.find((t) => t.id === analise.com[i]);
+    const peso = analise && N.t !== 'p' ? `relevância ${Math.round(analise.rel[i] * 100)}%` : '';
+    const tipo = { p: 'projeto', c: 'memória', e: 'estado do projeto', k: 'conceito' }[N.t];
+    const partes = N.t === 'p' ? [tipo, `${viz[i].length} ${viz[i].length === 1 ? 'ligação' : 'ligações'}`]
+      : N.t === 'k' ? [tipo, `em ${viz[i].length} memórias`] : [tipo, N.p, N.d, peso];
     const acoes = el('div', 'graf-acoes');
     if (N.a) acoes.append(botao('[abrir]', () => abrirArquivo(N.a)));
     acoes.append(botao('[centralizar aqui]', () => centrarEm(i)));
-    if (N.preso) acoes.append(botao('[soltar]', () => { N.preso = false; reaquecer(0.25); selecionar(i); }));
+    acoes.append(botao('[caminho até...]', () => { limparRota(); modoCaminho = i; pedir(); }));
+    if (N.preso) acoes.append(botao('[soltar]', () => { N.preso = false; reaquecer(0.25); selecionar(i, true); }));
     acoes.append(botao('[x]', () => selecionar(-1)));
     const baixo = area.clientHeight < 260;
     info.classList.toggle('compacto', baixo);
-    info.replaceChildren(el('div', 'graf-nome', N.n), ...(baixo ? [] : [el('div', 'graf-meta', meta)]),
-      ...(N.k && N.k.length && !baixo ? [el('div', 'graf-meta', N.k.join(', '))] : []), acoes);
+    const corpo = [el('div', 'graf-nome', N.n)];
+    if (!baixo) {
+      corpo.push(el('div', 'graf-meta', partes.filter(Boolean).join(' · ')));
+      if (tema && N.t !== 'k') corpo.push(el('div', 'graf-meta', `tema: ${tema.nome}`));
+      if (N.k && N.k.length) corpo.push(el('div', 'graf-meta', N.k.join(', ')));
+      const parecidas = analise && (N.t === 'c' || N.t === 'e') ? window.mente.parecidas(nos, analise.mapa, i, 3) : [];
+      if (parecidas.length) {
+        const linha = el('div', 'graf-chips');
+        linha.append(el('span', 'graf-rotulo', 'parecidas:'));
+        for (const p of parecidas) linha.append(chip(nos[p.j].n, `em comum: ${p.comum.join(', ')}`, () => irPara_(p.j)));
+        corpo.push(linha);
+      }
+    }
+    info.replaceChildren(...corpo, acoes);
     info.classList.remove('oculto');
+    if (!semPulso) lancarPulso(i);
     pedir();
   }
+  const irPara_ = (i) => { limparRota(); selecionar(i); centrarEm(i); };
   function abrirArquivo(arquivo) {
     fechar();
     cerebro.abrirArquivo(arquivo);
+  }
+
+  // ----- caminho entre duas ideias -----
+  function limparRota() {
+    modoCaminho = -1;
+    rota = null;
+    rotaSet = null;
+    pedir();
+  }
+  function sairDaRota() {
+    limparRota();
+    $('graf-info').classList.add('oculto');
+    mexeuNaCamera = false;
+    enquadrar(true);
+  }
+  function tracarRota(de, para) {
+    const r = window.mente.caminho(nos.length, ligs, de, para);
+    modoCaminho = -1;
+    const info = $('graf-info');
+    selecionado = -1;
+    info.style.setProperty('--cor', ESTILOS[visual.estilo].destaque);
+    info.classList.remove('compacto');
+    const fecharRota = el('div', 'graf-acoes');
+    fecharRota.append(botao('[x]', sairDaRota));
+    if (r.length < 2) {
+      rota = null;
+      rotaSet = null;
+      info.replaceChildren(el('div', 'graf-nome', 'Sem caminho entre essas duas ideias'), el('div', 'graf-meta', 'Nada as liga ainda: uma conversa sobre as duas criaria essa ponte.'), fecharRota);
+    } else {
+      rota = r;
+      rotaSet = new Set(r);
+      rotaT0 = performance.now();
+      enquadrarRota();
+      const passos = el('div', 'graf-chips');
+      r.forEach((i, k) => {
+        if (k) passos.append(el('span', 'graf-rotulo', '→'));
+        passos.append(chip(nos[i].n, nos[i].t === 'p' ? 'projeto' : nos[i].p, () => { if (nos[i].a) abrirArquivo(nos[i].a); else centrarEm(i); }));
+      });
+      info.replaceChildren(el('div', 'graf-nome', `Caminho de ${r.length - 1} ${r.length === 2 ? 'salto' : 'saltos'}`), passos, fecharRota);
+    }
+    info.classList.remove('oculto');
+    pedir();
+  }
+
+  function enquadrarRota() {
+    const pontos = rota.map((i) => girarPonto(nos[i]));
+    const meio = ['x', 'y', 'z'].map((k) => pontos.reduce((t, p) => t + p[k], 0) / pontos.length);
+    const raio = Math.max(40, ...pontos.map((p) => Math.hypot(p.x - meio[0], p.y - meio[1])));
+    const mente_ = $('graf-mente');
+    const coberto = mente_.classList.contains('oculto') ? 0 : mente_.offsetWidth + 8;
+    const livre = Math.max(160, Math.min(W - coberto, H - 90));
+    const dist = limitar((raio * foco) / (0.3 * livre) - meio[2], 120, cam.dist);
+    const s = foco / (meio[2] + dist);
+    irPara({ dist, panX: -meio[0] * s - coberto / 2, panY: -meio[1] * s - 34 }, 650); // -34: acima do cartão da rota
+    mexeuNaCamera = true;
+  }
+
+  // ----- painel Mente: a leitura do cérebro, sempre calculada na hora a partir dos dados reais -----
+  function renderMente() {
+    const painel = $('graf-mente');
+    if (!painel || painel.classList.contains('oculto') || !analise) return;
+    const a = analise;
+    const secao = (titulo, ajuda, itens) => {
+      if (!itens.length) return null;
+      const s = el('section', 'gm-secao');
+      const h = el('h4', 'gm-titulo', titulo);
+      if (ajuda) h.title = ajuda;
+      s.append(h, ...itens);
+      return s;
+    };
+    const item = (texto, sub, aoClicar) => {
+      const b = el('button', 'gm-item');
+      b.type = 'button';
+      b.append(el('span', 'gm-nome', texto));
+      if (sub) b.append(el('span', 'gm-sub', sub));
+      b.addEventListener('click', aoClicar);
+      return b;
+    };
+    const nomeProj = (p) => (nos.find((N) => N.t === 'p' && N.p === p) || {}).n || p;
+    const leitura = el('section', 'gm-secao gm-leitura');
+    leitura.append(el('h3', 'gm-grande', 'Leitura do seu cérebro'), ...a.sintese.map((s) => el('p', 'gm-frase', s)));
+
+    const nuvem = el('div', 'gm-nuvem');
+    const maior = Math.max(1, ...a.conceitos.map((c) => c.arquivos.length));
+    for (const c of a.conceitos.slice(0, 18)) {
+      const b = chip(c.termo, `${c.arquivos.length} memórias em ${c.projetos.size} ${c.projetos.size === 1 ? 'projeto' : 'projetos'}: clique para filtrar`, () => filtrarPor(c.termo));
+      b.style.fontSize = (10.5 + 3.5 * (c.arquivos.length / maior)).toFixed(1) + 'px';
+      nuvem.append(b);
+    }
+
+    const secoes = [
+      leitura,
+      secao('Temas', 'Grupos que se formam sozinhos pelas ligações', a.temas.slice(0, 6).map((t) => item(t.nome, `${t.arquivos} ${t.arquivos === 1 ? 'memória' : 'memórias'}`, () => { mudarCor('tema'); const h = t.membros.find((i) => nos[i].t === 'p'); irPara_(h === undefined ? t.membros[0] : h); }))),
+      a.conceitos.length ? secao('Conceitos recorrentes', 'As palavras que mais se repetem entre as memórias', [nuvem]) : null,
+      secao('Ideias centrais', 'Por onde mais caminhos passam (PageRank)', a.centrais.slice(0, 4).map((i) => item(nos[i].n, `${nos[i].p} · ${Math.round(a.rel[i] * 100)}%`, () => irPara_(i)))),
+      secao('Pontes entre projetos', 'Projetos diferentes que falam da mesma coisa', a.pontes.slice(0, 4).map((p) => item(`${nomeProj(p.projetos[0])} ↔ ${nomeProj(p.projetos[1])}`, p.via.length ? `via ${p.via.join(', ')}` : '', () => { limparRota(); tracarRota(p.a, p.b); }))),
+      secao('Conexões a explorar', 'Memórias de projetos diferentes, ainda sem ligação, com assunto parecido: talvez valha cruzar', a.explorar.slice(0, 4).map((e) => item(`${nos[e.a].n} × ${nos[e.b].n}`, `em comum: ${e.comum.slice(0, 3).join(', ')}`, () => { limparRota(); tracarRota(e.a, e.b); }))),
+      secao('Vale revisitar', 'Antigas e muito ligadas', a.adormecidas.slice(0, 3).map((i) => item(nos[i].n, `${nos[i].p} · ${nos[i].d}`, () => irPara_(i)))),
+      secao('Ilhas', 'Projetos sem nenhuma ponte com os outros', a.ilhas.slice(0, 5).map((i) => item(nos[i].n, `${viz[i].length} ${viz[i].length === 1 ? 'ligação' : 'ligações'}`, () => irPara_(i)))),
+    ].filter(Boolean);
+    painel.replaceChildren(...secoes);
+  }
+  function alternarMente(forcar) {
+    const painel = $('graf-mente');
+    const abrir_ = forcar === undefined ? painel.classList.contains('oculto') : forcar;
+    painel.classList.toggle('oculto', !abrir_);
+    $('graf-mente-btn').classList.toggle('ativa', abrir_);
+    renderMente();
+  }
+
+  // ----- máquina do tempo: ver o cérebro crescer, dia a dia -----
+  const pararTempo = () => {
+    clearTimeout(timerTempo);
+    timerTempo = 0;
+    $('graf-tempo-play').textContent = IOS ? '▶' : '[▶]';
+  };
+  function aplicarTempo(idx, animar) {
+    const dias = analise ? analise.dias : [];
+    if (!dias.length) return;
+    const k = limitar(idx, 0, dias.length - 1);
+    const limite = dias[k];
+    const agora = performance.now();
+    $('graf-tempo-val').value = k;
+    $('graf-tempo-dia').textContent = limite.split('-').reverse().slice(0, 2).join('/');
+    for (const N of nos) {
+      if (N.t !== 'c' && N.t !== 'e') continue;
+      const oculto = !!N.d && N.d > limite;
+      if (animar && N._oculto && !oculto) N._t0 = agora + Math.random() * 180;
+      N._oculto = oculto;
+    }
+    nos.forEach((N, i) => { if (N.t === 'k') N._oculto = viz[i].every((j) => nos[j]._oculto); }); // conceito só existe junto das suas memórias
+    pedir();
+  }
+  function tocarTempo() {
+    if (timerTempo) { pararTempo(); return; }
+    const dias = analise ? analise.dias : [];
+    if (!dias.length) return;
+    $('graf-tempo-play').textContent = IOS ? '❚❚' : '[❚❚]';
+    let k = 0;
+    const passo_ = () => {
+      aplicarTempo(k, true);
+      if (++k >= dias.length) { timerTempo = setTimeout(pararTempo, 700); return; }
+      timerTempo = setTimeout(passo_, Math.max(420, Math.min(900, 6000 / dias.length)));
+    };
+    passo_();
+  }
+  function alternarTempo(forcar) {
+    const barra = $('graf-tempo');
+    const abrir_ = forcar === undefined ? barra.classList.contains('oculto') : forcar;
+    barra.classList.toggle('oculto', !abrir_);
+    $('graf-tempo-btn').classList.toggle('ativa', abrir_);
+    pararTempo();
+    if (rota) sairDaRota();
+    if (abrir_ && analise && analise.dias.length) {
+      $('graf-tempo-val').max = analise.dias.length - 1;
+      aplicarTempo(analise.dias.length - 1, false);
+    } else {
+      for (const N of nos) N._oculto = false;
+      pedir();
+    }
+  }
+
+  // ----- estilos e cores -----
+  const salvarVisual = () => mudarConfig((cfg) => { cfg.cerebroVisual = { ...visual }; }).catch((erro) => console.error('Erro ao salvar:', erro));
+  function misturar(hex, alvo, f) {
+    const a = rgb(hex); const b = rgb(alvo);
+    return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * f).toString(16).padStart(2, '0')).join('');
+  }
+  const rampa = (u, de, meio, ate) => (u < 0.5 ? misturar(de, meio, u * 2) : misturar(meio, ate, (u - 0.5) * 2));
+  const corTema = (k) => {
+    const h = (k * 137.508 + 200) % 360;
+    const f = (n) => { const q = (n + h / 30) % 12; return Math.round(255 * (0.64 - 0.36 * Math.max(-1, Math.min(q - 3, 9 - q, 1)))).toString(16).padStart(2, '0'); };
+    return '#' + f(0) + f(8) + f(4);
+  };
+  function recolorir() {
+    const E = ESTILOS[visual.estilo];
+    const a = analise;
+    const dias = a ? a.dias : [];
+    coresVis = nos.map((N, i) => {
+      let c;
+      if (N.t === 'k') return E.conceito;
+      if (visual.cor === 'tema' && a) c = corTema(a.com[i]);
+      else if (visual.cor === 'tempo' && N.t !== 'p') c = rampa(dias.length > 1 ? Math.max(0, dias.indexOf(N.d)) / (dias.length - 1) : 1, '#4a6fa5', '#b86bd6', '#ffb347');
+      else if (visual.cor === 'tempo') c = '#8b93a7';
+      else if (visual.cor === 'relevancia' && a) c = rampa(a.rel[i], '#3a4a7a', '#27b5a8', '#ffe066');
+      else c = corDe(N);
+      if (E.tinta) return misturar(c, E.tinta, 0.45);
+      const [r, g, b] = rgb(c);
+      const luz = (0.3 * r + 0.59 * g + 0.11 * b) / 255;
+      return luz < 0.42 ? misturar(c, '#ffffff', 0.5 - luz) : c;
+    });
+    if (selecionado >= 0) $('graf-info').style.setProperty('--cor', coresVis[selecionado]);
+    pulsos.length = 0;
+    pedir();
+  }
+  function mudarEstilo(id, salvar = true) {
+    if (!ESTILOS[id]) return;
+    visual.estilo = id;
+    area.dataset.graf = id;
+    $('graf-estilo').value = id;
+    recolorir();
+    if (salvar) salvarVisual();
+  }
+  function mudarCor(id, salvar = true) {
+    if (!CORES.includes(id)) return;
+    visual.cor = id;
+    $('graf-cor').value = id;
+    recolorir();
+    if (salvar) salvarVisual();
+  }
+  function alternarConceitos(salvar = true) {
+    visual.conceitos = !visual.conceitos;
+    $('graf-conceitos').classList.toggle('ativa', visual.conceitos);
+    if (salvar) salvarVisual();
+    if (!dadosReais) return;
+    montar(modoDemo ? fundirComDemoCerebro(dadosReais) : dadosReais);
+    enquadrarAoParar = true;
+    reaquecer(0.7);
   }
 
   // ----- mouse e touch direto e instantâneo (zero lag) -----
@@ -3460,13 +3955,18 @@ const grafoCer = (() => {
     try { canvas.releasePointerCapture(e.pointerId); } catch { /* já solto */ }
     if (a.tipo === 'no') {
       const N = nos[a.i];
-      if (!a.moveu) { N.preso = a.presoAntes; selecionar(a.i); return; }
+      if (!a.moveu) {
+        N.preso = a.presoAntes;
+        if (modoCaminho >= 0 && modoCaminho !== a.i) tracarRota(modoCaminho, a.i);
+        else { modoCaminho = -1; selecionar(a.i); }
+        return;
+      }
       N.preso = true;
       ultimoMovido = a.i;
       canvas.dataset.movido = JSON.stringify({ id: N.id, x: Math.round(N.x), y: Math.round(N.y), z: Math.round(N.z) });
-      if (selecionado === a.i) selecionar(a.i);
+      if (selecionado === a.i) selecionar(a.i, true);
     } else if (!a.moveu) {
-      selecionar(-1);
+      if (modoCaminho < 0 && !rota) selecionar(-1);
     } else if (a.tipo === 'girar') {
       velYaw = limitar(velYaw, -0.04, 0.04);
       velPitch = limitar(velPitch, -0.04, 0.04);
@@ -3497,8 +3997,13 @@ const grafoCer = (() => {
     pedir();
   }, { passive: false });
   canvas.addEventListener('keydown', (e) => {
-    if (e.key === 'r' || e.key === 'R') { mexeuNaCamera = false; enquadrar(true); }
-    else if (e.key === 'Escape') { if (selecionado >= 0) selecionar(-1); else if (filtroTexto) { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); } }
+    const tecla = e.key.toLowerCase();
+    if (tecla === 'r') { mexeuNaCamera = false; enquadrar(true); }
+    else if (tecla === 'm') alternarMente();
+    else if (tecla === 't') alternarTempo();
+    else if (tecla === 'c') alternarConceitos();
+    else if (tecla === 'e') { const ids = Object.keys(ESTILOS); mudarEstilo(ids[(ids.indexOf(visual.estilo) + 1) % ids.length]); }
+    else if (e.key === 'Escape') { if (rota) sairDaRota(); else if (modoCaminho >= 0) limparRota(); else if (selecionado >= 0) selecionar(-1); else if (filtroTexto) { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); } }
   });
 
   // ----- barra de cima -----
@@ -3512,6 +4017,13 @@ const grafoCer = (() => {
     } else if (e.key === 'Escape') { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); }
   });
   $('graf-centro').addEventListener('click', () => { mexeuNaCamera = false; enquadrar(true); });
+  $('graf-estilo').addEventListener('change', (e) => mudarEstilo(e.target.value));
+  $('graf-cor').addEventListener('change', (e) => mudarCor(e.target.value));
+  $('graf-conceitos').addEventListener('click', () => alternarConceitos());
+  $('graf-tempo-btn').addEventListener('click', () => alternarTempo());
+  $('graf-mente-btn').addEventListener('click', () => alternarMente());
+  $('graf-tempo-play').addEventListener('click', tocarTempo);
+  $('graf-tempo-val').addEventListener('input', (e) => { pararTempo(); aplicarTempo(+e.target.value, true); });
   let cerAmpliado = false;
   const btnAmpliar = $('graf-ampliar');
   if (btnAmpliar) {
@@ -3580,11 +4092,20 @@ const grafoCer = (() => {
     abrir,
     alternarDemo,
     modoAtivo() { return modoDemo; },
-    iniciar() { aberto = true; aba.classList.add('grafo'); marcarTroca(); atualizarBotoesDemo(modoDemo); },
+    iniciar(salvo) {
+      aberto = true;
+      aba.classList.add('grafo');
+      marcarTroca();
+      atualizarBotoesDemo(modoDemo);
+      if (salvo && salvo.conceitos) { visual.conceitos = true; $('graf-conceitos').classList.add('ativa'); }
+      if (salvo && CORES.includes(salvo.cor)) mudarCor(salvo.cor, false);
+      mudarEstilo(salvo && ESTILOS[salvo.estilo] ? salvo.estilo : visual.estilo, false);
+    },
     visivel(v) {
       emTela = v;
       if (!v) {
         if (quadro) { cancelAnimationFrame(quadro); quadro = 0; }
+        if (timerTempo) pararTempo();
         if (cerAmpliado) {
           cerAmpliado = false;
           cartao.classList.remove('cer-largo');
@@ -4346,7 +4867,7 @@ const cerebro = (() => {
   aviso('Digite palavras (ex.: login erro) e tecle Enter, ou escolha um projeto. Compactar conversa, economia e manutenção ficam em "mais".');
 
   return {
-    iniciar(cfg) { projeto = typeof cfg.cerebroProjeto === 'string' ? cfg.cerebroProjeto : ''; grafoCer.iniciar(); },
+    iniciar(cfg) { projeto = typeof cfg.cerebroProjeto === 'string' ? cfg.cerebroProjeto : ''; grafoCer.iniciar(cfg.cerebroVisual); },
     aoMudarDemo,
     visivel(v) {
       emTela = v;
@@ -4459,22 +4980,27 @@ const terminalEmb = (() => {
     selo.classList.remove('oculto');
     if (tipo !== 'pendente') timerColagem = setTimeout(() => selo.classList.add('oculto'), tipo === 'erro' ? 7000 : 4000);
   }
-  // Cola o print e confere na tela: o Claude troca o caminho por "[Image #N]"; os outros deixam o caminho no prompt.
+  // Cola o print e confere na tela. O Claude pega a imagem sozinho com Alt+V e mostra "[Image #N]" (anexo de verdade, inclusive se ele
+  // foi aberto à mão dentro de um PowerShell); as outras IAs, e o Claude se não responder a tempo, recebem o caminho do PNG.
   // Só diz que chegou o que dá para ver; se nada aparecer, avisa em vez de fingir que deu certo.
-  function colarPrint(term, r) {
+  function colarPrint(term, termId, ia, r) {
     const tam = r.bytes >= 1048576 ? (r.bytes / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(r.bytes / 1024)) + ' KB';
     const detalhe = `${r.largura}×${r.altura}, ${tam}`;
     const nome = r.imagem.split(/[\\/]/).pop();
     const marcas = (t) => (t.match(/\[Image #\d+\]/g) || []).length;
-    const antes = marcas(textoDaTela({ term }));
-    term.paste(r.imagem);
+    const textoAntes = textoDaTela({ term });
+    const antes = marcas(textoAntes);
+    const claude = ia === 'claude' || (ia !== 'antigravity' && /Claude Code v\d/.test(textoAntes));
+    let colouCaminho = !claude;
+    if (claude) window.widget.termEntrada(termId, '\x1bv'); else term.paste(r.imagem);
     seloColagem(`Print gravado (${detalhe}), enviando...`, 'pendente', r.miniatura || '');
     let tentativas = 0;
     const conferir = () => {
-      const tela = textoDaTela({ term }).replace(/\n/g, ''); // sem as quebras: o caminho pode cair em duas linhas
+      const tela = textoDaTela({ term });
       if (marcas(tela) > antes) seloColagem(`✓ Print anexado pela IA (${detalhe})`);
-      else if (tela.includes(nome)) seloColagem(`✓ Print colado no prompt (${detalhe}): a IA anexa ao enviar`);
-      else if (++tentativas < 6) setTimeout(conferir, 400);
+      else if (colouCaminho && tela.replace(/\s/g, '').includes(nome)) seloColagem(`✓ Print colado no prompt (${detalhe}): a IA lê o arquivo ao enviar`); // sem espaços: o caminho quebra a linha com recuo
+      else if (++tentativas < (colouCaminho ? 6 : 18)) setTimeout(conferir, 400); // o Alt+V do Claude leva ~3 s (ele abre um PowerShell para ler a imagem)
+      else if (!colouCaminho) { colouCaminho = true; tentativas = 0; term.paste(r.imagem); setTimeout(conferir, 400); }
       else seloColagem(`Print gravado (${detalhe}), mas não apareceu no terminal`, 'erro');
     };
     setTimeout(conferir, 400);
@@ -4540,7 +5066,7 @@ const terminalEmb = (() => {
         term.paste(r.texto); // com "bracketed paste" quando o programa pede (o Claude pede)
         const linhas = r.texto.split('\n').length;
         if (linhas > 1 || r.texto.length >= 300) seloColagem(`✓ Texto colado (${linhas} ${linhas === 1 ? 'linha' : 'linhas'})`, 'ok', '');
-      } else if (r.imagem) colarPrint(term, r); // imagem: cola o caminho do PNG temporário
+      } else if (r.imagem) colarPrint(term, info.termId, info.ia, r);
       else if (r.erro) seloColagem(`Não consegui colar o print: ${r.erro}`, 'erro', '');
       else {
         window.widget.termEntrada(info.termId, '\x16'); // área de transferência vazia: mantém o Ctrl+V do programa

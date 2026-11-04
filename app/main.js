@@ -163,6 +163,13 @@ function tamanhoValidoJanela(t) {
 }
 
 const VIDROS_MINI = ['cristal', 'ambar', 'nevoa', 'prisma', 'meia-noite', 'gelo'];
+const ESTILOS_GRAFO = ['constelacao', 'neural', 'nebulosa', 'atlas', 'manuscrito'];
+const CORES_GRAFO = ['projeto', 'tema', 'tempo', 'relevancia'];
+const sanitizarVisualCerebro = (v) => ({
+  estilo: v && ESTILOS_GRAFO.includes(v.estilo) ? v.estilo : ESTILOS_GRAFO[0],
+  cor: v && CORES_GRAFO.includes(v.cor) ? v.cor : CORES_GRAFO[0],
+  conceitos: !!(v && v.conceitos),
+});
 
 function sanitizarConfig(cfg, modelo) {
   const bv = cfg.boasVindas && typeof cfg.boasVindas === 'object' ? cfg.boasVindas : {};
@@ -202,6 +209,7 @@ function sanitizarConfig(cfg, modelo) {
     ultimoUso: sanitizarUso(cfg.ultimoUso), // última leitura do /usage de CADA IA (barras da tela "uso e continuidade"); o formato antigo migra para o Claude
     avisoTrocaContaVisto: migrarAvisoConta(cfg.avisoTrocaContaVisto), // aviso de "Trocar conta" já mostrado, por IA (o booleano antigo migra para o Claude)
     cerebroProjeto: typeof cfg.cerebroProjeto === 'string' && PROJETO_CEREBRO.test(cfg.cerebroProjeto) ? cfg.cerebroProjeto : '', // último projeto da aba Cérebro
+    cerebroVisual: sanitizarVisualCerebro(cfg.cerebroVisual), // estilo, cor e conceitos do grafo do cérebro
     janela: tamanhoValidoJanela(cfg.janela), // tamanho escolhido por você
     estilo: cfg.estilo === 'ios' ? 'ios' : 'cmd', // visual: CMD ou iOS (vidro)
     // Franquias: de onde vem o "dono" do widget (Pokémon, ou anime via AniList)
@@ -1125,8 +1133,12 @@ ipcMain.handle('cerebro:escolher-pasta', async (e) => {
 // Se não há texto mas há IMAGEM (print do Win+Shift+S, por exemplo), grava um PNG temporário e devolve o caminho dele: o
 // renderer cola esse caminho e a IA (Claude/Antigravity) anexa a imagem. Prints com mais de 1 dia são apagados na hora de gravar.
 const PASTA_PRINTS = path.join(os.tmpdir(), 'meu-widget-prints');
-function salvarPrintDaAreaDeTransferencia() {
-  const img = clipboard.readImage();
+// O Electron 45 tirou o clipboard.readImage(): agora a área de transferência é a API assíncrona do W3C (read + getType).
+async function salvarPrintDaAreaDeTransferencia() {
+  const item = (await clipboard.read()).find((i) => i.types.includes('image/png'));
+  if (!item) return null;
+  const png = Buffer.from(await (await item.getType('image/png')).arrayBuffer());
+  const img = nativeImage.createFromBuffer(png);
   if (img.isEmpty()) return null;
   fs.mkdirSync(PASTA_PRINTS, { recursive: true });
   const limite = Date.now() - 24 * 3600 * 1000;
@@ -1134,7 +1146,6 @@ function salvarPrintDaAreaDeTransferencia() {
     try { const p = path.join(PASTA_PRINTS, f); if (fs.statSync(p).mtimeMs < limite) fs.unlinkSync(p); } catch { /* em uso: fica para a próxima */ }
   }
   const arquivo = path.join(PASTA_PRINTS, `print-${Date.now()}.png`);
-  const png = img.toPNG();
   fs.writeFileSync(arquivo, png);
   if (fs.statSync(arquivo).size !== png.length) throw new Error('o arquivo do print ficou incompleto');
   const { width, height } = img.getSize();
@@ -1144,7 +1155,7 @@ ipcMain.handle('term:colar', async (e) => {
   if (!daJanela(e)) return { texto: '', imagem: '', erro: 'janela recusada' };
   const texto = String((await clipboard.readText()) || '').slice(0, 200000);
   if (texto) return { texto, imagem: '' };
-  try { return { texto: '', imagem: '', ...salvarPrintDaAreaDeTransferencia() }; } catch (erro) { return { texto: '', imagem: '', erro: erro.message }; }
+  try { return { texto: '', imagem: '', ...(await salvarPrintDaAreaDeTransferencia()) }; } catch (erro) { return { texto: '', imagem: '', erro: erro.message }; }
 });
 ipcMain.handle('cerebro:copiar', (e, texto) => {
   if (!daJanela(e) || typeof texto !== 'string' || texto.length > 300000) return false;

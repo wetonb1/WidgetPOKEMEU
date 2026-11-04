@@ -1105,7 +1105,47 @@ button { font-family: var(--font); }
 .graf-info .botao-cmd { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: rgba(255, 255, 255, 0.09); border: 1px solid rgba(255, 255, 255, 0.18); }
 .graf-info .botao-cmd:hover { background: rgba(255, 255, 255, 0.2); }
 .graf-info.compacto { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 0 8px; padding: 3px 8px; max-width: 75%; }
-.graf-status { position: absolute; right: 8px; top: 6px; font-size: 10px; color: rgba(255, 255, 255, 0.55); pointer-events: none; text-align: right; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
+.graf-status { position: absolute; right: 10px; bottom: 6px; max-width: 60%; font-size: 10px; color: var(--graf-tx, rgba(255, 255, 255, 0.6)); pointer-events: none; text-align: right; text-shadow: var(--graf-sombra, 0 1px 3px rgba(0, 0, 0, 0.8)); }
+
+/* fundo de cada estilo do grafo (o canvas por cima carimba estrelas, grade ou papel) */
+#graf-area[data-graf="constelacao"] { background: radial-gradient(120% 110% at 28% 18%, #16204a 0%, #0a0e24 46%, #05060f 100%); }
+#graf-area[data-graf="neural"] { background: radial-gradient(90% 90% at 50% 50%, #2a1050 0%, #150727 55%, #0a0314 100%); }
+#graf-area[data-graf="nebulosa"] { background: radial-gradient(70% 90% at 80% 15%, #3a1450 0%, transparent 62%), radial-gradient(80% 90% at 12% 88%, #0c3350 0%, transparent 62%), #070512; }
+#graf-area[data-graf="atlas"] { background: linear-gradient(160deg, #0d2e52 0%, #071a33 100%); }
+#graf-area[data-graf="manuscrito"] { background: radial-gradient(115% 115% at 50% 42%, #f6edd8 38%, #e7d6b0 82%, #cdb589 100%); --graf-tx: rgba(44, 28, 13, 0.75); --graf-sombra: none; }
+
+.graf-ferr { position: absolute; left: 8px; top: 8px; right: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; pointer-events: none; }
+.graf-ferr > * { pointer-events: auto; }
+#graf-area .graf-ferr .botao-cmd, #graf-area .graf-tempo .botao-cmd { padding: 1px 8px; border: 1px solid rgba(255, 255, 255, 0.18); font-size: 11px; color: #ececec; background: rgba(12, 14, 24, 0.94); }
+#graf-area .graf-ferr .botao-cmd:hover, #graf-area .graf-tempo .botao-cmd:hover { background: rgba(38, 42, 62, 0.97); }
+#graf-area .graf-ferr .botao-cmd.ativa { color: var(--accent); border-color: var(--accent); }
+.graf-sel { max-width: 124px; padding: 2px 5px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; background: rgba(12, 14, 24, 0.92); color: var(--text); font: 11px var(--font); outline: none; cursor: pointer; }
+.graf-sel:focus { border-color: var(--accent); }
+.graf-sel option { background: #141621; color: #e8e8e8; }
+
+.graf-tempo { position: absolute; right: 8px; bottom: 22px; width: min(280px, 46%); display: flex; align-items: center; gap: 6px; padding: 3px 8px; border-radius: 10px; background: rgba(12, 14, 24, 0.94); border: 1px solid rgba(255, 255, 255, 0.14); }
+.graf-tempo input { flex: 1; min-width: 40px; height: 14px; accent-color: var(--accent); }
+.graf-tempo-dia { font-size: 11px; color: #f0f0f0; font-variant-numeric: tabular-nums; }
+
+.graf-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 4px; margin-top: 2px; }
+.graf-rotulo { font-size: 10px; color: rgba(255, 255, 255, 0.55); }
+.graf-chip { max-width: 190px; padding: 1px 7px; overflow: hidden; border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 999px; background: rgba(255, 255, 255, 0.07); color: #eaeaea; font: 10.5px var(--font); text-overflow: ellipsis; white-space: nowrap; cursor: pointer; transition: background 0.15s ease, transform 0.15s ease; }
+.graf-chip:hover { background: rgba(255, 255, 255, 0.2); transform: translateY(-1px); }
+
+/* painel Mente: leitura de revista por cima do grafo; serifa para separar pensamento de interface */
+.graf-mente { position: absolute; top: 36px; right: 8px; bottom: 22px; width: min(310px, 48%); overflow-y: auto; padding: 10px 12px; border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 12px; background: rgba(13, 15, 26, 0.97); animation: graf-entra 0.22s ease-out; }
+@keyframes graf-entra { from { opacity: 0; transform: translateX(10px); } to { opacity: 1; transform: none; } }
+.gm-secao { margin-bottom: 11px; }
+.gm-grande { margin: 0 0 5px; font: italic 600 15px Georgia, "Times New Roman", serif; color: #ffffff; }
+.gm-frase { margin: 0 0 4px; font: 12.5px/1.42 Georgia, "Times New Roman", serif; color: rgba(255, 255, 255, 0.84); }
+.gm-titulo { margin: 0 0 3px; padding-bottom: 2px; border-bottom: 1px solid rgba(255, 255, 255, 0.1); font: 600 10px var(--font); letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); }
+.gm-item { display: flex; flex-direction: column; width: 100%; padding: 3px 5px; border: none; border-radius: 6px; background: transparent; color: #ececec; font: 11.5px var(--font); text-align: left; cursor: pointer; transition: background 0.14s ease, padding-left 0.14s ease; }
+.gm-item:hover { padding-left: 9px; background: rgba(255, 255, 255, 0.09); }
+.gm-nome { overflow-wrap: anywhere; }
+.gm-sub { font-size: 10px; color: rgba(255, 255, 255, 0.55); }
+.gm-nuvem { display: flex; flex-wrap: wrap; gap: 3px; padding-top: 2px; }
+.gm-nuvem .graf-chip { font-family: Georgia, "Times New Roman", serif; }
+@media (prefers-reduced-motion: reduce) { .graf-mente { animation: none; } }
 /* menu "mais" da tela de busca */
 .cer-mais { position: relative; flex-shrink: 0; }
 .cer-menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 30; min-width: 270px; display: flex; flex-direction: column; padding: 3px;
@@ -2419,8 +2459,8 @@ html[data-destacado="1"] body {
 [data-estilo="ios"] body { font: 13px/1.4 var(--font); -webkit-font-smoothing: antialiased; }
 [data-estilo="ios"] * { scrollbar-color: rgba(255, 255, 255, 0.22) transparent; }
 
-/* janela: Liquid Glass translúcido e refrativo.
-   Simula vidro Apple por CSS: backdrop-filter + borda refrativa + reflexo especular. */
+/* janela: Liquid Glass opaco (o desktop não aparece através dele; a janela só é transparente nos cantos arredondados).
+   Simula vidro Apple por CSS: borda refrativa + reflexo especular + cores do que está ao redor. */
 [data-estilo="ios"] #cartao {
   grid-template-rows: 46px 1fr 44px;
   column-gap: 10px;
@@ -2431,7 +2471,7 @@ html[data-destacado="1"] body {
   /* Sem backdrop-filter aqui: atrás do cartão só existe a janela transparente, ele não desfocaria nada e custava
      10 pontos de CPU parado (medido). O vidro são as cores do desktop lidas ao redor (--c-*), o reflexo e a lente.
      Sem sombra externa: o cartão tem o tamanho da janela, ela só pintaria de preto os cantos arredondados. */
-  background-color: rgba(20, 22, 33, 0.64);
+  background-color: #141621;
   background-image: var(--vidro-reflexo), var(--vidro-desktop),
     radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 65%);
   box-shadow: var(--vidro-lente);
@@ -3003,7 +3043,7 @@ html[data-destacado="1"][data-estilo="ios"] #cartao {
   padding-bottom: 10px;
   border-radius: 24px !important;
   border: 1px solid rgba(255, 255, 255, 0.13) !important;
-  background-color: rgba(20, 22, 33, 0.8) !important;
+  background-color: #141621 !important;
   box-shadow: var(--vidro-lente) !important;
   overflow: hidden !important;
 }
@@ -3204,27 +3244,27 @@ html[data-destacado="1"] #proj-term {
 }
 /* Estilos de vidro do mini (botão de gota): cada um é só este conjunto de cores */
 html[data-estilo="ios"], html[data-mini-vidro="cristal"] {
-  --mv-base: rgba(34, 42, 58, 0.68); --mv-luz: rgba(255, 255, 255, 0.16);
+  --mv-base: rgb(34, 42, 58); --mv-luz: rgba(255, 255, 255, 0.16);
   --mv-tinta-1: rgba(190, 220, 255, 0.2); --mv-tinta-2: rgba(255, 255, 255, 0.09);
 }
 html.mini[data-mini-vidro="ambar"] {
-  --mv-base: rgba(46, 30, 16, 0.74); --mv-luz: rgba(255, 228, 190, 0.14);
+  --mv-base: rgb(46, 30, 16); --mv-luz: rgba(255, 228, 190, 0.14);
   --mv-tinta-1: rgba(255, 176, 84, 0.24); --mv-tinta-2: rgba(255, 220, 170, 0.08);
 }
 html.mini[data-mini-vidro="nevoa"] {
-  --mv-base: rgba(58, 60, 70, 0.8); --mv-luz: rgba(255, 255, 255, 0.1);
+  --mv-base: rgb(58, 60, 70); --mv-luz: rgba(255, 255, 255, 0.1);
   --mv-tinta-1: rgba(255, 255, 255, 0.13); --mv-tinta-2: rgba(255, 255, 255, 0.13);
 }
 html.mini[data-mini-vidro="prisma"] {
-  --mv-base: rgba(24, 22, 40, 0.72); --mv-luz: rgba(255, 255, 255, 0.13);
+  --mv-base: rgb(24, 22, 40); --mv-luz: rgba(255, 255, 255, 0.13);
   --mv-tinta-1: rgba(120, 160, 255, 0.25); --mv-tinta-2: rgba(255, 120, 200, 0.19);
 }
 html.mini[data-mini-vidro="meia-noite"] {
-  --mv-base: rgba(8, 10, 20, 0.84); --mv-luz: rgba(255, 255, 255, 0.07);
+  --mv-base: rgb(8, 10, 20); --mv-luz: rgba(255, 255, 255, 0.07);
   --mv-tinta-1: rgba(70, 90, 170, 0.22); --mv-tinta-2: rgba(255, 255, 255, 0.05);
 }
 html.mini[data-mini-vidro="gelo"] {
-  --mv-base: rgba(16, 44, 58, 0.72); --mv-luz: rgba(220, 250, 255, 0.14);
+  --mv-base: rgb(16, 44, 58); --mv-luz: rgba(220, 250, 255, 0.14);
   --mv-tinta-1: rgba(120, 230, 240, 0.23); --mv-tinta-2: rgba(200, 250, 255, 0.1);
 }
 #cartao:not(.mini) #btn-mini-vidro, html:not([data-estilo="ios"]) #btn-mini-vidro { display: none; }

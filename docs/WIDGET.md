@@ -359,7 +359,7 @@ Nada em segundo plano, nenhuma rotação de contas, nada de login/HOME/chaveiro/
 
 ## Fase 11: vidro e fluidez a 240 Hz
 
-**11.1 Confirmação da colagem.** `term:colar` devolve o que aconteceu de verdade (caminho, tamanho, bytes, miniatura ou o erro) e confere o arquivo gravado. Na sessão, o selo `#et-colagem` avisa na hora e depois olha a tela do xterm: `[Image #N]` = a IA anexou; caminho no prompt = anexa ao enviar; nada na tela depois de ~2,4 s = aviso em vermelho. Texto só ganha selo com 2 linhas ou mais (ou 300 caracteres). Fica por cima do terminal e não pega foco nem clique.
+**11.1 Confirmação da colagem.** `term:colar` devolve o que aconteceu de verdade (caminho, tamanho, bytes, miniatura ou o erro) e confere o arquivo gravado. Na sessão, o selo `#et-colagem` avisa na hora e depois olha a tela do xterm: `[Image #N]` = a IA anexou; caminho no prompt = a IA lê o arquivo ao enviar; nada na tela = aviso em vermelho (fase 12 explica o Alt+V). Texto só ganha selo com 2 linhas ou mais (ou 300 caracteres). Fica por cima do terminal e não pega foco nem clique.
 
 **11.2 Expandir.** `janela:alternar-expandir` usa `disp.bounds` (antes `workArea`, que deixava a barra de tarefas de fora) e tira o limite de 1400x900. Expandida, a janela não encaixa nas bordas, não salva o tamanho na config, não arrasta e acompanha mudança de resolução (`reajustarExpandidas`). Expandir + [ampliar] deixa só o terminal na tela: o grid do `.tela-cheia` com `!important` guardava a coluna do Pokémon vazia, e a lista de projetos seguia ao lado.
 
@@ -367,9 +367,21 @@ Nada em segundo plano, nenhuma rotação de contas, nada de login/HOME/chaveiro/
 
 **11.4 Brilho dos botões.** Tudo vem de `--brilho-alfa`, `--brilho-raio` e `--brilho-luz` no `:root` de `style.css`; botão preenchido usa `--botao-cheio`. Para ajustar o widget todo, mexa só nesses.
 
-**11.5 Vidro.** Não existe desfoque real do desktop aqui: `backdrop-filter` só enxerga a própria página, então no `#cartao` ele não desfocava nada e custava caro (saiu). O vidro é a soma de translucidez, `--vidro-desktop` (as cores lidas ao redor da janela, `--c-esq` etc., que eram medidas mas nenhum CSS usava), `--vidro-reflexo` e `--vidro-lente`. A borda é uma linha fina e suave de vidro (`rgba` branco de 0,10 a 0,13), sem brilho. `backdrop-filter` só em `.dialogo`, que abre por cima de conteúdo e fecha.
+**11.5 Vidro.** Não existe desfoque real do desktop aqui: `backdrop-filter` só enxerga a própria página, então no `#cartao` ele não desfocava nada e custava caro (saiu). O vidro é a soma de (até a 12.1, translucidez) `--vidro-desktop` (as cores lidas ao redor da janela, `--c-esq` etc., que eram medidas mas nenhum CSS usava), `--vidro-reflexo` e `--vidro-lente`. A borda é uma linha fina e suave de vidro (`rgba` branco de 0,10 a 0,13), sem brilho. `backdrop-filter` só em `.dialogo`, que abre por cima de conteúdo e fecha.
 
 **11.6 Fluidez.** Padrão agora é `aceleracaoGPU: true`; a config antiga migra 1 vez (`gpuMigrada`) e depois vale a chave "aceleração por GPU" em Settings (vale ao reabrir). Números em `docs/OTIMIZACAO.md`.
 
 **11.7 Mini.** Sem contorno, sombra ou aura na cor do Pokémon. A gota (`#btn-mini-vidro`, só no iOS) troca entre 6 vidros: cristal, âmbar, névoa, prisma, meia-noite e gelo (`miniVidro` na config; são só variáveis em `html.mini[data-mini-vidro]`).
 
+
+## Fase 12: sem transparência, print de volta e o Brain que pensa
+
+**12.1 Sem transparência.** O dono pediu para tirar a transparência. `#cartao`, a janela destacada e o mini têm fundo sólido (`#141621` e `--mv-base` em `rgb`); as cores continuam as mesmas. A janela segue com `transparent: true` no estilo iOS só para os cantos arredondados saírem lisos. `--vidro-desktop` (a tinta das cores ao redor) continua: não deixa nada aparecer através do cartão.
+
+**12.2 Print no terminal (dois bugs).** (1) O Electron 45 tirou o `clipboard.readImage()`: a área de transferência agora é a API assíncrona do W3C. `salvarPrintDaAreaDeTransferencia` usa `clipboard.read()` + `getType('image/png')`. Nada mais do main pode usar `readImage`, `readBuffer` ou `availableFormats`, e `readText` devolve promessa. (2) Com o Claude, colar só o caminho deixa texto no prompt e não vira anexo: `colarPrint` manda Alt+V (`\x1bv`), o atalho nativo dele no Windows, e confere o `[Image #N]`. Ele demora ~3 s porque abre um PowerShell para ler a imagem, por isso a espera vai a ~7 s antes do plano B (colar o caminho). A detecção vale também para o Claude aberto à mão dentro de um PowerShell (`/Claude Code v\d/` na tela). Testado no Claude real, com print de verdade, e no build empacotado.
+
+**12.3 Brain.** `app/mente.js` é a inteligência, sem IA e sem rede, só com nós e ligações: temas (propagação de rótulos), relevância (PageRank), pontes entre projetos, parecidas (palavras em comum pesadas por raridade), caminho entre duas ideias (Dijkstra) e conexões a explorar. Testes: `npm run testar-mente`. Na tela (`grafoCer`): 5 estilos (Constelação, Neural, Nebulosa, Atlas, Manuscrito; cada um é só um conjunto de valores em `ESTILOS` + o fundo em `#graf-area[data-graf=...]`), cor por projeto/tema/tempo/relevância, conceitos como nós (losangos), painel [mente], máquina do tempo, onda de faíscas ao clicar, nascimento dos nós, foco que atenua aos poucos e rótulos que desviam uns dos outros. Atalhos com o grafo em foco: E estilo, C conceitos, T tempo, M mente, R centralizar, Esc limpa. O visual fica em `cerebroVisual` na config.
+
+**Custo medido** (58 nós, janela 1180x720): análise 2,5 ms ao montar (83 ms com 4.000 nós); quadro em movimento 0,5 ms (p95 0,7 ms), medindo só o JavaScript; parado, 0 desenhos em 4 s. Fundos e brilhos são carimbos pintados 1x; toda animação tem fim e nada roda fora da aba. Acima de 1.500 nós saem brilho e nuvens.
+
+**Bug antigo corrigido:** `rgb()` usava `parseInt(...) || padrão`, e o canal `00` virava a cor padrão (o roxo `#4c0075` aparecia verde).

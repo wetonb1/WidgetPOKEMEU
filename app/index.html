@@ -298,6 +298,30 @@
           <div id="graf-area" class="graf-area">
             <canvas id="graf-canvas" class="graf-canvas" tabindex="0" aria-label="Grafo 3D do cérebro"
                     title="Arrastar: girar · Roda: ampliar · Botão direito ou Shift+arrastar: mover a vista · Arrastar uma bolinha: mover o arquivo · Clique: detalhes · Duplo clique: abrir"></canvas>
+            <div class="graf-ferr">
+              <select id="graf-estilo" class="graf-sel" aria-label="Estilo do grafo" title="Estilo visual do grafo (tecla E troca)">
+                <option value="constelacao">Constelação</option>
+                <option value="neural">Neural</option>
+                <option value="nebulosa">Nebulosa</option>
+                <option value="atlas">Atlas</option>
+                <option value="manuscrito">Manuscrito</option>
+              </select>
+              <select id="graf-cor" class="graf-sel" aria-label="Colorir por" title="O que a cor de cada nó mostra">
+                <option value="projeto">cor: projeto</option>
+                <option value="tema">cor: tema</option>
+                <option value="tempo">cor: tempo</option>
+                <option value="relevancia">cor: relevância</option>
+              </select>
+              <button type="button" id="graf-conceitos" class="botao-cmd" title="Mostra as palavras repetidas como nós próprios (tecla C)">[conceitos]</button>
+              <button type="button" id="graf-tempo-btn" class="botao-cmd" title="Máquina do tempo: veja o cérebro crescer, dia a dia (tecla T)">[tempo]</button>
+              <button type="button" id="graf-mente-btn" class="botao-cmd" title="Leitura do cérebro: temas, ideias centrais, pontes e conexões a explorar (tecla M)">[mente]</button>
+            </div>
+            <div id="graf-mente" class="graf-mente oculto" aria-label="Leitura do cérebro"></div>
+            <div id="graf-tempo" class="graf-tempo oculto">
+              <button type="button" id="graf-tempo-play" class="botao-cmd" title="Ver o cérebro crescer" aria-label="Tocar a linha do tempo">[▶]</button>
+              <input id="graf-tempo-val" type="range" min="0" max="0" step="1" value="0" aria-label="Dia">
+              <span id="graf-tempo-dia" class="graf-tempo-dia">--/--</span>
+            </div>
             <div id="graf-info" class="graf-info oculto" role="dialog" aria-label="Detalhes do arquivo"></div>
             <div id="graf-status" class="graf-status"></div>
           </div>
@@ -928,6 +952,7 @@
   <script src="temas.js"></script>
   <script src="franquias.js"></script>
   <script src="falas.js"></script>
+  <script src="mente.js"></script>
   <script src="renderer.js"></script>
 </body>
 </html>
