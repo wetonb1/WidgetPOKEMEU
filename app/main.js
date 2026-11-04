@@ -43,6 +43,7 @@ app.setPath('userData', path.join(PASTA_CONFIG, 'electron'));
 let janela = null;
 const janelasTerm = new Map(); // id -> BrowserWindow (permite múltiplas guias/janelas destacadas)
 let janelaTerm = null; // janela destacada ativa/recente
+const timersAnimJanelas = new Map(); // BrowserWindow -> setInterval de animação
 
 // Toda mensagem IPC precisa vir da nossa janela principal ou de alguma janela destacada do terminal
 const daJanelaTerm = (e) => {
@@ -52,6 +53,19 @@ const daJanelaTerm = (e) => {
   return false;
 };
 const daJanela = (e) => (janela !== null && !janela.isDestroyed() && e.sender === janela.webContents) || daJanelaTerm(e);
+
+function obterJanelaOrigem(e) {
+  if (e && e.sender) {
+    try {
+      const w = BrowserWindow.fromWebContents(e.sender);
+      if (w && !w.isDestroyed()) return w;
+    } catch {}
+    for (const win of janelasTerm.values()) {
+      if (win && !win.isDestroyed() && e.sender === win.webContents) return win;
+    }
+  }
+  return (janela && !janela.isDestroyed()) ? janela : null;
+}
 
 // Só uma instância do widget por vez; abrir de novo só traz a janela para a frente
 if (!app.requestSingleInstanceLock()) {
@@ -389,6 +403,8 @@ function criarJanela(posicao) {
   janela.on('closed', () => {
     if (janela === esta) {
       janela = null;
+      for (const t of timersAnimJanelas.values()) clearInterval(t);
+      timersAnimJanelas.clear();
       for (const w of janelasTerm.values()) if (w && !w.isDestroyed()) w.destroy();
       janelasTerm.clear();
       janelaTerm = null;
@@ -1391,7 +1407,16 @@ function criarJanelaTerm(id, opcoes = {}) {
   w.webContents.on('did-finish-load', () => {
     if (!w.isDestroyed()) w.webContents.send('term:sincronizar', opcoes.estado || ultimoEstadoTerm);
   });
+  w.on('moved', () => {
+    snapBordasJanela(w);
+    verificarBordasJanela(w);
+  });
   w.on('closed', () => {
+    const timerAnim = timersAnimJanelas.get(w);
+    if (timerAnim) {
+      clearInterval(timerAnim);
+      timersAnimJanelas.delete(w);
+    }
     janelasTerm.delete(winId);
     if (!w.fechandoPorAcoplar && w.termSessoes && w.termSessoes.size > 0) {
       for (const termId of w.termSessoes) {
@@ -1784,7 +1809,6 @@ ipcMain.handle('janela:fixar', (e, fixar) => {
 });
 
 // ---------- Detecção de Bordas (Dock estilo Coucou) e Posicionamento Fluido ----------
-let ultimoDock = '';
 function verificarBordasJanela(w = janela) {
   if (!w || w.isDestroyed()) return;
   const b = w.getBounds();
@@ -1799,8 +1823,8 @@ function verificarBordasJanela(w = janela) {
     direita: (b.x + b.width) >= (area.x + area.width - SNAP),
   };
   const chave = `${dock.topo ? 1 : 0}${dock.baixo ? 1 : 0}${dock.esquerda ? 1 : 0}${dock.direita ? 1 : 0}`;
-  if (chave !== ultimoDock) {
-    ultimoDock = chave;
+  if (chave !== w._ultimoDock) {
+    w._ultimoDock = chave;
     w.webContents.send('tela:dock', dock);
   }
 }
@@ -1827,28 +1851,28 @@ function snapBordasJanela(w = janela) {
   }
 }
 
-let timerAnimJanela = null;
-
-function animarJanelaPara(xFinal, yFinal, duracaoMs = 280) {
-  if (!janela || janela.isDestroyed()) return;
-  if (timerAnimJanela) {
-    clearInterval(timerAnimJanela);
-    timerAnimJanela = null;
+function animarJanelaPara(w, xFinal, yFinal, duracaoMs = 280) {
+  const win = w || janela;
+  if (!win || win.isDestroyed()) return;
+  const timerAntigo = timersAnimJanelas.get(win);
+  if (timerAntigo) {
+    clearInterval(timerAntigo);
+    timersAnimJanelas.delete(win);
   }
-  const b = janela.getBounds();
+  const b = win.getBounds();
   const xIni = b.x;
   const yIni = b.y;
   const larg = b.width;
   const alt = b.height;
   if (xIni === xFinal && yIni === yFinal) {
-    verificarBordasJanela(janela);
+    verificarBordasJanela(win);
     return;
   }
   const inicio = Date.now();
-  timerAnimJanela = setInterval(() => {
-    if (!janela || janela.isDestroyed()) {
-      clearInterval(timerAnimJanela);
-      timerAnimJanela = null;
+  const timer = setInterval(() => {
+    if (!win || win.isDestroyed()) {
+      clearInterval(timer);
+      timersAnimJanelas.delete(win);
       return;
     }
     const t = Math.min(1, (Date.now() - inicio) / duracaoMs);
@@ -1856,15 +1880,16 @@ function animarJanelaPara(xFinal, yFinal, duracaoMs = 280) {
     const prog = 1 - Math.pow(1 - t, 3);
     const x = Math.round(xIni + (xFinal - xIni) * prog);
     const y = Math.round(yIni + (yFinal - yIni) * prog);
-    janela.setBounds({ x, y, width: larg, height: alt });
-    verificarBordasJanela(janela);
+    win.setBounds({ x, y, width: larg, height: alt });
+    verificarBordasJanela(win);
     if (t >= 1) {
-      clearInterval(timerAnimJanela);
-      timerAnimJanela = null;
-      janela.setBounds({ x: xFinal, y: yFinal, width: larg, height: alt });
-      verificarBordasJanela(janela);
+      clearInterval(timer);
+      timersAnimJanelas.delete(win);
+      win.setBounds({ x: xFinal, y: yFinal, width: larg, height: alt });
+      verificarBordasJanela(win);
     }
   }, 16);
+  timersAnimJanelas.set(win, timer);
 }
 
 function calcularPosicaoTela(direcao, b, area) {
@@ -1918,13 +1943,15 @@ function calcularPosicaoTela(direcao, b, area) {
 }
 
 ipcMain.handle('janela:posicionar', (e, direcao) => {
-  if (!daJanela(e) || !janela || janela.isDestroyed()) return false;
-  const b = janela.getBounds();
+  if (!daJanela(e)) return false;
+  const win = obterJanelaOrigem(e);
+  if (!win || win.isDestroyed()) return false;
+  const b = win.getBounds();
   const disp = screen.getDisplayMatching(b);
   if (!disp) return false;
   const area = disp.workArea;
   const { x, y } = calcularPosicaoTela(direcao, b, area);
-  animarJanelaPara(x, y, 280);
+  animarJanelaPara(win, x, y, 280);
   return true;
 });
 
