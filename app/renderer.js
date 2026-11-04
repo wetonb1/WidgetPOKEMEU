@@ -2814,7 +2814,8 @@ const grafoCer = (() => {
   const brilhos = new Map();
   const ativos = new Set(); // nós com o destaque ainda animando
   const pulsos = [];
-  const visual = { estilo: 'constelacao', cor: 'projeto', conceitos: false };
+  const visual = { estilo: 'constelacao', cor: 'projeto', conceitos: false, nomes: true };
+  let distEnq = 0; // distância da câmera com o cérebro enquadrado: o easter egg da sombra mede o afastamento a partir dela
   let analise = null; // resultado do mente.analisar: temas, relevância, pontes...
   let coresVis = [];
   let nosConceito = 0;
@@ -3127,6 +3128,7 @@ const grafoCer = (() => {
     const raio = Math.max(60, ds[Math.floor(ds.length * 0.96)] || 60);
     if (W) medir();
     const dist = (raio * foco) / (0.6 * Math.max(120, Math.min(W, H))) + raio;
+    distEnq = dist;
     irPara({ dist, panX: 0, panY: 0 }, animado ? 500 : 0);
   }
   function irPara(para, dur) {
@@ -3258,6 +3260,7 @@ const grafoCer = (() => {
     if (!nos.length) { status(carregando ? 'carregando...' : 'o cérebro está vazio'); return; }
     projetar();
     const E = ESTILOS[visual.estilo];
+    pintarSombra(E);
     const leve = nos.length > LIMITE_LEVE;
 
     let zmin = Infinity; let zmax = -Infinity;
@@ -3370,7 +3373,7 @@ const grafoCer = (() => {
     }
 
     pintarPulsos(t0, E);
-    rotulos(vizFoco && foco_ >= 0 ? vizFoco : null, apagado, E);
+    if (visual.nomes) rotulos(vizFoco && foco_ >= 0 ? vizFoco : null, apagado, E); // [nomes] desligado: o nome continua na dica do mouse e no cartão
     if (hover >= 0 && hover !== selecionado) dica(hover, E);
 
     const ms = performance.now() - t0;
@@ -3458,6 +3461,59 @@ const grafoCer = (() => {
     pulsos.push({ t0: performance.now(), ...window.mente.onda(nos.length, viz, i, 3, nos.length > LIMITE_LEVE ? 40 : 160), cor: coresVis[i] || corDe(nos[i]) });
     pedir();
   }
+  // Easter egg: afastando o cérebro até virar pó, a silhueta do Pokémon escolhido emerge lá do fundo, enorme (só a sombra).
+  // Aparece só passado ~5x a distância do enquadramento e fica inteira em ~10x. Estática: depende só da câmera, não pede quadro
+  // extra. A silhueta sai da imagem que o widget já mostra (#poke-img) e fica em cache enquanto o Pokémon for o mesmo.
+  const sombras = new Map();
+  let sombraSrc = '';
+  function sombraDoPersonagem(claro) {
+    const img = document.getElementById('poke-img');
+    if (!img || img.classList.contains('oculto') || !img.complete || !img.naturalWidth) return null;
+    if (img.src !== sombraSrc) { sombras.clear(); sombraSrc = img.src; }
+    const chave = claro ? 'c' : 'e';
+    if (sombras.has(chave)) return sombras.get(chave);
+    const pad = 24; // folga para o desfoque não ser cortado
+    const esc = Math.min(320 / img.naturalWidth, 320 / img.naturalHeight);
+    const w = Math.round(img.naturalWidth * esc);
+    const h = Math.round(img.naturalHeight * esc);
+    const forma = (cor) => { // a imagem toda pintada de uma cor só: sobra apenas o contorno
+      const c = document.createElement('canvas');
+      c.width = w + 2 * pad;
+      c.height = h + 2 * pad;
+      const g = c.getContext('2d');
+      g.imageSmoothingQuality = 'high';
+      g.drawImage(img, pad, pad, w, h);
+      g.globalCompositeOperation = 'source-in';
+      g.fillStyle = cor;
+      g.fillRect(0, 0, c.width, c.height);
+      return c;
+    };
+    const saida = document.createElement('canvas');
+    saida.width = w + 2 * pad;
+    saida.height = h + 2 * pad;
+    const g = saida.getContext('2d');
+    if (!claro) { g.filter = 'blur(9px)'; g.globalAlpha = 0.55; g.drawImage(forma('#6b5bb5'), 0, 0); } // um fio de luz roxa em volta
+    g.filter = 'blur(2px)';
+    g.globalAlpha = 1;
+    g.drawImage(forma(claro ? '#26160a' : '#010208'), 0, 0);
+    sombras.set(chave, saida);
+    return saida;
+  }
+  function pintarSombra(E) {
+    if (!distEnq) return;
+    const cheio = Math.min(distEnq * 10, 36000);
+    const u = limitar((cam.dist - cheio * 0.5) / (cheio * 0.5), 0, 1);
+    if (u <= 0) return;
+    const f = sombraDoPersonagem(!!E.claro);
+    if (!f) return;
+    const s = Math.min((1.15 * H) / f.height, (1.05 * W) / f.width);
+    const w = f.width * s;
+    const h = f.height * s;
+    ctx.globalAlpha = (E.claro ? 0.5 : 0.92) * u * u * (3 - 2 * u);
+    ctx.drawImage(f, W / 2 - w / 2 - cam.panX * 0.05, H / 2 - h / 2 - cam.panY * 0.05, w, h);
+    ctx.globalAlpha = 1;
+  }
+
   function pintarPulsos(agora, E) {
     for (let k = pulsos.length - 1; k >= 0; k--) {
       const onda = pulsos[k];
@@ -3876,6 +3932,12 @@ const grafoCer = (() => {
     recolorir();
     if (salvar) salvarVisual();
   }
+  function alternarNomes(salvar = true) {
+    visual.nomes = !visual.nomes;
+    $('graf-nomes').classList.toggle('ativa', visual.nomes);
+    if (salvar) salvarVisual();
+    pedir();
+  }
   function alternarConceitos(salvar = true) {
     visual.conceitos = !visual.conceitos;
     $('graf-conceitos').classList.toggle('ativa', visual.conceitos);
@@ -4002,6 +4064,7 @@ const grafoCer = (() => {
     else if (tecla === 'm') alternarMente();
     else if (tecla === 't') alternarTempo();
     else if (tecla === 'c') alternarConceitos();
+    else if (tecla === 'n') alternarNomes();
     else if (tecla === 'e') { const ids = Object.keys(ESTILOS); mudarEstilo(ids[(ids.indexOf(visual.estilo) + 1) % ids.length]); }
     else if (e.key === 'Escape') { if (rota) sairDaRota(); else if (modoCaminho >= 0) limparRota(); else if (selecionado >= 0) selecionar(-1); else if (filtroTexto) { $('graf-filtro').value = ''; filtroTexto = ''; aplicarFiltro(); pedir(); } }
   });
@@ -4020,6 +4083,7 @@ const grafoCer = (() => {
   $('graf-estilo').addEventListener('change', (e) => mudarEstilo(e.target.value));
   $('graf-cor').addEventListener('change', (e) => mudarCor(e.target.value));
   $('graf-conceitos').addEventListener('click', () => alternarConceitos());
+  $('graf-nomes').addEventListener('click', () => alternarNomes());
   $('graf-tempo-btn').addEventListener('click', () => alternarTempo());
   $('graf-mente-btn').addEventListener('click', () => alternarMente());
   $('graf-tempo-play').addEventListener('click', tocarTempo);
@@ -4098,6 +4162,8 @@ const grafoCer = (() => {
       marcarTroca();
       atualizarBotoesDemo(modoDemo);
       if (salvo && salvo.conceitos) { visual.conceitos = true; $('graf-conceitos').classList.add('ativa'); }
+      visual.nomes = !(salvo && salvo.nomes === false);
+      $('graf-nomes').classList.toggle('ativa', visual.nomes);
       if (salvo && CORES.includes(salvo.cor)) mudarCor(salvo.cor, false);
       mudarEstilo(salvo && ESTILOS[salvo.estilo] ? salvo.estilo : visual.estilo, false);
     },

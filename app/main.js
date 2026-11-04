@@ -169,6 +169,7 @@ const sanitizarVisualCerebro = (v) => ({
   estilo: v && ESTILOS_GRAFO.includes(v.estilo) ? v.estilo : ESTILOS_GRAFO[0],
   cor: v && CORES_GRAFO.includes(v.cor) ? v.cor : CORES_GRAFO[0],
   conceitos: !!(v && v.conceitos),
+  nomes: !(v && v.nomes === false), // [nomes] do grafo: ligado por padrão
 });
 
 function sanitizarConfig(cfg, modelo) {
