@@ -3203,6 +3203,73 @@ html[data-destacado="1"] #proj-term {
   border-top-right-radius: 0 !important;
 }
 
+/* ---------- Botão de Expansão (Tela Cheia) ---------- */
+.cab-btn.expandir svg {
+  width: 12px;
+  height: 12px;
+}
+.cab-btn.expandir.ativo svg {
+  fill: var(--accent);
+}
+[data-estilo="ios"] .cab-btn.expandir.ativo {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  border-color: var(--accent);
+}
+
+/* ---------- Modo Tela Cheia / Expandido (cobre toda a tela) ---------- */
+#cartao.tela-cheia {
+  border-radius: 0 !important;
+  border: none !important;
+  grid-template-columns: clamp(280px, 28%, 460px) 1fr !important;
+  height: 100vh !important;
+}
+
+[data-estilo="ios"] #cartao.tela-cheia {
+  border-radius: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+  grid-template-columns: clamp(300px, 26%, 460px) 1fr !important;
+}
+
+#cartao.tela-cheia .tm-itens {
+  max-height: none !important;
+  flex: 1 !important;
+}
+#cartao.tela-cheia .visualizador {
+  max-height: 320px !important;
+}
+#cartao.tela-cheia .proj-sessoes {
+  max-height: 48vh !important;
+}
+#cartao.tela-cheia #proj-grade {
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)) !important;
+}
+#cartao.tela-cheia .loja-grade {
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)) !important;
+}
+#cartao.tela-cheia .apps-grade {
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)) !important;
+}
+#cartao.tela-cheia .poke-favs {
+  max-height: 140px !important;
+}
+
+/* Janela destacada de Terminal / PowerShell em tela cheia */
+html[data-destacado="1"] #cartao.tela-cheia {
+  grid-template-columns: 1fr !important;
+  grid-template-rows: 32px 1fr !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+html[data-destacado="1"][data-estilo="ios"] #cartao.tela-cheia {
+  grid-template-rows: 40px 1fr !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+html[data-destacado="1"] #cartao.tela-cheia #proj-term {
+  height: 100% !important;
+}
+
 /* ---------- Botão de Posições e Menu Flutuante ---------- */
 .cab-btn.posicoes svg {
   width: 12px;

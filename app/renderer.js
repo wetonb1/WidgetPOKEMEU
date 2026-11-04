@@ -7611,6 +7611,65 @@ const abas = (() => {
     });
   }
 
+  // ----- expandir / tela cheia (cobrir toda a tela mantendo a página atual) -----
+  const btnExpandir = document.getElementById('btn-expandir');
+  const icoExpandirTela = document.getElementById('ico-expandir-tela');
+  const icoRestaurarTela = document.getElementById('ico-restaurar-tela');
+  let telaCheia = false;
+
+  const aplicarEstadoExpandido = (expandido) => {
+    telaCheia = !!expandido;
+    cartao.classList.toggle('tela-cheia', telaCheia);
+    if (icoExpandirTela) icoExpandirTela.classList.toggle('oculto', telaCheia);
+    if (icoRestaurarTela) icoRestaurarTela.classList.toggle('oculto', !telaCheia);
+    if (btnExpandir) {
+      btnExpandir.title = telaCheia ? 'Restaurar tamanho (Alt+Enter)' : 'Expandir (cobrir toda a tela, Alt+Enter)';
+      btnExpandir.classList.toggle('ativo', telaCheia);
+    }
+    if (telaCheia && mini) {
+      mini = false;
+      cartao.classList.remove('mini');
+      document.documentElement.classList.remove('mini');
+      document.body.classList.remove('mini');
+      document.getElementById('ico-mini').classList.remove('oculto');
+      document.getElementById('ico-restaurar').classList.add('oculto');
+      btnMini.title = 'Minimizar';
+      for (const [nome, modulo] of Object.entries(MODULOS)) modulo.visivel(nome === atual);
+    }
+    // dispara redimensionamento para os gráficos, xterm e canvas se ajustarem
+    requestAnimationFrame(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+  };
+
+  if (btnExpandir && window.widget.alternarExpandir) {
+    btnExpandir.addEventListener('click', async () => {
+      try {
+        const res = await window.widget.alternarExpandir();
+        if (res && typeof res.expandido === 'boolean') {
+          aplicarEstadoExpandido(res.expandido);
+        }
+      } catch (err) {
+        console.error('Erro ao expandir janela:', err);
+      }
+    });
+  }
+
+  if (window.widget.onExpandido) {
+    window.widget.onExpandido(aplicarEstadoExpandido);
+  }
+  if (window.widget.obterExpandido) {
+    window.widget.obterExpandido().then(aplicarEstadoExpandido).catch(() => {});
+  }
+
+  // Atalho de teclado para expandir: Alt+Enter ou F11
+  window.addEventListener('keydown', (e) => {
+    if ((e.altKey && e.key === 'Enter') || e.key === 'F11') {
+      e.preventDefault();
+      if (btnExpandir) btnExpandir.click();
+    }
+  });
+
   // ----- dock nas bordas da tela (estilo Coucou) -----
   const aplicarDock = (dock) => {
     if (!dock) return;

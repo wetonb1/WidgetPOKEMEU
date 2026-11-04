@@ -127,6 +127,12 @@ contextBridge.exposeInMainWorld('widget', {
   janelaModo: (modo) => ipcRenderer.invoke('janela:modo', String(modo)),
   janelaFixar: (fixar) => ipcRenderer.invoke('janela:fixar', fixar === true),
   janelaPosicionar: (direcao) => ipcRenderer.invoke('janela:posicionar', String(direcao)),
+  alternarExpandir: () => ipcRenderer.invoke('janela:alternar-expandir'),
+  obterExpandido: () => ipcRenderer.invoke('janela:obter-expandido'),
+  onExpandido: (cb) => {
+    ipcRenderer.removeAllListeners('janela:expandido');
+    ipcRenderer.on('janela:expandido', (_e, v) => cb(v));
+  },
   obterDock: () => ipcRenderer.invoke('janela:obter-dock'),
   onDock: (cb) => {
     ipcRenderer.removeAllListeners('tela:dock');

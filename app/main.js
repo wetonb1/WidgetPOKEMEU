@@ -371,8 +371,8 @@ function criarJanela(posicao) {
     thickFrame: false,
     icon: path.join(__dirname, '..', 'assets', 'icone.ico'), // a pokébola cúbica vermelha (tools/gerar-icone.js)
     resizable: true,
-    maximizable: false,
-    fullscreenable: false,
+    maximizable: true,
+    fullscreenable: true,
     // fixado: sempre no topo e fora da barra de tarefas. Solto: vai para trás das
     // outras janelas, então aparece na barra de tarefas (senão não teria como achar)
     alwaysOnTop: cfg.fixado,
@@ -1385,8 +1385,8 @@ function criarJanelaTerm(id, opcoes = {}) {
     thickFrame: false,
     icon: path.join(__dirname, '..', 'assets', 'icone.ico'),
     resizable: true,
-    maximizable: false,
-    fullscreenable: false,
+    maximizable: true,
+    fullscreenable: true,
     alwaysOnTop: cfg.fixado,
     skipTaskbar: false, // aparece na barra de tarefas para facilitar em múltiplos monitores
     show: false,
@@ -1755,6 +1755,10 @@ ipcMain.handle('janela:modo', (e, modo) => {
   const [largura, altura] = janela.getSize();
 
   if (modo === 'mini') {
+    if (janela && !janela.isDestroyed() && janela._expandido) {
+      janela._expandido = false;
+      janela.webContents.send('janela:expandido', false);
+    }
     tamanhoAntesDoMini = { largura, altura, modo: modoAtual };
     janela.setMinimumSize(MINI.largura, MINI.altura);
     janela.setMaximumSize(MINI.largura, MINI.altura);
@@ -1776,6 +1780,53 @@ ipcMain.handle('janela:modo', (e, modo) => {
   }
   modoAtual = modo;
   return true;
+});
+
+// Expandir / Maximizar para cobrir toda a área da tela (funciona no widget e nos terminais/PS destacados)
+ipcMain.handle('janela:alternar-expandir', (e) => {
+  const w = obterJanelaOrigem(e);
+  if (!w || w.isDestroyed()) return { expandido: false };
+
+  const b = w.getBounds();
+  const disp = screen.getDisplayMatching(b);
+  const area = disp ? disp.workArea : screen.getPrimaryDisplay().workArea;
+
+  if (!w._expandido) {
+    w._boundsAntesExpandir = { x: b.x, y: b.y, width: b.width, height: b.height };
+    if (w === janela && modoAtual === 'mini') {
+      modoAtual = 'normal';
+      janela.webContents.send('tela:modo', 'normal');
+    }
+    w.setResizable(true);
+    w.setMaximumSize(area.width + 300, area.height + 300);
+    w.setBounds({ x: area.x, y: area.y, width: area.width, height: area.height });
+    w._expandido = true;
+    snapBordasJanela(w);
+    verificarBordasJanela(w, true);
+    w.webContents.send('janela:expandido', true);
+    return { expandido: true };
+  } else {
+    const prev = w._boundsAntesExpandir || (w === janela
+      ? { ...TAMANHO_PADRAO, x: area.x + Math.max(0, area.width - TAMANHO_PADRAO.largura - MARGEM), y: area.y + MARGEM }
+      : { width: 800, height: 500, x: area.x + 50, y: area.y + 50 });
+    if (w === janela) {
+      w.setMinimumSize(MIN.largura, MIN.altura);
+      w.setMaximumSize(MAX.largura, MAX.altura);
+    } else {
+      w.setMinimumSize(460, 240);
+    }
+    w.setBounds(prev);
+    w._expandido = false;
+    snapBordasJanela(w);
+    verificarBordasJanela(w, true);
+    w.webContents.send('janela:expandido', false);
+    return { expandido: false };
+  }
+});
+
+ipcMain.handle('janela:obter-expandido', (e) => {
+  const w = obterJanelaOrigem(e);
+  return !!(w && w._expandido);
 });
 
 // Troca de estilo (CMD <-> iOS): a transparência só pode ser escolhida ao criar
