@@ -1227,6 +1227,8 @@ ipcMain.on('term:tamanho', (e, id, colunas, linhas) => { if (daJanela(e) && type
 // o comando é conferido contra a IA DAQUELA sessão (cada terminal sabe a sua IA)
 ipcMain.handle('term:comando', (e, id, comando) => (daJanela(e) && typeof id === 'string' && comandosDa(embutidos.iaDe(id)).has(comando) ? embutidos.comando(id, comando) : false));
 ipcMain.handle('term:existe', (e, id) => (daJanela(e) && typeof id === 'string' ? embutidos.existe(id) : false));
+ipcMain.handle('term:quest', (e, id) => (daJanela(e) && typeof id === 'string' ? embutidos.obterQuest(id) : null));
+ipcMain.handle('term:quests', (e) => (daJanela(e) ? embutidos.obterQuests() : {}));
 ipcMain.handle('term:encerrar', (e, id) => {
   if (!daJanela(e) || typeof id !== 'string') return false;
   embutidos.encerrar(id);
@@ -1243,7 +1245,7 @@ ipcMain.handle('projetos:abrir-ps', async (e, id) => {
   if (!p.pasta_existe) return { ok: false, tipo: 'erro', erro: 'a pasta do projeto não existe: ' + p.pasta };
   const env = ias.ambiente(ias.obter('claude'), process.env, { usarChave: false });
   if (iniciarEmbutido) {
-    const r = await iniciarEmbutido({ pasta: p.pasta, programa: 'powershell.exe', args: ['-NoLogo'], env });
+    const r = await iniciarEmbutido({ pasta: p.pasta, programa: 'powershell.exe', args: ['-NoLogo'], env, ia: 'powershell' });
     if (r && r.termId) return { ok: true, via: 'widget', termId: r.termId, nome: p.nome, modelo: 'powershell', cor: p.cor, ia: 'powershell', projetoId: p.id };
   }
   spawn('cmd.exe', ['/d', '/s', '/c', `"start "PowerShell - ${p.nome.replace(/"/g, "'")}" /d "${p.pasta}" powershell.exe -NoLogo"`],

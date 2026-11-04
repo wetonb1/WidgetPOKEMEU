@@ -1236,6 +1236,28 @@ button { font-family: var(--font); }
 .ps-linha { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ps-bolinha { width: 8px; height: 8px; flex-shrink: 0; border-radius: 50%; background: var(--cor); }
 .ps-desc { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.ps-quest-chip {
+  font-size: 11px;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--linha);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--apagado);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.ps-quest-chip.executando {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(56, 189, 248, 0.16);
+  color: #38bdf8;
+  animation: pulsoQuest 1.4s infinite ease-in-out;
+}
+.ps-quest-chip.concluido {
+  border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+}
 .ps-linha .botao-cmd { font-size: 12px; padding: 0 4px; flex-shrink: 0; }
 .px-botoes { flex-wrap: wrap; }
 /* seletor rápido */
@@ -1686,6 +1708,58 @@ button { font-family: var(--font); }
 .et-x.certeza { color: var(--alerta); }
 .et-dest-aba { padding: 0 4px; color: var(--apagado); border: none; background: transparent; font: inherit; cursor: pointer; border-radius: 4px; line-height: 1; }
 .et-dest-aba:hover { color: var(--accent); background: rgba(255, 255, 255, 0.12); }
+.et-quest-tempo {
+  font-size: 10px;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  padding: 1px 5px;
+  border-radius: 4px;
+  border: 1px solid var(--linha);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--apagado);
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-weight: 500;
+  line-height: 1.2;
+}
+.et-quest-tempo.executando {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(56, 189, 248, 0.18);
+  color: #38bdf8;
+  animation: pulsoQuest 1.4s infinite ease-in-out;
+}
+.et-quest-tempo.concluido {
+  border-color: rgba(74, 222, 128, 0.4);
+  background: rgba(74, 222, 128, 0.12);
+  color: #4ade80;
+}
+.et-quest-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--linha);
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--text);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.et-quest-status.executando {
+  border-color: rgba(56, 189, 248, 0.5);
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+}
+.et-quest-status.concluido {
+  border-color: rgba(74, 222, 128, 0.4);
+  color: #4ade80;
+  background: rgba(74, 222, 128, 0.1);
+}
+@keyframes pulsoQuest {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.72; transform: scale(0.97); }
+}
 .et-corpo { position: relative; flex: 1; min-height: 0; border: 1px solid var(--linha); background: #000000; overflow: hidden; }
 .et-term { position: absolute; inset: 4px 2px 4px 6px; display: none; }
 .et-term.ativo { display: block; }
@@ -2586,6 +2660,9 @@ html[data-destacado="1"] body {
 [data-estilo="ios"] .proj-ia .botao-cmd { padding: 2px 9px; }
 [data-estilo="ios"] .proj-sessoes { border: none; border-radius: 12px; background: rgba(255, 255, 255, 0.06); }
 [data-estilo="ios"] .ps-linha .botao-cmd { padding: 1px 8px; }
+[data-estilo="ios"] .ps-quest-chip { border: none; border-radius: 6px; }
+[data-estilo="ios"] .et-quest-tempo { border: none; border-radius: 6px; }
+[data-estilo="ios"] .et-quest-status { border: none; border-radius: 6px; background: rgba(255, 255, 255, 0.08); }
 [data-estilo="ios"] .pq-item { border-radius: 8px; }
 [data-estilo="ios"] .pq-item.atual, [data-estilo="ios"] .pq-item:hover { background: rgba(255, 255, 255, 0.14); color: #ffffff; }
 

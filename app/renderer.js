@@ -4266,6 +4266,19 @@ const cerebro = (() => {
 // As sessões do Claude rodam DENTRO do widget: o app/pty.cs (pseudo-console do Windows) roda o programa, o processo principal entrega a saída
 // (app/embutido.js) e aqui o xterm.js a desenha com o mesmo visual do resto. A tela só manda o que você digita, o tamanho e o pedido de
 // encerrar; quem monta o comando é sempre o processo principal. Uma aba por sessão; [< projetos] volta à lista sem encerrar nada.
+const questsPorTermId = new Map(); // termId -> { estado: 'ocioso'|'executando'|'concluido', inicio, fim, duracaoMs, texto }
+function formatarTempoQuest(ms) {
+  if (!ms || ms < 0) return '0s';
+  const totalSeg = Math.floor(ms / 1000);
+  if (totalSeg < 60) return `${totalSeg}s`;
+  const min = Math.floor(totalSeg / 60);
+  const seg = totalSeg % 60;
+  if (min < 60) return `${min}m ${String(seg).padStart(2, '0')}s`;
+  const horas = Math.floor(min / 60);
+  const restoMin = min % 60;
+  return `${horas}h ${String(restoMin).padStart(2, '0')}m`;
+}
+
 const terminalEmb = (() => {
   const $ = (id) => document.getElementById(id);
   const aba = $('aba-projetos');
@@ -4398,9 +4411,67 @@ const terminalEmb = (() => {
     // botão direito: com texto selecionado copia, sem seleção cola (como no Windows Terminal)
     host.addEventListener('contextmenu', (e) => { e.preventDefault(); if (term.hasSelection()) copiarSelecao(); else colar(); });
     term.onData((dados) => window.widget.termEntrada(info.termId, dados));
-    const s = { ...info, term, fit, host, vivo: true, confirmando: false };
+    const qInicial = questsPorTermId.get(info.termId) || { estado: 'ocioso', inicio: null, fim: null, duracaoMs: 0, texto: '' };
+    const s = { ...info, term, fit, host, vivo: true, confirmando: false, quest: qInicial };
     sessoes.set(info.termId, s);
     return s;
+  }
+
+  let timerTickQuests = null;
+  function atualizarVisualQuests() {
+    const agoraMs = Date.now();
+    let algumExecutando = false;
+    for (const s of sessoes.values()) {
+      const q = s.quest || questsPorTermId.get(s.termId);
+      if (q && q.estado === 'executando') {
+        algumExecutando = true;
+        const ms = Math.max(0, agoraMs - q.inicio);
+        const str = '⏱️ ' + formatarTempoQuest(ms);
+        const chipAba = barraAbas.querySelector(`.et-quest-tempo[data-term-id="${s.termId}"]`);
+        if (chipAba) {
+          chipAba.textContent = str;
+          chipAba.title = `Quest em andamento: ${formatarTempoQuest(ms)}`;
+        }
+        const chipLista = document.querySelector(`.ps-quest-chip[data-term-id="${s.termId}"]`);
+        if (chipLista) {
+          chipLista.textContent = str;
+          chipLista.title = `Quest em andamento: ${formatarTempoQuest(ms)}`;
+        }
+      }
+    }
+    atualizarQuestStatusTopo();
+    if (!algumExecutando && timerTickQuests) {
+      clearInterval(timerTickQuests);
+      timerTickQuests = null;
+    }
+  }
+
+  function garantirTickQuests() {
+    const temExecutando = [...sessoes.values()].some((s) => (s.quest || questsPorTermId.get(s.termId))?.estado === 'executando');
+    if (temExecutando && !timerTickQuests) {
+      timerTickQuests = setInterval(atualizarVisualQuests, 1000);
+    } else if (!temExecutando && timerTickQuests) {
+      clearInterval(timerTickQuests);
+      timerTickQuests = null;
+    }
+  }
+
+  function atualizarQuestStatusTopo() {
+    const elStatus = $('et-quest-status');
+    if (!elStatus) return;
+    const s = sessoes.get(atual);
+    const q = s ? (s.quest || questsPorTermId.get(s.termId)) : null;
+    if (!s || !q || (q.estado !== 'executando' && !q.duracaoMs)) {
+      elStatus.classList.add('oculto');
+      return;
+    }
+    const executando = q.estado === 'executando';
+    const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
+    elStatus.className = 'et-quest-status ' + (executando ? 'executando' : 'concluido');
+    elStatus.textContent = executando ? `⏱️ quest: ${formatarTempoQuest(ms)}` : `✓ quest: ${formatarTempoQuest(ms)}`;
+    elStatus.title = executando
+      ? `Quest em andamento (${s.nome}): ${formatarTempoQuest(ms)}`
+      : `Última quest concluída (${s.nome}): ${formatarTempoQuest(ms)}`;
   }
 
   function destacarGuiaIndividual(s) {
@@ -4434,6 +4505,20 @@ const terminalEmb = (() => {
       b.style.setProperty('--cor', /^#[0-9a-f]{6}$/i.test(s.cor || '') ? s.cor : '#6e6e6e');
       b.title = s.vivo ? `${s.nome} · ${s.modelo}` : `${s.nome} · encerrada`;
       b.append(el('span', 'et-bolinha'), el('span', null, `${s.nome} · ${s.modelo}`));
+
+      const q = s.quest || questsPorTermId.get(s.termId);
+      if (q && (q.estado === 'executando' || q.duracaoMs > 0)) {
+        const executando = q.estado === 'executando';
+        const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
+        const chip = el('span', 'et-quest-tempo ' + (executando ? 'executando' : 'concluido'));
+        chip.dataset.termId = s.termId;
+        chip.textContent = (executando ? '⏱️ ' : '✓ ') + formatarTempoQuest(ms);
+        chip.title = executando
+          ? `Quest em andamento: ${formatarTempoQuest(ms)}`
+          : `Última quest concluída em: ${formatarTempoQuest(ms)}`;
+        b.append(chip);
+      }
+
       const btnDest = el('button', 'et-dest-aba', '↗');
       btnDest.type = 'button';
       btnDest.title = 'Destacar esta guia numa janela separada';
@@ -4448,6 +4533,7 @@ const terminalEmb = (() => {
       b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); mostrar(s.termId); } });
       return b;
     }));
+    atualizarQuestStatusTopo();
   }
 
   function aplicarVista() {
@@ -4469,6 +4555,7 @@ const terminalEmb = (() => {
     }
     desenharAbas();
     aplicarVista();
+    atualizarQuestStatusTopo();
     requestAnimationFrame(() => { ajustar(s); s.term.focus(); });
   }
 
@@ -4479,6 +4566,16 @@ const terminalEmb = (() => {
     let s = sessoes.get(info.termId);
     if (!s) {
       s = criar(info);
+      if (window.widget.termQuest) {
+        window.widget.termQuest(info.termId).then((q) => {
+          if (q) {
+            s.quest = q;
+            questsPorTermId.set(info.termId, q);
+            desenharAbas();
+            garantirTickQuests();
+          }
+        }).catch(() => {});
+      }
       const antes = await window.widget.termAnexar(info.termId);
       if (antes && antes.length) s.term.write(antes);
     } else {
@@ -4549,6 +4646,26 @@ const terminalEmb = (() => {
       else if (tipo === 'confirmacao') dizerNoTerminal(`A IA está pedindo uma confirmação. Responda você no terminal: depois eu digito ${comando}.`, true, 0);
       else if (tipo === 'nao-digitei') dizerNoTerminal(`Não consegui digitar ${comando} sozinho: digite você mesmo no terminal.`, true);
     });
+    if (window.widget.onTermQuest) {
+      window.widget.onTermQuest((id, quest) => {
+        questsPorTermId.set(id, quest);
+        const s = sessoes.get(id);
+        if (s) {
+          s.quest = quest;
+          desenharAbas();
+          atualizarQuestStatusTopo();
+          garantirTickQuests();
+        }
+        const chipLista = document.querySelector(`.ps-quest-chip[data-term-id="${id}"]`);
+        if (chipLista) {
+          const executando = quest.estado === 'executando';
+          const ms = executando ? Math.max(0, Date.now() - quest.inicio) : quest.duracaoMs;
+          chipLista.className = 'ps-quest-chip ' + (executando ? 'executando' : 'concluido');
+          chipLista.textContent = (executando ? '⏱️ ' : '✓ ') + formatarTempoQuest(ms);
+          chipLista.title = executando ? `Quest em andamento: ${formatarTempoQuest(ms)}` : `Última quest: ${formatarTempoQuest(ms)}`;
+        }
+      });
+    }
   }
 
   $('et-voltar').addEventListener('click', voltar);
@@ -4609,6 +4726,7 @@ const terminalEmb = (() => {
   return {
     abrir: abrirSessao,
     tem: (id) => sessoes.has(id),
+    obterQuest: (id) => (sessoes.get(id)?.quest || questsPorTermId.get(id) || null),
     aoMudar(fn) { aoMudar = fn; },
     aoUso(fn) { aoUso = fn; },
     aoPedirPS(fn, fnNova) { aoAbrirPS = fn; aoAbrirPSEmNovaJanela = fnNova || fn; },
@@ -5871,7 +5989,10 @@ const projetos = (() => {
       }
       return;
     }
-    const ass = JSON.stringify(sessoesAtivas.map((s) => [s.id, s.iaPid, s.modo, s.modelo]));
+    const ass = JSON.stringify(sessoesAtivas.map((s) => {
+      const q = s.termId ? (terminalEmb.obterQuest(s.termId) || questsPorTermId.get(s.termId)) : null;
+      return [s.id, s.iaPid, s.modo, s.modelo, q ? `${q.estado}:${q.duracaoMs || 0}` : ''];
+    }));
     if (ass === ultimasSessoesAssinatura && $('ps-lista').children.length === sessoesAtivas.length) return;
     ultimasSessoesAssinatura = ass;
     $('ps-lista').replaceChildren(...sessoesAtivas.map((s) => {
@@ -5886,15 +6007,36 @@ const projetos = (() => {
       desc.title = s.pasta + (s.iaPid ? ` · PID ${s.iaPid}` : ' · procurando o processo...');
       const selo = el('span', 'ps-ia' + (s.ia && s.ia !== 'claude' ? ' agy' : ''), iaCurta(s.ia)); // "claude" ou "agy"
       selo.title = nomeIA(s.ia || 'claude');
-      linha.append(el('span', 'ps-bolinha'), selo, desc,
+
+      const q = s.termId ? (terminalEmb.obterQuest(s.termId) || questsPorTermId.get(s.termId)) : null;
+      let chipQuest = null;
+      if (q && (q.estado === 'executando' || q.duracaoMs > 0)) {
+        const executando = q.estado === 'executando';
+        const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
+        chipQuest = el('span', 'ps-quest-chip ' + (executando ? 'executando' : 'concluido'));
+        chipQuest.dataset.termId = s.termId || '';
+        chipQuest.textContent = (executando ? '⏱️ ' : '✓ ') + formatarTempoQuest(ms);
+        chipQuest.title = executando ? `Quest em andamento: ${formatarTempoQuest(ms)}` : `Última quest: ${formatarTempoQuest(ms)}`;
+      }
+
+      const itens = [el('span', 'ps-bolinha'), selo, desc];
+      if (chipQuest) itens.push(chipQuest);
+      itens.push(
         s.via === 'widget'
           ? botao('[abrir]', () => focar(s), 'Mostra o terminal desta sessão aqui no widget')
           : botao('[focar janela]', () => focar(s), 'Traz a janela desta sessão para a frente'),
         botao('[encerrar]', () => pedirEncerrar(s), 'Fecha a sessão (pergunta antes)'));
+      linha.append(...itens);
       return linha;
     }));
   }
   async function atualizarSessoes() {
+    if (window.widget.termQuests) {
+      try {
+        const todas = await window.widget.termQuests();
+        if (todas) for (const [k, v] of Object.entries(todas)) questsPorTermId.set(k, v);
+      } catch { /* ignora */ }
+    }
     const r = await chamar(() => window.widget.sessoesListar());
     if (!r.ok) return;
     sessoesAtivas = r.sessoes;
