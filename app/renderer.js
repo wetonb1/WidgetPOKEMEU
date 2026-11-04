@@ -1127,12 +1127,20 @@ const pokemon = (() => {
 
   function desenharBotoes() {
     const favorito = atual && (ehAnime() ? favFranquias.some((f) => mesmoPersonagem(f, atual)) : favoritos.includes(atual.slug));
-    el.fav.textContent = favorito ? 'fav*' : 'fav';
+    el.fav.replaceChildren(
+      el('span', 'btn-ico', favorito ? '★' : '☆'),
+      el('span', 'btn-txt', 'fav')
+    );
     el.fav.classList.toggle('ativo', !!favorito);
-    el.fav.title = favorito ? 'Remover dos favoritos' : 'Favoritar';
+    el.fav.title = favorito ? 'Remover dos favoritos' : 'Favoritar (★)';
+
+    el.shiny.replaceChildren(
+      el('span', 'btn-ico', '✨'),
+      el('span', 'btn-txt', 'shiny')
+    );
     el.shiny.classList.toggle('ativo', usarShiny && !ehAnime());
     el.shiny.disabled = ehAnime();
-    el.shiny.title = ehAnime() ? 'Brilho (shiny) só existe para Pokémon' : 'Alternar brilhante (shiny)';
+    el.shiny.title = ehAnime() ? 'Brilho (shiny) só existe para Pokémon' : 'Alternar brilhante (shiny ✨)';
   }
 
   function desenharFavoritos() {
@@ -1209,6 +1217,7 @@ const pokemon = (() => {
     animar();
     desenharBotoes();
     desenharFavoritos();
+    if (usarShiny && !ehAnime()) dispararAnimacaoShiny();
   }
 
   // ----- busca -----
@@ -1443,6 +1452,48 @@ const pokemon = (() => {
     salvar();
   });
 
+  // Animação de estrelas subindo de baixo pra cima igual ao encontro de Pokémon Shiny
+  function dispararAnimacaoShiny() {
+    const tela = el.tela;
+    if (!tela) return;
+    const anterior = tela.querySelector('.shiny-particula-recipiente');
+    if (anterior) anterior.remove();
+
+    const recip = el('div', 'shiny-particula-recipiente');
+    recip.append(el('div', 'shiny-onda'));
+
+    if (el.img) {
+      el.img.classList.remove('shiny-flash-sprite');
+      void el.img.offsetWidth;
+      el.img.classList.add('shiny-flash-sprite');
+      setTimeout(() => { if (el.img) el.img.classList.remove('shiny-flash-sprite'); }, 850);
+    }
+
+    const CORES = ['#ffd700', '#ffffff', '#80f7ff', '#ffe66d', '#ff9eed', '#ffd700'];
+    for (let i = 0; i < 16; i++) {
+      const estrela = el('div', 'shiny-estrela');
+      const cor = CORES[i % CORES.length];
+      const tam = 9 + Math.floor(Math.random() * 9); // 9px a 17px
+      const left = 8 + Math.floor(Math.random() * 84); // 8% a 92%
+      const atraso = (i * 0.04) + (Math.random() * 0.06);
+      const dx = (Math.random() * 50 - 25).toFixed(1);
+      
+      estrela.style.setProperty('--cor-estrela', cor);
+      estrela.style.setProperty('--dx', dx + 'px');
+      estrela.style.width = tam + 'px';
+      estrela.style.height = tam + 'px';
+      estrela.style.left = left + '%';
+      estrela.style.animationDelay = atraso.toFixed(3) + 's';
+
+      recip.append(estrela);
+    }
+
+    tela.append(recip);
+    setTimeout(() => {
+      recip.remove();
+    }, 1400);
+  }
+
   el.shiny.addEventListener('click', () => {
     if (!atual || ehAnime()) return; // brilho só existe para Pokémon
     usarShiny = !usarShiny;
@@ -1451,6 +1502,7 @@ const pokemon = (() => {
     desenharImagem(true); // usa os dados já baixados: sem nova consulta
     varredura();
     salvar();
+    if (usarShiny) dispararAnimacaoShiny();
   });
 
   // Animação do tema em rajadas: a cada 9 s, ao trocar de Pokémon e com o mouse em cima
