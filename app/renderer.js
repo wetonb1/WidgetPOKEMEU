@@ -4496,12 +4496,6 @@ const terminalEmb = (() => {
     term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true;
       const tecla = String(e.key).toLowerCase();
-      // Ctrl+A seleciona todas as mensagens/linhas do terminal
-      if (e.ctrlKey && !e.altKey && !e.shiftKey && tecla === 'a') {
-        e.preventDefault();
-        term.selectAll();
-        return false;
-      }
       if (e.ctrlKey && !e.altKey && tecla === 'c' && term.hasSelection()) { e.preventDefault(); copiarSelecao(); return false; }
       if ((e.ctrlKey && !e.altKey && tecla === 'v') || (e.shiftKey && !e.ctrlKey && e.key === 'Insert')) { e.preventDefault(); colar(); return false; }
       return true;
@@ -6901,6 +6895,16 @@ const skillsAba = (() => {
     }
     return s;
   }
+  function linhaBarra(rotulo, valor, classe) {
+    const l = el('div', 'sk-linha');
+    const trilho = el('span', 'sk-trilho');
+    const b = el('i', 'sk-barra-valor ' + classe);
+    const escala = (dados && dados.escala) || 3000;
+    b.style.width = valor ? Math.max(3, Math.min(100, Math.round((valor / escala) * 100))) + '%' : '0';
+    trilho.append(b);
+    l.append(el('span', 'sk-rot', rotulo), trilho, el('span', 'sk-valor', num(valor)));
+    return l;
+  }
   function cartao(c) {
     const k = el('div', 'sk-cartao' + (c.problemas.length ? ' invalido' : ''));
     const cab = el('div', 'sk-cab');
@@ -6912,7 +6916,12 @@ const skillsAba = (() => {
       if (cA.instalada.projeto) selos.append(selo(`projeto${vers(cA.instalada.projeto)}`, cA.instalada.projeto, c.versao));
       if (cA.instalada.global) selos.append(selo(`global${vers(cA.instalada.global)}`, cA.instalada.global, c.versao));
     });
-    c.alertas.forEach((a) => { const s = el('span', 'sk-selo alerta', a.split(':')[0]); s.title = a; selos.append(s); });
+    const todosAvisos = [...(c.alertas || []), ...(c.problemas || [])];
+    if (todosAvisos.length) {
+      const s = el('span', 'sk-selo sk-selo-aviso', '⚠️');
+      s.title = todosAvisos.join('\n');
+      selos.append(s);
+    }
     
     // Descrição limpa e concisa
     const desc = el('div', 'sk-desc', c.descricao_curta || (c.exemplo_de_uso ? `"${c.exemplo_de_uso}"` : ''));
@@ -6922,14 +6931,16 @@ const skillsAba = (() => {
     if (c.alternativa_a && c.alternativa_a.length) {
       k.append(el('div', 'sk-aviso-compacto', `substitui ${c.alternativa_a.join(', ')}`));
     }
-    if (c.problemas.length) {
-      k.append(el('div', 'sk-problema', 'manifesto: ' + c.problemas.join('; ')));
-      return k;
-    }
 
     const corpo = el('div', 'sk-corpo');
-    const chipTokens = el('div', 'sk-chip-tokens', `⚡ fixo: ${num(c.custo.fixo)} · uso: ${num(c.custo.ao_usar)}`);
-    chipTokens.title = `Fixo ${num(c.custo.fixo)} · Ao usar ~${num(c.custo.ao_usar)} tokens por ativação`;
+    const barras = el('div', 'sk-barras');
+    barras.title = `fixo ${num(c.custo.fixo)} · ao usar ${num(c.custo.ao_usar)}` + (c.custo.extras ? ` · extras ${num(c.custo.extras)}` : '')
+      + (c.custo.saida_ferramenta ? ` · saída da ferramenta ~${num(c.custo.saida_ferramenta)}` : '') + ` · por uso ~${num(c.custo.total_estimado_por_uso)} tokens (estimativa)`;
+    barras.append(linhaBarra('fixo', c.custo.fixo, 'fixo'), linhaBarra('ao usar', c.custo.ao_usar, 'uso'));
+    if (alvo === 'ambos') {
+      const g = cartaoDe(c.nome, 'antigravity');
+      if (g && g.custo) barras.title += ` · Antigravity (estimado): fixo ${num(g.custo.fixo)} · ao usar ${num(g.custo.ao_usar)}`;
+    }
 
     const acoes = el('div', 'sk-acoes');
     const cartoesIA = alvosAtivos().map((a) => ({ a, c: cartaoDe(c.nome, a) })).filter((x) => x.c);
@@ -6942,7 +6953,7 @@ const skillsAba = (() => {
       acoes.append(b);
     }
     acoes.append(botao('[ver]', () => ver(c), 'Ver conteúdo da skill'));
-    corpo.append(chipTokens, acoes);
+    corpo.append(barras, acoes);
     k.append(corpo);
     return k;
   }

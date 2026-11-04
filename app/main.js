@@ -424,8 +424,17 @@ function criarJanela(posicao) {
     }, 1000);
   });
 
-  janela.on('move', () => verificarBordasJanela(janela));
+  let timerDockMove = null;
+  janela.on('move', () => {
+    if (!timerDockMove) {
+      timerDockMove = setTimeout(() => {
+        timerDockMove = null;
+        verificarBordasJanela(janela);
+      }, 120);
+    }
+  });
   janela.on('moved', () => {
+    if (timerDockMove) { clearTimeout(timerDockMove); timerDockMove = null; }
     snapBordasJanela(janela);
     verificarBordasJanela(janela);
   });

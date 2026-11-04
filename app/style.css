@@ -2310,22 +2310,18 @@ html[data-destacado="1"] body {
   grid-template-rows: 46px 1fr 44px;
   column-gap: 10px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 26px;
   overflow: hidden;
-  background-color: color-mix(in srgb, var(--c-media, #141624) 42%, rgba(13, 15, 23, 0.40));
+  -webkit-backdrop-filter: blur(28px) saturate(180%);
+  backdrop-filter: blur(28px) saturate(180%);
+  background-color: rgba(16, 18, 28, 0.84);
   background-image:
-    radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%),
-    radial-gradient(75% 120% at 0% 50%, var(--c-esq), transparent),
-    radial-gradient(75% 120% at 100% 50%, var(--c-dir), transparent),
-    radial-gradient(120% 75% at 50% 0%, var(--c-topo), transparent),
-    radial-gradient(120% 75% at 50% 100%, var(--c-baixo), transparent),
-    linear-gradient(135deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.02) 60%, transparent 100%);
+    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 65%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.01) 100%);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 1px 0 0 rgba(255, 255, 255, 0.20),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.10);
-  transition: --c-esq 1.2s ease, --c-dir 1.2s ease, --c-topo 1.2s ease, --c-baixo 1.2s ease, --c-media 1.2s ease, border-color 0.4s ease;
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 16px 48px rgba(0, 0, 0, 0.45);
 }
 
 /* ----- barra de cima ----- */
@@ -2715,15 +2711,17 @@ html[data-destacado="1"] body {
   padding: 0 10px 10px 10px !important;
   overflow: hidden !important;
   border-radius: 38px !important;
-  border: 1px solid rgba(255, 255, 255, 0.22) !important;
-  background-color: color-mix(in srgb, var(--c-media, #141624) 42%, rgba(13, 15, 23, 0.40)) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  background-color: rgba(16, 18, 28, 0.86) !important;
   background-image:
-    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 75%),
+    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 75%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 14px 40px rgba(0, 0, 0, 0.40) !important;
+    0 14px 40px rgba(0, 0, 0, 0.45) !important;
 }
 [data-estilo="ios"] .mini .lado-poke {
   padding: 4px !important;
@@ -2871,11 +2869,13 @@ html[data-destacado="1"][data-estilo="ios"] #cartao {
   grid-template-rows: 44px 1fr !important;
   padding-bottom: 10px;
   border-radius: 24px !important;
-  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  background-color: rgba(16, 18, 28, 0.88) !important;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 1px 0 0 rgba(255, 255, 255, 0.20),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.10) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 16px 48px rgba(0, 0, 0, 0.50) !important;
   overflow: hidden !important;
 }
 html[data-destacado="1"] #aba-projetos.ativo.terminal:not(.usando) {
@@ -3168,6 +3168,19 @@ html[data-destacado="1"] #proj-term {
   font-size: 10px;
   color: var(--sk-amarela, #ffc857);
   opacity: 0.85;
+}
+.sk-selo-aviso {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  cursor: help;
+  padding: 0 5px;
+  background: rgba(255, 107, 107, 0.18) !important;
+  border: 1px solid rgba(255, 107, 107, 0.40) !important;
+  border-radius: 999px;
+  color: #ff6b6b;
+  line-height: 14px;
 }
 .sk-chip-tokens {
   font-size: 11px;
