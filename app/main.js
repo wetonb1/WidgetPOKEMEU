@@ -821,7 +821,7 @@ function caminhoCompleto(alvo) {
 }
 
 // Abre só sites http(s) ou caminhos que existem (.exe, .lnk, pasta, arquivo)
-ipcMain.handle('apps:abrir', async (e, indice) => {
+ipcMain.handle('apps:abrir', async (e, indice, forcarNovo = false) => {
   if (!daJanela(e)) return 'origem inválida';
   const a = lerApp(indice);
   if (!a) return 'atalho inválido';
@@ -837,14 +837,20 @@ ipcMain.handle('apps:abrir', async (e, indice) => {
   if (a.type === 'app') {
     // apps da Store / Menu Iniciar: o próprio Windows abre pelo AppID
     if (!APP_ID.test(a.target)) return 'app inválido';
-    if (await pedirServidorPS('focar-app ' + a.target) === 'true') return 'focado'; // já estava aberto
+    if (!forcarNovo && (await pedirServidorPS('focar-app ' + a.target)) === 'true') return 'focado'; // já estava aberto
     spawn('explorer.exe', ['shell:AppsFolder\\' + a.target], { detached: true, stdio: 'ignore' }).unref();
     return '';
   }
   const caminho = caminhoCompleto(a.target);
   if (!fs.existsSync(caminho)) return 'caminho não existe: ' + caminho;
   const exe = exeDoAtalho(caminho);
-  if (exe && await pedirServidorPS('focar-exe ' + exe) === 'true') return 'focado'; // já estava aberto
+  if (!forcarNovo && exe && (await pedirServidorPS('focar-exe ' + exe)) === 'true') return 'focado'; // já estava aberto
+  if (forcarNovo && exe) {
+    try {
+      spawn(exe, [], { detached: true, stdio: 'ignore' }).unref();
+      return '';
+    } catch { /* se o spawn direto falhar, cai no openPath */ }
+  }
   return shell.openPath(caminho); // texto vazio = deu certo
 });
 

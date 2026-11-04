@@ -737,7 +737,75 @@ button { font-family: var(--font); }
   font: 700 15px var(--font);
   color: var(--accent);
 }
-.app-nome { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.app-rotulo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  max-width: 100%;
+  min-width: 0;
+  width: 100%;
+}
+.app-nome {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.app-rotulo:has(.app-mais-um) .app-nome {
+  max-width: calc(100% - 22px);
+}
+.app-mais-um {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  font-family: Consolas, "Cascadia Mono", monospace;
+  padding: 0 3px;
+  height: 13px;
+  min-width: 16px;
+  line-height: 1;
+  border-radius: 4px;
+  border: 1px solid var(--linha);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: transform 0.12s ease, background 0.12s ease, color 0.12s ease;
+  user-select: none;
+}
+.app-mais-um:hover {
+  background: var(--accent);
+  color: #000000;
+  border-color: var(--accent);
+  transform: scale(1.15);
+}
+.app-mais-um:active {
+  transform: scale(0.92);
+}
+.app:hover .app-mais-um {
+  background: rgba(0, 0, 0, 0.18);
+  border-color: var(--bg);
+  color: var(--bg);
+}
+.app:hover .app-mais-um:hover {
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--bg);
+}
+.editar-opcao-unica {
+  font-size: 11px;
+  color: var(--apagado);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  margin-top: 2px;
+}
+.editar-opcao-unica input[type="checkbox"] {
+  cursor: pointer;
+}
 
 /* mover (segurar e arrastar): o app levantado vira um "fantasma" que segue o mouse;
    o lugar dele na grade fica apagado e mostra onde vai cair */
@@ -2446,6 +2514,22 @@ html[data-destacado="1"] body {
 }
 [data-estilo="ios"] .app:hover { background: rgba(255, 255, 255, 0.1); color: var(--text); }
 [data-estilo="ios"] .app:active { transform: scale(0.93); }
+[data-estilo="ios"] .app-mais-um {
+  border: none;
+  background: rgba(255, 255, 255, 0.14);
+  color: #ffffff;
+  border-radius: 4px;
+  font-size: 8.5px;
+  height: 13px;
+}
+[data-estilo="ios"] .app-mais-um:hover {
+  background: var(--accent);
+  color: #ffffff;
+}
+[data-estilo="ios"] .app:hover .app-mais-um {
+  background: rgba(255, 255, 255, 0.22);
+  color: #ffffff;
+}
 [data-estilo="ios"] .app-fantasma {
   background: rgba(255, 255, 255, 0.2);
   color: var(--text);

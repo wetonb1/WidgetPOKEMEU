@@ -10,7 +10,7 @@ contextBridge.exposeInMainWorld('widget', {
   getVolume: () => ipcRenderer.invoke('volume-get'),
   setVolume: (v) => ipcRenderer.invoke('volume-set', Number(v)),
   setMudo: (mudo) => ipcRenderer.invoke('volume-mudo', mudo === true),
-  abrirApp: (indice) => ipcRenderer.invoke('apps:abrir', indice),
+  abrirApp: (indice, forcarNovo = false) => ipcRenderer.invoke('apps:abrir', indice, forcarNovo === true),
   iconeApp: (indice) => ipcRenderer.invoke('apps:icone', indice),
   catalogoApps: () => ipcRenderer.invoke('apps:catalogo'),
   iconeAppId: (id) => ipcRenderer.invoke('apps:icone-appid', String(id)),

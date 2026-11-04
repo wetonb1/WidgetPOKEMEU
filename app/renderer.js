@@ -1773,6 +1773,40 @@ const apps = (() => {
     return img;
   }
 
+  // Identifica jogos e programas de instância única (onde não faz sentido abrir +1)
+  function ehJogoOuInstanciaUnica(a) {
+    if (!a) return false;
+    if (a.unico === true || a.jogo === true) return true;
+    if (a.unico === false) return false; // escolha manual do usuário para permitir
+    const nome = String(a.name || '').toLowerCase();
+    const alvo = String(a.target || '').toLowerCase();
+
+    // Atalhos e links da Steam
+    if (alvo.startsWith('steam://') || alvo.includes('rungameid')) return true;
+
+    // Pastas de launchers e diretórios de jogos comuns
+    const pastasJogos = [
+      '\\steam\\', '\\steamapps\\', '\\epic games\\', '\\riot games\\',
+      '\\ubisoft\\', '\\battle.net\\', '\\gog galaxy\\', '\\gog games\\',
+      '\\xboxgames\\', '\\origin games\\', '\\ea games\\', '\\ea desktop\\',
+      '\\rockstar games\\', '\\genshin impact\\', '\\valorant\\', '\\league of legends\\',
+      '\\minecraft\\', '\\roblox\\'
+    ];
+    if (pastasJogos.some((p) => alvo.includes(p))) return true;
+
+    // Palavras-chave e títulos de jogos conhecidos
+    const palavrasJogo = [
+      'steam', 'epic games', 'riot games', 'battle.net', 'gog galaxy',
+      'minecraft', 'roblox', 'valorant', 'league of legends', 'genshin',
+      'fortnite', 'counter-strike', 'cs:go', 'cs2', 'dota', 'overwatch',
+      'cyberpunk', 'gta v', 'grand theft auto', 'red dead', 'the witcher',
+      'elden ring', 'dark souls', 'baldurs gate', 'honkai', 'warframe'
+    ];
+    if (palavrasJogo.some((p) => nome === p || nome.includes(p))) return true;
+
+    return false;
+  }
+
   // ----- grade: os seus apps -----
   function desenhar() {
     desenhado = true;
@@ -1789,16 +1823,40 @@ const apps = (() => {
       b.type = 'button';
       b.title = a.name + ' (segure para mover · botão direito edita)';
       b.dataset.i = i; // posição na lista (a ordem na tela muda enquanto você arrasta)
+
+      const rotulo = document.createElement('div');
+      rotulo.className = 'app-rotulo';
+
       const nome = document.createElement('span');
       nome.className = 'app-nome';
       nome.textContent = a.name;
+      rotulo.append(nome);
+
+      if (!ehJogoOuInstanciaUnica(a)) {
+        const maisUm = document.createElement('span');
+        maisUm.className = 'app-mais-um';
+        maisUm.textContent = '+1';
+        maisUm.title = `Abrir mais uma janela de ${a.name}`;
+        maisUm.addEventListener('click', (e) => {
+          e.stopPropagation();
+          e.preventDefault();
+          window.widget.abrirApp(i, true)
+            .then((r) => {
+              if (r) { dizer('Não consegui abrir mais um ' + a.name + ': ' + r); console.error('Não abriu mais um', a.name + ':', r); }
+              else falar('appAbrir', { app: a.name });
+            })
+            .catch((erro) => console.error('Erro ao abrir mais um', a.name + ':', erro));
+        });
+        rotulo.append(maisUm);
+      }
+
       const icone = criarIcone(a, () => window.widget.iconeApp(i));
-      b.append(icone, nome);
+      b.append(icone, rotulo);
       if (icone.carregar) icone.carregar();
       b.addEventListener('click', () => {
         if (ignorarClique) { ignorarClique = false; return; } // o clique que termina um arrastar não abre o app
         // se já estiver aberto, o main traz a janela para a frente em vez de abrir outra
-        window.widget.abrirApp(i)
+        window.widget.abrirApp(i, false)
           .then((r) => {
             if (r === 'focado') falar('appFocar', { app: a.name });
             else if (r) { dizer('Não consegui abrir ' + a.name + ': ' + r); console.error('Não abriu', a.name + ':', r); }
@@ -1898,7 +1956,7 @@ const apps = (() => {
   }
 
   grade.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || movendo) return;
+    if (e.button !== 0 || movendo || e.target.closest('.app-mais-um')) return;
     const b = e.target.closest('.app');
     if (!b) return;
     clearTimeout(seguro && seguro.timer);
@@ -2083,6 +2141,7 @@ const apps = (() => {
   const eNome = document.getElementById('e-nome');
   const eIcone = document.getElementById('e-icone');
   const eArquivo = document.getElementById('e-arquivo');
+  const eUnico = document.getElementById('e-unico');
   let indiceEditando = -1;
   let iconeNovo; // undefined = não mexeu · null = voltar ao original · "data:..." = imagem escolhida
 
@@ -2100,6 +2159,7 @@ const apps = (() => {
     indiceEditando = i;
     iconeNovo = undefined;
     eNome.value = lista[i].name;
+    if (eUnico) eUnico.checked = ehJogoOuInstanciaUnica(lista[i]);
     caixaConfirma.classList.add('oculto');
     caixaEditar.classList.remove('oculto');
     dialogo.classList.remove('oculto');
@@ -2154,6 +2214,7 @@ const apps = (() => {
     const i = indiceEditando;
     if (i < 0) return;
     const a = { ...lista[i], name: eNome.value.trim().slice(0, 30) || lista[i].name };
+    if (eUnico) a.unico = eUnico.checked;
     if (iconeNovo === null) delete a.icone;
     else if (iconeNovo) a.icone = iconeNovo;
     fecharDialogo();
