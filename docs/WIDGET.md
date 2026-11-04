@@ -356,3 +356,20 @@ Nada em segundo plano, nenhuma rotação de contas, nada de login/HOME/chaveiro/
 
 **10.10 Auditoria, paridade e documentação.** Matriz de paridade Claude × Antigravity revisada; todas as 21 suítes de testes (15 scripts `npm run testar-*` + 6 suítes `python -X utf8`) verdes sem regressão. Medição de leveza (`npm run medir -- -Cenario A`, 3 rodadas de 30 s): antes da fase 10 (`2898529`) mediana CPU `6,3%` de 1 núcleo (`0,40%` total) e RAM `377 MB` WS / `158 MB` privada (5 processos); depois da fase 10 mediana CPU `7,0%` de 1 núcleo (`0,44%` total) e RAM `374 MB` WS / `156 MB` privada (5 processos). Teste de adesão refeito nas duas IAs (com e sem `prompt_inicial`): ambas consultam `cerebro.py buscar` na 1ª ação. Documentação (`README.md`, `cerebro/README.md`, `CLAUDE.md`, `AGENTS.md`, `docs/antigravity.md` e `docs/WIDGET.md`) atualizada e sincronizada (`python cerebro/tools/regras.py verificar`).
 
+
+## Fase 11: vidro e fluidez a 240 Hz
+
+**11.1 Confirmação da colagem.** `term:colar` devolve o que aconteceu de verdade (caminho, tamanho, bytes, miniatura ou o erro) e confere o arquivo gravado. Na sessão, o selo `#et-colagem` avisa na hora e depois olha a tela do xterm: `[Image #N]` = a IA anexou; caminho no prompt = anexa ao enviar; nada na tela depois de ~2,4 s = aviso em vermelho. Texto só ganha selo com 2 linhas ou mais (ou 300 caracteres). Fica por cima do terminal e não pega foco nem clique.
+
+**11.2 Expandir.** `janela:alternar-expandir` usa `disp.bounds` (antes `workArea`, que deixava a barra de tarefas de fora) e tira o limite de 1400x900. Expandida, a janela não encaixa nas bordas, não salva o tamanho na config, não arrasta e acompanha mudança de resolução (`reajustarExpandidas`). Expandir + [ampliar] deixa só o terminal na tela: o grid do `.tela-cheia` com `!important` guardava a coluna do Pokémon vazia, e a lista de projetos seguia ao lado.
+
+**11.3 Quina preta.** Era a sombra externa do `#cartao`: como ele tem o tamanho da janela, ela só aparecia nos cantos arredondados (alfa até 42 de 255). Cartão de janela só tem sombra interna; os cantos são 100% transparentes.
+
+**11.4 Brilho dos botões.** Tudo vem de `--brilho-alfa`, `--brilho-raio` e `--brilho-luz` no `:root` de `style.css`; botão preenchido usa `--botao-cheio`. Para ajustar o widget todo, mexa só nesses.
+
+**11.5 Vidro.** Não existe desfoque real do desktop aqui: `backdrop-filter` só enxerga a própria página, então no `#cartao` ele não desfocava nada e custava caro (saiu). O vidro é a soma de translucidez, `--vidro-desktop` (as cores lidas ao redor da janela, `--c-esq` etc., que eram medidas mas nenhum CSS usava), `--vidro-reflexo` e `--vidro-lente`. A borda é uma linha fina e suave de vidro (`rgba` branco de 0,10 a 0,13), sem brilho. `backdrop-filter` só em `.dialogo`, que abre por cima de conteúdo e fecha.
+
+**11.6 Fluidez.** Padrão agora é `aceleracaoGPU: true`; a config antiga migra 1 vez (`gpuMigrada`) e depois vale a chave "aceleração por GPU" em Settings (vale ao reabrir). Números em `docs/OTIMIZACAO.md`.
+
+**11.7 Mini.** Sem contorno, sombra ou aura na cor do Pokémon. A gota (`#btn-mini-vidro`, só no iOS) troca entre 6 vidros: cristal, âmbar, névoa, prisma, meia-noite e gelo (`miniVidro` na config; são só variáveis em `html.mini[data-mini-vidro]`).
+

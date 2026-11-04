@@ -64,7 +64,8 @@ widget. Não acho que valha a pena agora.
 
 | Chave | Padrão | O que faz | Custo medido |
 |---|---|---|---|
-| `aceleracaoGPU` | `false` | `true` religa a GPU (o efeito varia por PC) | Neste PC, com GPU: B +10 pontos de CPU, +185 MB de privada |
+| `aceleracaoGPU` | `true` | `false` desenha na CPU (chave em Settings, vale ao reabrir) | Com GPU: 150 a 270 MB a mais de privada e fluidez de 240 Hz; números na Fase 11, no fim deste arquivo |
+| `miniVidro` | `"cristal"` | Estilo de vidro do mini (botão de gota): só variáveis CSS | Zero |
 | `desempenho` | `"normal"` | `"economico"`: intervalos dobrados (sistema 6 s, música 4 s, processos 16,5 s), visualizador a 15 quadros/s e rosto sem animação nem GIF | Economiza ~12–16% de CPU (A e B) |
 | `economiaAutomatica` | `true` | Entra no modo econômico sozinho com CPU do PC acima de 90% (2 das últimas 5 leituras) ou com um app em tela cheia, e volta quando passa | A checagem de tela cheia custa ~1 ms a cada 5,5 s |
 | `visualizador` | `true` | `false` não captura áudio e esconde as barras (o espaço vai para os Apps) | B: 5,1% → 4,6% (~0,6 ponto); mais ~2 pontos nos 10 s depois de pausar (cenário D) |
@@ -72,8 +73,8 @@ widget. Não acho que valha a pena agora.
 | `volume` (barra de volume, recurso novo) | Lê o volume do Windows a cada 2 s junto com a música, só para acompanhar mudanças feitas pelo teclado | ~0,14% de 1 núcleo (2,7 ms por leitura, medido); sem animação, o resto é custo zero |
 | `gifAnimado` | `false` | `true` deixa a GIF sempre animada | Sem GPU: dentro do ruído (2,1% contra 2,9%). Com GPU: ~+20 pontos |
 
-Como a GIF ficou barata sem GPU, dá para usar `"gifAnimado": true` sem custo
-perceptível, desde que `aceleracaoGPU` continue `false`.
+Com GPU, `"gifAnimado": true` pesa no que precisa redesenhar: arrastando o grafo, 18,6% sem GIF contra 39,6% com GIF
+(Fase 11). Parado, a diferença é pequena: 4,6% contra 5,8%.
 
 ## O .exe empacotado (Etapa 9)
 
@@ -284,3 +285,30 @@ Nova rodada de medição e corte de gargalos na aba inicial (`1:sys`), na janela
 | --- | --- | --- | --- | --- | --- |
 | Antes desta rodada (`antes-otim-final`) | 5 | 10,6% (7,8% – 11,8%) | 0,66% | 153 | 375 |
 | **Depois desta rodada (`depois-otim-final`)** | **5** | **6,4% (6,3% – 6,8%)** | **0,40%** | **156** | **375** |
+
+## Fase 11: fluidez a 240 Hz (GPU e blur)
+
+Sintoma: widget com cara de atrasado num monitor de 240 Hz, pior na aba Brain. Medido em instância isolada, janela de 1100x680, RX 5500 XT, pelo intervalo entre quadros (`requestAnimationFrame`) e pela CPU da árvore de processos. O p95 é o que dá a sensação de travada.
+
+| Variante (`gifAnimado` desligado) | sys p95 | Grafo p95 | CPU parado | CPU no grafo | RAM privada |
+| --- | --- | --- | --- | --- | --- |
+| Antes: software, com `backdrop-filter` no cartão | 24,9 ms | 34 ms | 15,4% | 66,6% | 156 MB |
+| Software, sem o `backdrop-filter` | 4,3 ms | 8,4 ms | 4,7% | 48,4% | 151 MB |
+| GPU, com `backdrop-filter` | 4,3 ms | 4,3 ms | 6,0% | 18,5% | 318 MB |
+| **GPU, sem `backdrop-filter`** | **4,3 ms** | **4,3 ms** | **3,2%** | **6,4%** | **284 MB** |
+
+O `backdrop-filter` do `#cartao` era o maior custo e não fazia nada: atrás dele só existe a janela transparente. 4,3 ms = um quadro de 240 Hz.
+
+Ficou de fora uma borda animada: cada atualização recompõe a janela inteira, então ela somava +8 a +10 pontos de CPU mesmo limitada a 15 passos por segundo (55,8% contínua a 240 Hz). A borda final é uma linha parada de vidro, sem custo.
+
+Com a config real do dono (Pikachu, `gifAnimado: true`, janela de 1400x780):
+
+| Situação | CPU parado | CPU no grafo | RAM privada |
+| --- | --- | --- | --- |
+| GPU | 5,8% | 39,6% | 325 MB |
+| Software | 6,7% | 54,1% | 174 MB |
+| GPU, `gifAnimado` desligado | 4,6% | 18,6% | 300 MB |
+
+`npm run medir` (cenário A, iOS, 1 rodada de 30 s, com a config real): 6,1% de 1 núcleo e 354 MB de privada, 5 processos. O da Fase 10 (`depois-otim-final`) era 6,4% e 156 MB, sem GPU: a CPU ficou igual, com fluidez de 240 Hz, e a conta veio na memória.
+
+A CPU do grafo é uma leitura curta e ruidosa: rodadas isoladas foram de 6% a 41% na mesma configuração. Compare só a tendência.
