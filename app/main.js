@@ -1126,16 +1126,14 @@ const ias = require('./ias');
 const { abrirIA } = require('./abrir');
 // sessões abertas pelo widget (painel "Sessões ativas"); MEU_WIDGET_SESSOES troca o arquivo (testes)
 const { criarRegistro } = require('./sessoes');
-const sessoesIA = criarRegistro({ arquivo: process.env.MEU_WIDGET_SESSOES || path.join(PASTA_CONFIG, 'sessoes.json') });
-ipcMain.handle('ias:resumo', (e) => (daJanela(e) ? ias.resumo() : null));
-ipcMain.handle('ias:docs', (e, id) => {
-  const ia = daJanela(e) && typeof id === 'string' ? ias.obter(id) : null;
-  if (ia) shell.openExternal(ia.docs); // só o link oficial guardado no ias.js, nunca um vindo da tela
-  return !!ia;
-});
-// comandos que a tela pode pedir para o widget digitar: os "comandosUteis" de cada IA (app/ias-dados.json), nunca texto livre
-const comandosDa = (idIA) => new Set((ias.obter(idIA) || {}).comandosUteis || []);
-const COMANDOS_DE_ALGUMA_IA = new Set(Object.keys(ias.IAS).flatMap((id) => [...comandosDa(id)]));
+
+function notificarSessoesMudaram() {
+  if (janela && !janela.isDestroyed()) janela.webContents.send('sessoes:mudaram');
+  for (const w of janelasTerm.values()) {
+    if (w && !w.isDestroyed()) w.webContents.send('sessoes:mudaram');
+  }
+}
+
 // Terminal embutido: o Claude roda dentro do widget (app/embutido.js + app/pty.cs). MEU_WIDGET_TERMINAL_EXTERNO=1 desliga (testes).
 const { criarGerenciador } = require('./embutido');
 const embutidos = criarGerenciador({
@@ -1146,9 +1144,27 @@ const embutidos = criarGerenciador({
     for (const w of janelasTerm.values()) {
       if (w && !w.isDestroyed()) w.webContents.send(canal, ...args);
     }
+    if (canal === 'term:fim') {
+      notificarSessoesMudaram();
+    }
   },
 });
 const iniciarEmbutido = process.env.MEU_WIDGET_TERMINAL_EXTERNO ? null : (opcoes) => embutidos.iniciar(opcoes);
+
+const sessoesIA = criarRegistro({
+  arquivo: process.env.MEU_WIDGET_SESSOES || path.join(PASTA_CONFIG, 'sessoes.json'),
+  embutidoVivo: (termId) => embutidos.existe(termId),
+  embutidoEncerrar: (termId) => embutidos.encerrar(termId),
+});
+ipcMain.handle('ias:resumo', (e) => (daJanela(e) ? ias.resumo() : null));
+ipcMain.handle('ias:docs', (e, id) => {
+  const ia = daJanela(e) && typeof id === 'string' ? ias.obter(id) : null;
+  if (ia) shell.openExternal(ia.docs); // só o link oficial guardado no ias.js, nunca um vindo da tela
+  return !!ia;
+});
+// comandos que a tela pode pedir para o widget digitar: os "comandosUteis" de cada IA (app/ias-dados.json), nunca texto livre
+const comandosDa = (idIA) => new Set((ias.obter(idIA) || {}).comandosUteis || []);
+const COMANDOS_DE_ALGUMA_IA = new Set(Object.keys(ias.IAS).flatMap((id) => [...comandosDa(id)]));
 // "Pausar com segurança" (limite de uso): estado atual e próximos passos do cérebro + anotação da pausa
 ipcMain.handle('projetos:pausa-estado', (e, id) => (daJanela(e) && textoCurto(id) ? projetos.estadoDaPausa(id) : RECUSADO));
 ipcMain.handle('projetos:pausa-salvar', (e, id, dados) => (daJanela(e) && textoCurto(id) && dados && typeof dados === 'object' ? projetos.salvarEstadoDaPausa(id, dados) : RECUSADO));
@@ -1224,7 +1240,23 @@ ipcMain.handle('sessoes:focar', async (e, id) => {
     return { ok: false, erro: 'focar janelas precisa do medidor (helper.cs)' };
   }
 });
-ipcMain.handle('sessoes:encerrar', (e, id) => (daJanela(e) && typeof id === 'string' ? sessoesIA.encerrar(id) : RECUSADO));
+ipcMain.handle('sessoes:encerrar', async (e, id) => {
+  if (!daJanela(e) || typeof id !== 'string') return RECUSADO;
+  const sess = sessoesIA.obter(id);
+  const termId = sess && sess.termId;
+  const res = await sessoesIA.encerrar(id);
+  if (termId) {
+    for (const win of janelasTerm.values()) {
+      if (win && win.termSessoes) win.termSessoes.delete(termId);
+    }
+    ultimoEstadoTerm.sessoes = (ultimoEstadoTerm.sessoes || []).filter((s) => s.termId !== termId);
+    if (ultimoEstadoTerm.atual === termId) {
+      ultimoEstadoTerm.atual = (ultimoEstadoTerm.sessoes[0] && ultimoEstadoTerm.sessoes[0].termId) || '';
+    }
+  }
+  notificarSessoesMudaram();
+  return res;
+});
 // terminal embutido: a tela só manda teclas (o que você digita), tamanho e pedidos; o que roda é sempre o que o abrir.js montou
 ipcMain.handle('term:anexar', (e, id) => (daJanela(e) && typeof id === 'string' ? embutidos.anexar(id) : null));
 ipcMain.on('term:entrada', (e, id, texto) => { if (daJanela(e) && typeof id === 'string') embutidos.entrada(id, texto); });
@@ -1238,6 +1270,15 @@ ipcMain.handle('term:quests', (e) => (daJanela(e) ? embutidos.obterQuests() : {}
 ipcMain.handle('term:encerrar', (e, id) => {
   if (!daJanela(e) || typeof id !== 'string') return false;
   embutidos.encerrar(id);
+  sessoesIA.removerPorTermId(id);
+  for (const win of janelasTerm.values()) {
+    if (win && win.termSessoes) win.termSessoes.delete(id);
+  }
+  ultimoEstadoTerm.sessoes = (ultimoEstadoTerm.sessoes || []).filter((s) => s.termId !== id);
+  if (ultimoEstadoTerm.atual === id) {
+    ultimoEstadoTerm.atual = (ultimoEstadoTerm.sessoes[0] && ultimoEstadoTerm.sessoes[0].termId) || '';
+  }
+  notificarSessoesMudaram();
   return true;
 });
 
@@ -1322,6 +1363,8 @@ function criarJanelaTerm(id, opcoes = {}) {
       backgroundThrottling: false,
     },
   });
+  w.termSessoes = new Set(((opcoes.estado && opcoes.estado.sessoes) || ultimoEstadoTerm.sessoes || []).map((s) => s.termId).filter(Boolean));
+  w.fechandoPorAcoplar = false;
   w.setMenuBarVisibility(false);
   w.loadFile(path.join(__dirname, 'index.html'), { query: { estilo: ios ? 'ios' : 'cmd', rapido: '1', destacado: '1', janelaId: winId } });
   w.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -1332,10 +1375,18 @@ function criarJanelaTerm(id, opcoes = {}) {
   });
   w.on('closed', () => {
     janelasTerm.delete(winId);
+    if (!w.fechandoPorAcoplar && w.termSessoes && w.termSessoes.size > 0) {
+      for (const termId of w.termSessoes) {
+        try { embutidos.encerrar(termId); } catch {}
+        try { sessoesIA.removerPorTermId(termId); } catch {}
+      }
+      ultimoEstadoTerm = { sessoes: [], atual: '' };
+    }
     if (janelaTerm === w) {
       janelaTerm = janelasTerm.values().next().value || null;
       if (!janelaTerm && janela && !janela.isDestroyed()) janela.webContents.send('term:acoplado', ultimoEstadoTerm);
     }
+    notificarSessoesMudaram();
   });
   if (ios) acompanharFundo(w);
   janelasTerm.set(winId, w);
@@ -1352,6 +1403,9 @@ ipcMain.handle('term:destacar', (e, estado, opcoes = {}) => {
   }
   const jaExistia = !!(janelaTerm && !janelaTerm.isDestroyed());
   const w = jaExistia ? janelaTerm : criarJanelaTerm(null, { estado: limpo });
+  if (w && w.termSessoes && Array.isArray(limpo.sessoes)) {
+    for (const s of limpo.sessoes) if (s && s.termId) w.termSessoes.add(s.termId);
+  }
   if (jaExistia && !w.webContents.isLoading()) w.webContents.send('term:sincronizar', limpo);
   return true;
 });
@@ -1361,12 +1415,18 @@ ipcMain.handle('term:acoplar', (e, estado) => {
   if (estado) sanitizarEstadoTerm(estado);
   for (const [id, w] of janelasTerm.entries()) {
     if (w && !w.isDestroyed() && e.sender === w.webContents) {
+      w.fechandoPorAcoplar = true;
       w.close();
+      notificarSessoesMudaram();
       return true;
     }
   }
-  if (janelaTerm && !janelaTerm.isDestroyed()) janelaTerm.close();
+  if (janelaTerm && !janelaTerm.isDestroyed()) {
+    janelaTerm.fechandoPorAcoplar = true;
+    janelaTerm.close();
+  }
   else if (janela && !janela.isDestroyed()) janela.webContents.send('term:acoplado', ultimoEstadoTerm);
+  notificarSessoesMudaram();
   return true;
 });
 // ---------- Módulo Skills ----------

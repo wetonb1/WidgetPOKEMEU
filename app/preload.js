@@ -90,6 +90,10 @@ contextBridge.exposeInMainWorld('widget', {
   sessoesListar: () => ipcRenderer.invoke('sessoes:listar'),
   sessoesFocar: (id) => ipcRenderer.invoke('sessoes:focar', String(id)),
   sessoesEncerrar: (id) => ipcRenderer.invoke('sessoes:encerrar', String(id)),
+  onSessoesMudaram: (fn) => {
+    ipcRenderer.removeAllListeners('sessoes:mudaram');
+    ipcRenderer.on('sessoes:mudaram', () => fn());
+  },
   // terminal embutido (as sessões do Claude dentro do widget)
   termColar: () => ipcRenderer.invoke('term:colar'),
   termAnexar: (id) => ipcRenderer.invoke('term:anexar', String(id)),

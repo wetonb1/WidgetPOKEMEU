@@ -43,7 +43,7 @@ function matarArvore(pid) {
 
 const chavePasta = (p) => path.resolve(String(p || '')).toLowerCase();
 
-function criarRegistro({ arquivo, processos = listarProcessos, vivo = pidVivo, matar = matarArvore, agora = () => Date.now() } = {}) {
+function criarRegistro({ arquivo, processos = listarProcessos, vivo = pidVivo, matar = matarArvore, embutidoVivo = null, embutidoEncerrar = null, agora = () => Date.now() } = {}) {
   let sessoes = [];
   try {
     const lidas = JSON.parse(fs.readFileSync(arquivo, 'utf8'));
@@ -84,6 +84,9 @@ function criarRegistro({ arquivo, processos = listarProcessos, vivo = pidVivo, m
     const t = agora();
     sessoes = sessoes.filter((s) => {
       const idade = t - Date.parse(s.inicio);
+      if (s.termId && typeof embutidoVivo === 'function') {
+        if (!embutidoVivo(s.termId)) return false;
+      }
       if (s.iaPid) return vivo(s.iaPid);
       if (s.via !== 'cmd') return idade < SEM_RASTREIO_ATE;
       return idade < RESOLVER_ATE;
@@ -104,19 +107,28 @@ function criarRegistro({ arquivo, processos = listarProcessos, vivo = pidVivo, m
   const obter = (id) => sessoes.find((s) => s.id === id) || null;
   const naPasta = (lista, pasta) => lista.find((s) => chavePasta(s.pasta) === chavePasta(pasta)) || null;
 
+  function removerPorTermId(termId) {
+    if (!termId) return;
+    const antes = sessoes.length;
+    sessoes = sessoes.filter((x) => x.termId !== termId);
+    if (sessoes.length !== antes) salvar();
+  }
+
   // fecha a janela (e a IA dentro dela). Só é chamado depois da sua confirmação na tela.
   async function encerrar(id) {
     const s = obter(id);
     if (!s) return { ok: false, erro: 'sessão não encontrada (já foi fechada?)' };
+    if (s.termId && typeof embutidoEncerrar === 'function') {
+      try { embutidoEncerrar(s.termId); } catch {}
+    }
     const pid = s.janelaPid || s.iaPid;
-    if (!pid) return { ok: false, erro: 'não sei qual é a janela desta sessão; feche-a pelo X' };
-    const fechou = await matar(pid);
+    const fechou = pid ? await matar(pid) : true;
     sessoes = sessoes.filter((x) => x.id !== id);
     salvar();
     return { ok: true, fechou };
   }
 
-  return { listar, adicionar, obter, naPasta, encerrar };
+  return { listar, adicionar, obter, naPasta, encerrar, removerPorTermId };
 }
 
 module.exports = { criarRegistro, pidVivo, listarProcessos, chavePasta };

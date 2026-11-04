@@ -4555,6 +4555,8 @@ const terminalEmb = (() => {
       if (prox) mostrar(prox);
       else if (!DESTACADO) voltar();
     }
+    aoMudar();
+    if (typeof projetos !== 'undefined' && projetos.sessoesMudaram) projetos.sessoesMudaram();
     dizer(`Destaquei a guia "${s.nome}" numa janela separada!`);
   }
 
@@ -4670,6 +4672,8 @@ const terminalEmb = (() => {
       if (s.sessaoId) await window.widget.sessoesEncerrar(s.sessaoId);
       else if (window.widget.termEncerrar) await window.widget.termEncerrar(s.termId);
       desenharAbas();
+      aoMudar();
+      if (typeof projetos !== 'undefined' && projetos.sessoesMudaram) projetos.sessoesMudaram();
       return;
     }
     s.term.dispose();
@@ -4684,6 +4688,7 @@ const terminalEmb = (() => {
     }
     desenharAbas();
     aoMudar();
+    if (typeof projetos !== 'undefined' && projetos.sessoesMudaram) projetos.sessoesMudaram();
   }
 
   // ----- eventos do processo principal -----
@@ -4691,12 +4696,16 @@ const terminalEmb = (() => {
     window.widget.onTermDados((id, dados) => { const s = sessoes.get(id); if (s) s.term.write(dados); });
     window.widget.onTermFim((id, codigo) => {
       const s = sessoes.get(id);
-      if (!s) return;
-      s.vivo = false;
-      s.confirmando = false;
-      s.term.write('\r\n\x1b[2m[sessão encerrada' + (codigo ? ' · código ' + codigo : '') + ']\x1b[0m\r\n');
-      desenharAbas();
+      if (s) {
+        s.vivo = false;
+        s.confirmando = false;
+        s.term.write('\r\n\x1b[2m[sessão encerrada' + (codigo ? ' · código ' + codigo : '') + ']\x1b[0m\r\n');
+        desenharAbas();
+      }
       aoMudar();
+      if (typeof projetos !== 'undefined' && projetos.sessoesMudaram) {
+        projetos.sessoesMudaram();
+      }
     });
     window.widget.onTermAviso((id, tipo, comando) => {
       if (id !== atual && !sessoes.has(id)) return;
@@ -4748,11 +4757,13 @@ const terminalEmb = (() => {
       aoAbrirPSEmNovaJanela(s && s.projetoId ? s.projetoId : '');
     });
   }
+  let acoplando = false;
   if ($('et-destacar')) {
     if (DESTACADO) {
       $('et-destacar').textContent = IOS ? '↙ acoplar' : '[↙ acoplar]';
       $('et-destacar').title = 'Volta o terminal para dentro do widget principal';
       $('et-destacar').addEventListener('click', () => {
+        acoplando = true;
         if (window.widget.termAcoplar) window.widget.termAcoplar(estadoAtual());
       });
     } else {
@@ -4766,6 +4777,18 @@ const terminalEmb = (() => {
       });
     }
   }
+  if (DESTACADO) {
+    window.addEventListener('beforeunload', () => {
+      if (!acoplando) {
+        for (const s of sessoes.values()) {
+          if (s && s.vivo) {
+            if (s.sessaoId) window.widget.sessoesEncerrar(s.sessaoId);
+            else if (s.termId) window.widget.termEncerrar(s.termId);
+          }
+        }
+      }
+    });
+  }
   if (DESTACADO && window.widget.onTermSincronizar) {
     window.widget.onTermSincronizar(async (d) => {
       if (!d || !Array.isArray(d.sessoes)) return;
@@ -4774,11 +4797,25 @@ const terminalEmb = (() => {
     });
   }
   if (!DESTACADO && window.widget.onTermAcoplado) {
-    window.widget.onTermAcoplado((d) => {
+    window.widget.onTermAcoplado(async (d) => {
       destacado = false;
-      if (!sessoes.size) return;
+      if (d && Array.isArray(d.sessoes) && d.sessoes.length) {
+        for (const info of d.sessoes) {
+          if (!sessoes.has(info.termId)) {
+            await abrirSessao(info);
+          }
+        }
+      }
+      if (!sessoes.size) {
+        voltar();
+        aoMudar();
+        if (typeof projetos !== 'undefined' && projetos.sessoesMudaram) projetos.sessoesMudaram();
+        return;
+      }
       const id = d && d.atual && sessoes.has(d.atual) ? d.atual : [...sessoes.keys()].pop();
       if (id) mostrar(id);
+      aoMudar();
+      if (typeof projetos !== 'undefined' && projetos.sessoesMudaram) projetos.sessoesMudaram();
     });
   }
   // a janela mudou de tamanho: o terminal acompanha (só o que está na tela)
@@ -6673,6 +6710,9 @@ const projetos = (() => {
   };
 })();
 terminalEmb.aoMudar(() => projetos.sessoesMudaram());
+if (window.widget.onSessoesMudaram) {
+  window.widget.onSessoesMudaram(() => projetos.sessoesMudaram());
+}
 
 // ---------- Skills (aba skills) ----------
 // Custo de cada skill em tokens e o "imposto fixo" de toda conversa. Os números (e a simulação de instalar
