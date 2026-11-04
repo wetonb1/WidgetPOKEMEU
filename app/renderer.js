@@ -4333,6 +4333,12 @@ const terminalEmb = (() => {
     term.attachCustomKeyEventHandler((e) => {
       if (e.type !== 'keydown') return true;
       const tecla = String(e.key).toLowerCase();
+      // Ctrl+A seleciona todas as mensagens/linhas do terminal
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && tecla === 'a') {
+        e.preventDefault();
+        term.selectAll();
+        return false;
+      }
       if (e.ctrlKey && !e.altKey && tecla === 'c' && term.hasSelection()) { e.preventDefault(); copiarSelecao(); return false; }
       if ((e.ctrlKey && !e.altKey && tecla === 'v') || (e.shiftKey && !e.ctrlKey && e.key === 'Insert')) { e.preventDefault(); colar(); return false; }
       return true;
@@ -6569,51 +6575,42 @@ const skillsAba = (() => {
     cab.append(el('span', 'sk-titulo', c.titulo || c.nome), el('span', 'sk-versao', 'v' + c.versao));
     const selos = el('div', 'sk-selos');
     const vers = (l) => (l.versao ? ' v' + l.versao : '');
-    alvosAtivos().forEach((a) => { // um selo por IA e por lugar: "Claude: projeto v1.0.0", "Antigravity: global v1.0.0"
+    alvosAtivos().forEach((a) => {
       const cA = cartaoDe(c.nome, a) || c;
-      if (cA.instalada.projeto) selos.append(selo(`${NOME_IA[a]}: projeto${vers(cA.instalada.projeto)}`, cA.instalada.projeto, c.versao));
-      if (cA.instalada.global) selos.append(selo(`${NOME_IA[a]}: global${vers(cA.instalada.global)}`, cA.instalada.global, c.versao));
+      if (cA.instalada.projeto) selos.append(selo(`projeto${vers(cA.instalada.projeto)}`, cA.instalada.projeto, c.versao));
+      if (cA.instalada.global) selos.append(selo(`global${vers(cA.instalada.global)}`, cA.instalada.global, c.versao));
     });
-    c.alertas.forEach((a) => { const s = el('span', 'sk-selo alerta', 'aviso: ' + a.split(':')[0]); s.title = a; selos.append(s); });
-    const desc = el('div', 'sk-desc', c.descricao_curta || '');
-    desc.title = c.descricao_curta || '';
-    const ex = el('div', 'sk-ex');
-    ex.append(el('i', null, '“' + (c.exemplo_de_uso || '') + '”'));
-    ex.title = 'Exemplo de pedido que aciona a skill: ' + (c.exemplo_de_uso || '');
-    k.append(cab, selos, desc, ex);
+    c.alertas.forEach((a) => { const s = el('span', 'sk-selo alerta', a.split(':')[0]); s.title = a; selos.append(s); });
+    
+    // Descrição limpa e concisa
+    const desc = el('div', 'sk-desc', c.descricao_curta || (c.exemplo_de_uso ? `"${c.exemplo_de_uso}"` : ''));
+    desc.title = (c.descricao_curta ? c.descricao_curta + '\n' : '') + (c.exemplo_de_uso ? `Exemplo: "${c.exemplo_de_uso}"` : '');
+    k.append(cab, selos, desc);
+
     if (c.alternativa_a && c.alternativa_a.length) {
-      const dup = c.alternativa_instalada || [];
-      k.append(el('div', 'sk-aviso', `substitui ${c.alternativa_a.join(', ')}: instale uma ou outra`
-        + (dup.length ? ` (já instalada${dup.length > 1 ? 's' : ''}: ${dup.join(', ')}; instalar esta paga o custo fixo das duas)` : '')));
+      k.append(el('div', 'sk-aviso-compacto', `substitui ${c.alternativa_a.join(', ')}`));
     }
     if (c.problemas.length) {
-      k.append(el('div', 'sk-problema', 'manifesto com problema: ' + c.problemas.join('; ')));
+      k.append(el('div', 'sk-problema', 'manifesto: ' + c.problemas.join('; ')));
       return k;
     }
+
     const corpo = el('div', 'sk-corpo');
-    const barras = el('div', 'sk-barras');
-    barras.title = `fixo ${num(c.custo.fixo)} · ao usar ${num(c.custo.ao_usar)}` + (c.custo.extras ? ` · extras ${num(c.custo.extras)}` : '')
-      + (c.custo.saida_ferramenta ? ` · saída da ferramenta ~${num(c.custo.saida_ferramenta)}` : '') + ` · por uso ~${num(c.custo.total_estimado_por_uso)} tokens (estimativa)`;
-    barras.append(linhaBarra('fixo', c.custo.fixo, 'fixo'), linhaBarra('ao usar', c.custo.ao_usar, 'uso'));
-    if (alvo === 'ambos') { // as barras são do Claude; o número do Antigravity (estimado) vai na dica
-      const g = cartaoDe(c.nome, 'antigravity');
-      if (g && g.custo) barras.title += ` · Antigravity (estimado): fixo ${num(g.custo.fixo)} · ao usar ${num(g.custo.ao_usar)}`;
-    }
+    const chipTokens = el('div', 'sk-chip-tokens', `⚡ fixo: ${num(c.custo.fixo)} · uso: ${num(c.custo.ao_usar)}`);
+    chipTokens.title = `Fixo ${num(c.custo.fixo)} · Ao usar ~${num(c.custo.ao_usar)} tokens por ativação`;
+
     const acoes = el('div', 'sk-acoes');
     const cartoesIA = alvosAtivos().map((a) => ({ a, c: cartaoDe(c.nome, a) })).filter((x) => x.c);
     const onde = escopo === 'projeto' ? 'no projeto' : 'global';
-    for (const acao of ['instalar', 'remover']) { // o botão abre a janela que pergunta em qual IA (Claude, Antigravity ou Ambos)
+    for (const acao of ['instalar', 'remover']) {
       if (!cartoesIA.some((x) => x.c.sim && x.c.sim.acao === acao && (acao === 'remover' || compativelCom(c, x.a)))) continue;
-      const b = botao(`[${acao} ${onde}]`, () => confirmar(c, acao), `Pergunta em qual IA e mostra o que muda no imposto fixo antes de ${acao}`);
+      const b = botao(`[${acao}]`, () => confirmar(c, acao), `${acao === 'instalar' ? 'Instalar' : 'Remover'} ${onde}`);
       ['mouseenter', 'focus'].forEach((ev) => b.addEventListener(ev, () => mostrarSim(c, acao)));
       ['mouseleave', 'blur'].forEach((ev) => b.addEventListener(ev, limparSim));
       acoes.append(b);
     }
-    const semTeste = alvosAtivos().filter((a) => !compativelCom(c, a));
-    if (semTeste.length) acoes.append(el('span', 'sk-nota', 'sem teste no ' + semTeste.map((a) => NOME_IA[a]).join(' e no ')));
-    if (cartoesIA.some((x) => x.c.instalada[escopo] && !x.c.sim)) acoes.append(el('span', 'sk-nota', 'instalada por outro meio: não mexo'));
-    acoes.append(botao('[ver conteúdo]', () => ver(c), 'Abre o SKILL.md em modo de leitura'));
-    corpo.append(barras, acoes);
+    acoes.append(botao('[ver]', () => ver(c), 'Ver conteúdo da skill'));
+    corpo.append(chipTokens, acoes);
     k.append(corpo);
     return k;
   }
@@ -6622,7 +6619,7 @@ const skillsAba = (() => {
     const q = $('sk-busca').value.trim().toLowerCase();
     const itens = dados.skills.filter((c) => (!cat || c.categoria === cat)
       && (!q || [c.nome, c.titulo, c.descricao_curta, c.exemplo_de_uso].some((x) => String(x || '').toLowerCase().includes(q))));
-    $('sk-lista').replaceChildren(...(!guiaVisto || guiaAberto ? [quadroGuia()] : []), ...(itens.length ? itens.map(cartao)
+    $('sk-lista').replaceChildren(...(guiaAberto ? [quadroGuia()] : []), ...(itens.length ? itens.map(cartao)
       : [el('div', 'cer-aviso', dados.skills.length ? 'Nenhuma skill combina com o filtro.' : 'A biblioteca está vazia: use [buscar online] ou [importar].')]));
   }
   // "como as skills funcionam" em 3 passos (aparece na primeira vez e em [como funciona])
@@ -7150,8 +7147,8 @@ const abas = (() => {
       if (!lidos.length) return;
       const media = [0, 1, 2].map((i) => Math.round(lidos.reduce((s, c) => s + c[i], 0) / lidos.length));
       const raiz = document.documentElement.style;
-      rgb.forEach((c, i) => raiz.setProperty(LADOS[i], 'rgb(' + escurecer(c || media).join(', ') + ')'));
-      raiz.setProperty('--c-media', 'rgb(' + escurecer(media).join(', ') + ')');
+      rgb.forEach((c, i) => raiz.setProperty(LADOS[i], 'rgba(' + escurecer(c || media).join(', ') + ', 0.45)'));
+      raiz.setProperty('--c-media', 'rgba(' + escurecer(media).join(', ') + ', 0.50)');
     });
   }
   if (IOS) {
@@ -7254,6 +7251,45 @@ const abas = (() => {
       console.error('Erro ao fixar:', erro);
     }
   });
+
+  // ----- posicionar nas bordas e cantos com animação fluida -----
+  const btnPosicoes = document.getElementById('btn-posicoes');
+  const menuPosicoes = document.getElementById('menu-posicoes');
+  if (btnPosicoes && menuPosicoes) {
+    btnPosicoes.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menuPosicoes.classList.toggle('oculto');
+    });
+    menuPosicoes.querySelectorAll('.pos-btn').forEach((b) => {
+      b.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        menuPosicoes.classList.add('oculto');
+        const pos = b.dataset.pos;
+        if (pos && window.widget.janelaPosicionar) {
+          try {
+            await window.widget.janelaPosicionar(pos);
+          } catch (err) {
+            console.error('Erro ao posicionar janela:', err);
+          }
+        }
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!menuPosicoes.contains(e.target) && e.target !== btnPosicoes) {
+        menuPosicoes.classList.add('oculto');
+      }
+    });
+  }
+
+  // ----- dock nas bordas da tela (estilo Coucou) -----
+  if (window.widget.onDock) {
+    window.widget.onDock((dock) => {
+      cartao.classList.toggle('dock-topo', !!dock.topo);
+      cartao.classList.toggle('dock-baixo', !!dock.baixo);
+      cartao.classList.toggle('dock-esquerda', !!dock.esquerda);
+      cartao.classList.toggle('dock-direita', !!dock.direita);
+    });
+  }
 
   document.getElementById('btn-fechar').addEventListener('click', () => window.widget.fechar());
 

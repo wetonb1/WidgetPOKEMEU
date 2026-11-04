@@ -400,6 +400,7 @@ function criarJanela(posicao) {
 
   // Guarda o tamanho que você escolheu (só no modo normal; 1 s depois de soltar)
   janela.on('resized', () => {
+    verificarBordasJanela(janela);
     if (modoAtual !== 'normal') return;
     clearTimeout(salvarTamanhoTimer);
     salvarTamanhoTimer = setTimeout(() => {
@@ -414,6 +415,13 @@ function criarJanela(posicao) {
       }
     }, 1000);
   });
+
+  janela.on('move', () => verificarBordasJanela(janela));
+  janela.on('moved', () => {
+    snapBordasJanela(janela);
+    verificarBordasJanela(janela);
+  });
+  janela.webContents.once('did-finish-load', () => setTimeout(() => verificarBordasJanela(janela), 300));
 
   // a tela nunca navega nem abre janelas novas
   janela.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -1687,6 +1695,146 @@ ipcMain.handle('janela:fixar', (e, fixar) => {
   cfg.fixado = fixar;
   salvarConfig(cfg);
   return fixar;
+});
+
+// ---------- Detecção de Bordas (Dock estilo Coucou) e Posicionamento Fluido ----------
+function verificarBordasJanela(w = janela) {
+  if (!w || w.isDestroyed()) return;
+  const b = w.getBounds();
+  const disp = screen.getDisplayMatching(b);
+  if (!disp) return;
+  const area = disp.workArea;
+  const SNAP = 14;
+  const dock = {
+    topo: b.y <= area.y + SNAP,
+    baixo: (b.y + b.height) >= (area.y + area.height - SNAP),
+    esquerda: b.x <= area.x + SNAP,
+    direita: (b.x + b.width) >= (area.x + area.width - SNAP),
+  };
+  w.webContents.send('tela:dock', dock);
+}
+
+function snapBordasJanela(w = janela) {
+  if (!w || w.isDestroyed()) return;
+  const b = w.getBounds();
+  const disp = screen.getDisplayMatching(b);
+  if (!disp) return;
+  const area = disp.workArea;
+  const SNAP = 18;
+  let nx = b.x;
+  let ny = b.y;
+  let mudou = false;
+
+  if (Math.abs(b.y - area.y) <= SNAP) { ny = area.y; mudou = true; }
+  else if (Math.abs((b.y + b.height) - (area.y + area.height)) <= SNAP) { ny = area.y + area.height - b.height; mudou = true; }
+
+  if (Math.abs(b.x - area.x) <= SNAP) { nx = area.x; mudou = true; }
+  else if (Math.abs((b.x + b.width) - (area.x + area.width)) <= SNAP) { nx = area.x + area.width - b.width; mudou = true; }
+
+  if (mudou) {
+    w.setBounds({ x: nx, y: ny, width: b.width, height: b.height });
+  }
+}
+
+let timerAnimJanela = null;
+
+function animarJanelaPara(xFinal, yFinal, duracaoMs = 280) {
+  if (!janela || janela.isDestroyed()) return;
+  if (timerAnimJanela) {
+    clearInterval(timerAnimJanela);
+    timerAnimJanela = null;
+  }
+  const b = janela.getBounds();
+  const xIni = b.x;
+  const yIni = b.y;
+  const larg = b.width;
+  const alt = b.height;
+  if (xIni === xFinal && yIni === yFinal) {
+    verificarBordasJanela(janela);
+    return;
+  }
+  const inicio = Date.now();
+  timerAnimJanela = setInterval(() => {
+    if (!janela || janela.isDestroyed()) {
+      clearInterval(timerAnimJanela);
+      timerAnimJanela = null;
+      return;
+    }
+    const t = Math.min(1, (Date.now() - inicio) / duracaoMs);
+    // Easing: easeOutCubic (suave, fluida e orgânica)
+    const prog = 1 - Math.pow(1 - t, 3);
+    const x = Math.round(xIni + (xFinal - xIni) * prog);
+    const y = Math.round(yIni + (yFinal - yIni) * prog);
+    janela.setBounds({ x, y, width: larg, height: alt });
+    verificarBordasJanela(janela);
+    if (t >= 1) {
+      clearInterval(timerAnimJanela);
+      timerAnimJanela = null;
+      janela.setBounds({ x: xFinal, y: yFinal, width: larg, height: alt });
+      verificarBordasJanela(janela);
+    }
+  }, 16);
+}
+
+function calcularPosicaoTela(direcao, b, area) {
+  let x = b.x;
+  let y = b.y;
+  const larg = b.width;
+  const alt = b.height;
+  switch (direcao) {
+    case 'topo-esquerda':
+      x = area.x;
+      y = area.y;
+      break;
+    case 'topo-centro':
+    case 'topo':
+      x = Math.round(area.x + (area.width - larg) / 2);
+      y = area.y;
+      break;
+    case 'topo-direita':
+      x = area.x + area.width - larg;
+      y = area.y;
+      break;
+    case 'meio-esquerda':
+    case 'esquerda':
+      x = area.x;
+      y = Math.round(area.y + (area.height - alt) / 2);
+      break;
+    case 'centro':
+      x = Math.round(area.x + (area.width - larg) / 2);
+      y = Math.round(area.y + (area.height - alt) / 2);
+      break;
+    case 'meio-direita':
+    case 'direita':
+      x = area.x + area.width - larg;
+      y = Math.round(area.y + (area.height - alt) / 2);
+      break;
+    case 'baixo-esquerda':
+      x = area.x;
+      y = area.y + area.height - alt;
+      break;
+    case 'baixo-centro':
+    case 'baixo':
+      x = Math.round(area.x + (area.width - larg) / 2);
+      y = area.y + area.height - alt;
+      break;
+    case 'baixo-direita':
+      x = area.x + area.width - larg;
+      y = area.y + area.height - alt;
+      break;
+  }
+  return { x, y };
+}
+
+ipcMain.handle('janela:posicionar', (e, direcao) => {
+  if (!daJanela(e) || !janela || janela.isDestroyed()) return false;
+  const b = janela.getBounds();
+  const disp = screen.getDisplayMatching(b);
+  if (!disp) return false;
+  const area = disp.workArea;
+  const { x, y } = calcularPosicaoTela(direcao, b, area);
+  animarJanelaPara(x, y, 280);
+  return true;
 });
 
 // ---------- Atualização pelo GitHub ----------

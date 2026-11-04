@@ -2001,7 +2001,9 @@ html[data-destacado="1"] body {
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 26px;
   overflow: hidden;
-  background-color: var(--c-media);
+  background-color: color-mix(in srgb, var(--c-media, #141624) 42%, rgba(13, 15, 23, 0.40));
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
   background-image:
     radial-gradient(110% 90% at 0% 0%, color-mix(in srgb, var(--accent) 24%, transparent), transparent 62%),
     radial-gradient(75% 120% at 0% 50%, var(--c-esq), transparent),
@@ -2374,6 +2376,9 @@ html[data-destacado="1"] body {
   overflow: hidden;
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.22);
+  background-color: color-mix(in srgb, var(--c-media, #141624) 42%, rgba(13, 15, 23, 0.40));
+  -webkit-backdrop-filter: blur(24px) saturate(160%);
+  backdrop-filter: blur(24px) saturate(160%);
   background-image:
     radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 75%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
@@ -2623,6 +2628,224 @@ html[data-destacado="1"] #proj-term {
   border-color: #ff6b6b;
   color: #ffffff;
   box-shadow: 0 0 8px rgba(255, 107, 107, 0.4);
+}
+
+/* ---------- Snap & Dock nas bordas da tela (estilo Coucou) ---------- */
+#cartao.dock-topo,
+[data-estilo="ios"] #cartao.dock-topo {
+  border-top: none !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.12) !important;
+}
+
+#cartao.dock-baixo,
+[data-estilo="ios"] #cartao.dock-baixo {
+  border-bottom: none !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
+}
+
+#cartao.dock-esquerda,
+[data-estilo="ios"] #cartao.dock-esquerda {
+  border-left: none !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  box-shadow: 16px 0 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
+}
+
+#cartao.dock-direita,
+[data-estilo="ios"] #cartao.dock-direita {
+  border-right: none !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
+}
+
+/* Cantos combinados */
+#cartao.dock-topo.dock-esquerda,
+[data-estilo="ios"] #cartao.dock-topo.dock-esquerda {
+  border-top: none !important;
+  border-left: none !important;
+  border-top-left-radius: 0 !important;
+}
+#cartao.dock-topo.dock-direita,
+[data-estilo="ios"] #cartao.dock-topo.dock-direita {
+  border-top: none !important;
+  border-right: none !important;
+  border-top-right-radius: 0 !important;
+}
+#cartao.dock-baixo.dock-esquerda,
+[data-estilo="ios"] #cartao.dock-baixo.dock-esquerda {
+  border-bottom: none !important;
+  border-left: none !important;
+  border-bottom-left-radius: 0 !important;
+}
+#cartao.dock-baixo.dock-direita,
+[data-estilo="ios"] #cartao.dock-baixo.dock-direita {
+  border-bottom: none !important;
+  border-right: none !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/* Mini adaptado ao dock */
+#cartao.mini.dock-topo { border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; border-top: none !important; }
+#cartao.mini.dock-baixo { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; border-bottom: none !important; }
+#cartao.mini.dock-esquerda { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; border-left: none !important; }
+#cartao.mini.dock-direita { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; border-right: none !important; }
+
+/* ---------- Botão de Posições e Menu Flutuante ---------- */
+.cab-btn.posicoes svg {
+  width: 12px;
+  height: 12px;
+}
+.menu-posicoes {
+  position: absolute;
+  top: 42px;
+  right: 120px;
+  z-index: 10000;
+  padding: 6px;
+  border-radius: 12px;
+  background: rgba(18, 20, 30, 0.88);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.20);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  user-select: none;
+  -webkit-app-region: no-drag;
+}
+.mini .menu-posicoes {
+  top: 36px;
+  right: 86px;
+}
+.menu-pos-grade {
+  display: grid;
+  grid-template-columns: repeat(3, 24px);
+  grid-template-rows: repeat(3, 24px);
+  gap: 3px;
+}
+.pos-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f0f0f5;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.pos-btn:hover {
+  background: var(--accent, #4f9dff);
+  color: #0b0c10;
+  border-color: rgba(255, 255, 255, 0.6);
+  transform: scale(1.12);
+}
+.pos-btn:active {
+  transform: scale(0.94);
+}
+
+/* ---------- Declutter e visual clean na tela de skills ---------- */
+.sk-impostos {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.sk-imposto {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 24px;
+}
+.sk-num {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 0;
+}
+.sk-num b {
+  font-size: 15px;
+  font-weight: 700;
+}
+.sk-barra-conj {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sk-barra {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+}
+.sk-escala {
+  display: none !important; /* oculta números redundantes para visual limpo */
+}
+.sk-detalhe {
+  font-size: 10px;
+  line-height: 12px;
+  min-height: 12px;
+}
+
+/* Cartões de skill limpos */
+.sk-cartao {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.04);
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.sk-cartao:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.20);
+  transform: translateY(-1px);
+}
+.sk-cartao .sk-desc {
+  font-size: 11px;
+  color: var(--glass-text-sub, #a0a0b0);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sk-aviso-compacto {
+  font-size: 10px;
+  color: var(--sk-amarela, #ffc857);
+  opacity: 0.85;
+}
+.sk-chip-tokens {
+  font-size: 11px;
+  color: var(--glass-text-sub, #a0a0b0);
+  white-space: nowrap;
+}
+.sk-corpo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.sk-acoes {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.sk-acoes .botao-cmd {
+  padding: 2px 8px;
+  font-size: 11px;
 }
 
 /* Fallback & Reduced Motion */

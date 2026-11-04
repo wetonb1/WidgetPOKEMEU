@@ -17,3 +17,11 @@ importacoes/*
 *.zip
 cerebro/indices/*
 !cerebro/indices/.gitkeep
+
+# Dados pessoais do cérebro e projetos nunca vão para o repositório
+cerebro/conversas/*
+!cerebro/conversas/.gitkeep
+cerebro/estado/*
+!cerebro/estado/.gitkeep
+projetos.json
+config.json
