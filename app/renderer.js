@@ -4500,9 +4500,10 @@ const terminalEmb = (() => {
     // Ctrl+V, Ctrl+Shift+V e Shift+Insert colam: o xterm.js trataria o Ctrl+V como tecla comum (^V) e cancelaria o "colar" do navegador.
     // Ctrl+A em terminal envia \x01 (início da linha / prompt) em vez do navegador selecionar todo o histórico.
     const colar = async () => {
-      const texto = await window.widget.termColar();
-      if (texto) term.paste(texto); // com "bracketed paste" quando o programa pede (o Claude pede)
-      else window.widget.termEntrada(info.termId, '\x16'); // sem texto (imagem?): o Ctrl+V vai para o Claude, que lê a área de transferência
+      const r = await window.widget.termColar();
+      if (r.texto) term.paste(r.texto); // com "bracketed paste" quando o programa pede (o Claude pede)
+      else if (r.imagem) { term.paste(r.imagem); dizerNoTerminal('Print colado como arquivo: a IA anexa a imagem ao enviar.', false, 4000); } // imagem: cola o caminho do PNG temporário
+      else window.widget.termEntrada(info.termId, '\x16'); // área de transferência vazia: mantém o Ctrl+V do programa
     };
     const copiarSelecao = () => { window.widget.cerebroCopiar(term.getSelection()); term.clearSelection(); };
     term.attachCustomKeyEventHandler((e) => {

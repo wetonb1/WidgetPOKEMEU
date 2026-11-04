@@ -2093,10 +2093,10 @@ html.mini body {
 }
 
 #cartao.mini {
-  grid-template-columns: 130px 1fr !important;
+  grid-template-columns: 170px 1fr !important;
   grid-template-rows: 1fr !important;
   grid-template-areas: "poke status" !important;
-  border-radius: 65px !important;
+  border-radius: 75px !important;
   padding: 0 16px 0 10px !important;
   overflow: hidden !important;
   position: relative !important;
@@ -2161,8 +2161,8 @@ html.mini body {
   background: transparent !important;
 }
 .mini .poke-img {
-  max-width: 105px !important;
-  max-height: 96px !important;
+  max-width: 110px !important;
+  max-height: 104px !important;
   width: auto !important;
   height: auto !important;
   object-fit: contain !important;
@@ -2173,6 +2173,18 @@ html.mini body {
   margin: auto !important;
 }
 .mini .poke-vazio { font-size: 32px; }
+/* aura atrás do Pokémon: é ele o foco do mini */
+.mini .lado-poke { position: relative !important; }
+.mini .lado-poke::before {
+  content: "";
+  position: absolute;
+  inset: 6% 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(closest-side, var(--pet-glow, color-mix(in srgb, var(--accent, #ffffff) 38%, transparent)), transparent 100%);
+  opacity: 0.55;
+}
+.mini .poke-tela, .mini .poke-anim { position: relative !important; z-index: 1; }
 .mini .status {
   display: flex !important;
   flex-direction: column !important;
@@ -2197,13 +2209,14 @@ html.mini body {
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  max-width: 90px !important;
+  max-width: 80px !important;
 }
 .mini .st b {
   font-weight: 600 !important;
   font-size: 9.5px !important;
   color: var(--text) !important;
 }
+.mini .status { opacity: 0.8; }
 .mini .st-musica {
   max-width: 80px !important;
   flex: none !important;
@@ -2777,12 +2790,12 @@ html[data-destacado="1"] body {
 }
 [data-estilo="ios"] .carregando-barra { background: rgba(255, 255, 255, 0.1); }
 [data-estilo="ios"] #cartao.mini {
-  grid-template-columns: 130px 1fr !important;
+  grid-template-columns: 170px 1fr !important;
   grid-template-rows: 1fr !important;
   grid-template-areas: "poke status" !important;
   padding: 0 16px 0 10px !important;
   overflow: hidden !important;
-  border-radius: 65px !important;
+  border-radius: 75px !important;
   border: 1px solid rgba(255, 255, 255, 0.18) !important;
   -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
   backdrop-filter: blur(28px) saturate(180%) !important;
@@ -2836,7 +2849,7 @@ html[data-destacado="1"] body {
   white-space: nowrap !important;
   overflow: hidden !important;
   text-overflow: ellipsis !important;
-  max-width: 90px !important;
+  max-width: 80px !important;
 }
 [data-estilo="ios"] #cartao.mini .st b,
 [data-estilo="ios"] .mini .st b {
@@ -3144,64 +3157,43 @@ html[data-destacado="1"] #proj-term {
   border-top-right-radius: 0 !important;
 }
 
-/* Mini adaptado ao dock (zera apenas as bordas e cantos que tocam as paredes) */
-#cartao.mini.dock-topo,
-[data-estilo="ios"] #cartao.mini.dock-topo {
-  border-top: none !important;
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
+/* Mini: sempre uma pílula inteira, mesmo encostado na borda da tela (sem dock reto).
+   A janela do mini tem o tamanho exato do cartão: sombra externa só pintaria os cantos de preto,
+   então o relevo vem só de sombras internas. #cartao#cartao vence as regras de dock acima. */
+#cartao#cartao.mini {
+  border-radius: 75px !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    inset 0 0 28px color-mix(in srgb, var(--accent, #ffffff) 16%, transparent) !important;
+  animation: mini-entra 0.28s var(--mola, ease-out) 1;
 }
-#cartao.mini.dock-baixo,
-[data-estilo="ios"] #cartao.mini.dock-baixo {
-  border-bottom: none !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+[data-estilo="ios"] #cartao#cartao.mini {
+  border: 1px solid color-mix(in srgb, var(--accent, #ffffff) 38%, rgba(255, 255, 255, 0.14)) !important;
 }
-#cartao.mini.dock-esquerda,
-[data-estilo="ios"] #cartao.mini.dock-esquerda {
-  border-left: none !important;
-  border-top-left-radius: 0 !important;
-  border-bottom-left-radius: 0 !important;
-}
-#cartao.mini.dock-direita,
-[data-estilo="ios"] #cartao.mini.dock-direita {
-  border-right: none !important;
-  border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-}
+@keyframes mini-entra { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
 
-#cartao.mini.dock-topo.dock-esquerda,
-[data-estilo="ios"] #cartao.mini.dock-topo.dock-esquerda {
-  border-top: none !important;
-  border-left: none !important;
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
-  border-bottom-left-radius: 0 !important;
+/* status do mini: hora grande em cima, cpu/ram em pílulas e a música com nota */
+#cartao#cartao.mini .status { gap: 4px !important; padding: 8px 0 0 2px !important; }
+#cartao#cartao.mini .st-hora {
+  display: block !important;
+  order: -1;
+  font-size: 19px !important;
+  line-height: 22px !important;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--glass-text-main, #ffffff) !important;
+  max-width: none !important;
 }
-#cartao.mini.dock-topo.dock-direita,
-[data-estilo="ios"] #cartao.mini.dock-topo.dock-direita {
-  border-top: none !important;
-  border-right: none !important;
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+#cartao#cartao.mini #st-cpu,
+#cartao#cartao.mini #st-ram {
+  padding: 1px 8px !important;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.1);
 }
-#cartao.mini.dock-baixo.dock-esquerda,
-[data-estilo="ios"] #cartao.mini.dock-baixo.dock-esquerda {
-  border-bottom: none !important;
-  border-left: none !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-top-left-radius: 0 !important;
-}
-#cartao.mini.dock-baixo.dock-direita,
-[data-estilo="ios"] #cartao.mini.dock-baixo.dock-direita {
-  border-bottom: none !important;
-  border-right: none !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-  border-top-right-radius: 0 !important;
-}
+#cartao#cartao.mini #st-widget { display: none !important; }
+#cartao#cartao.mini .st-musica { color: var(--accent, #ffffff) !important; }
+#cartao#cartao.mini .st-musica::before { content: "¶A a0"; }
 
 /* ---------- Botão de Expansão (Tela Cheia) ---------- */
 .cab-btn.expandir svg {

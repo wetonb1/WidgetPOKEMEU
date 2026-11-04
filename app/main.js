@@ -29,7 +29,7 @@ if (app && app.isPackaged && !process.env._MEU_WIDGET_DELEGADO) {
 const TAMANHO_PADRAO = { largura: 900, altura: 400 };
 const MIN = { largura: 720, altura: 320 };
 const MAX = { largura: 1400, altura: 900 };
-const MINI = { largura: 250, altura: 130 };
+const MINI = { largura: 280, altura: 150 };
 const MARGEM = 12; // distância da borda da tela
 
 // A config do usuário fica em %APPDATA%\meu-widget\config.json
@@ -1117,7 +1117,27 @@ ipcMain.handle('cerebro:escolher-pasta', async (e) => {
 });
 
 // colar no terminal embutido: devolve o TEXTO da área de transferência ('' se for imagem ou estiver vazia: aí o Ctrl+V vai para o Claude, que lê a imagem)
-ipcMain.handle('term:colar', async (e) => (daJanela(e) ? String((await clipboard.readText()) || '').slice(0, 200000) : ''));
+// Se não há texto mas há IMAGEM (print do Win+Shift+S, por exemplo), grava um PNG temporário e devolve o caminho dele: o
+// renderer cola esse caminho e a IA (Claude/Antigravity) anexa a imagem. Prints com mais de 1 dia são apagados na hora de gravar.
+const PASTA_PRINTS = path.join(os.tmpdir(), 'meu-widget-prints');
+function salvarPrintDaAreaDeTransferencia() {
+  const img = clipboard.readImage();
+  if (img.isEmpty()) return '';
+  fs.mkdirSync(PASTA_PRINTS, { recursive: true });
+  const limite = Date.now() - 24 * 3600 * 1000;
+  for (const f of fs.readdirSync(PASTA_PRINTS)) {
+    try { const p = path.join(PASTA_PRINTS, f); if (fs.statSync(p).mtimeMs < limite) fs.unlinkSync(p); } catch { /* em uso: fica para a próxima */ }
+  }
+  const arquivo = path.join(PASTA_PRINTS, `print-${Date.now()}.png`);
+  fs.writeFileSync(arquivo, img.toPNG());
+  return arquivo;
+}
+ipcMain.handle('term:colar', async (e) => {
+  if (!daJanela(e)) return { texto: '', imagem: '' };
+  const texto = String((await clipboard.readText()) || '').slice(0, 200000);
+  if (texto) return { texto, imagem: '' };
+  try { return { texto: '', imagem: salvarPrintDaAreaDeTransferencia() }; } catch { return { texto: '', imagem: '' }; }
+});
 ipcMain.handle('cerebro:copiar', (e, texto) => {
   if (!daJanela(e) || typeof texto !== 'string' || texto.length > 300000) return false;
   clipboard.writeText(texto);
