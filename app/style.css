@@ -1931,15 +1931,17 @@ button { font-family: var(--font); }
 /* ---------- Modo mini (minimizado) ----------
    Só o Pokémon e a linha de status, num cantinho (340x112) */
 #cartao.mini {
-  grid-template-columns: 96px 1fr;
+  grid-template-columns: 124px 1fr;
   grid-template-rows: 32px 1fr;
   grid-template-areas:
     "cab cab"
     "poke status";
+  border-radius: 28px;
 }
 .mini .abas, .mini .conteudo, .mini .narracao, .mini .poke-cabecalho, .mini .poke-tipos { display: none; }
-.mini .lado-poke { padding: 4px 6px; border-right: none; }
+.mini .lado-poke { padding: 3px 4px; border-right: none; }
 .mini .poke-tela { min-height: 0; }
+.mini .poke-img { transform: scale(1.15); transform-origin: center center; }
 .mini .poke-vazio { font-size: 32px; }
 .mini .status {
   flex-direction: column;
@@ -1948,8 +1950,9 @@ button { font-family: var(--font); }
   gap: 1px;
   background: var(--bg);
 }
-.mini .st { border: none; padding: 0 4px; line-height: 17px; }
-.mini .st-musica { max-width: 236px; flex: none; }
+.mini .st { border: none; padding: 0 4px; line-height: 14px; font-size: 10px; color: var(--apagado); }
+.mini .st b { font-weight: 600; color: var(--text); }
+.mini .st-musica { max-width: 200px; flex: none; }
 .mini .st-hora, .mini .st-modo { display: none; } /* no mini cabem cpu, ram, widget e música */
 
 /* ---------- Tela de carregamento: pokébola cúbica ----------
@@ -2503,37 +2506,48 @@ html[data-destacado="1"] body {
 }
 [data-estilo="ios"] .carregando-barra { background: rgba(255, 255, 255, 0.1); }
 [data-estilo="ios"] #cartao.mini {
-  grid-template-rows: 38px 1fr;
-  padding-bottom: 8px;
+  grid-template-columns: 124px 1fr;
+  grid-template-rows: 36px 1fr;
+  padding: 0 8px 8px 8px;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 34px;
   border: 1px solid rgba(255, 255, 255, 0.22);
   background-color: color-mix(in srgb, var(--c-media, #141624) 42%, rgba(13, 15, 23, 0.40));
   -webkit-backdrop-filter: blur(24px) saturate(160%);
   backdrop-filter: blur(24px) saturate(160%);
   background-image:
-    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 20%, transparent), transparent 75%),
+    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 75%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 12px 36px rgba(0, 0, 0, 0.38);
 }
 [data-estilo="ios"] .mini .lado-poke {
-  padding: 3px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 2px;
+  border-radius: 26px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
 }
 [data-estilo="ios"] .mini .status {
   margin: 0;
-  padding: 5px 8px;
-  border-radius: 16px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  padding: 4px 10px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
 }
-[data-estilo="ios"] .mini .st { border: none; line-height: 14px; font-size: 11px; color: var(--glass-text-main); }
+[data-estilo="ios"] .mini .st {
+  border: none;
+  line-height: 13px;
+  font-size: 10px;
+  color: var(--glass-text-sub, rgba(235, 235, 245, 0.65));
+}
+[data-estilo="ios"] .mini .st b {
+  font-weight: 600;
+  color: var(--glass-text-main, #ffffff);
+}
 
 /* ----- aba cerebro no iOS ----- */
 /* mais baixa que as outras abas: na janela mínima (720x320) cada linha conta */

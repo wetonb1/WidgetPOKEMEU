@@ -29,7 +29,7 @@ if (app && app.isPackaged && !process.env._MEU_WIDGET_DELEGADO) {
 const TAMANHO_PADRAO = { largura: 900, altura: 400 };
 const MIN = { largura: 720, altura: 320 };
 const MAX = { largura: 1400, altura: 900 };
-const MINI = { largura: 340, altura: 112 };
+const MINI = { largura: 345, altura: 116 };
 const MARGEM = 12; // distância da borda da tela
 
 // A config do usuário fica em %APPDATA%\meu-widget\config.json
