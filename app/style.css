@@ -2161,15 +2161,10 @@ html.mini body {
   background: transparent !important;
 }
 .mini .poke-img {
-  max-width: 110px !important;
-  max-height: 104px !important;
-  width: auto !important;
-  height: auto !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
   object-fit: contain !important;
-  transform: scale(1.35) !important;
-  transform-origin: center center !important;
   filter: drop-shadow(0 4px 16px var(--pet-glow, rgba(255, 255, 255, 0.45))) !important;
-  image-rendering: pixelated !important;
   margin: auto !important;
 }
 .mini .poke-vazio { font-size: 32px; }
@@ -3157,43 +3152,90 @@ html[data-destacado="1"] #proj-term {
   border-top-right-radius: 0 !important;
 }
 
-/* Mini: sempre uma pílula inteira, mesmo encostado na borda da tela (sem dock reto).
+/* Mini: cartão 280x150 em duas colunas centradas na mesma linha: Pokémon à esquerda; hora, cpu/ram e música à direita.
    A janela do mini tem o tamanho exato do cartão: sombra externa só pintaria os cantos de preto,
    então o relevo vem só de sombras internas. #cartao#cartao vence as regras de dock acima. */
 #cartao#cartao.mini {
-  border-radius: 75px !important;
+  grid-template-columns: 112px minmax(0, 1fr) !important;
+  column-gap: 8px !important;
+  padding: 0 16px 0 10px !important;
+  border-radius: 30px !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
     inset 0 0 28px color-mix(in srgb, var(--accent, #ffffff) 16%, transparent) !important;
   animation: mini-entra 0.28s var(--mola, ease-out) 1;
+  -webkit-app-region: drag; /* sem barra de título: o cartão todo arrasta */
 }
 [data-estilo="ios"] #cartao#cartao.mini {
   border: 1px solid color-mix(in srgb, var(--accent, #ffffff) 38%, rgba(255, 255, 255, 0.14)) !important;
 }
 @keyframes mini-entra { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
 
-/* status do mini: hora grande em cima, cpu/ram em pílulas e a música com nota */
-#cartao#cartao.mini .status { gap: 4px !important; padding: 8px 0 0 2px !important; }
+/* Pokémon: caixa fixa; o clique e a reação ao mouse continuam nele (área de arrasto não recebe ponteiro) */
+#cartao#cartao.mini .poke-tela {
+  flex: none !important;
+  width: 108px !important;
+  height: 108px !important;
+  -webkit-app-region: no-drag;
+}
+#cartao#cartao.mini .lado-poke::before { inset: 14px 0; }
+
+/* botões: só os úteis aqui; área de arrasto não recebe :hover, por isso ficam sempre visíveis, discretos */
+#cartao#cartao.mini #cabecalho { top: 8px !important; right: 15px !important; height: 18px !important; min-height: 18px !important; }
+#cartao#cartao.mini .icone-cmd,
+#cartao#cartao.mini #btn-config,
+#cartao#cartao.mini #btn-expandir,
+#cartao#cartao.mini #btn-power { display: none !important; }
+#cartao#cartao.mini .cab-botoes { gap: 4px !important; }
+#cartao#cartao.mini .cab-btn { background: transparent !important; border: none !important; opacity: 0.6; }
+#cartao#cartao.mini .cab-btn:hover { background: rgba(255, 255, 255, 0.16) !important; opacity: 1; }
+
+/* status: hora grande, cpu/ram em duas pílulas iguais e a música; tudo na mesma margem esquerda */
+#cartao#cartao.mini .status {
+  display: grid !important;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "hora hora" "cpu ram" "musica musica";
+  align-content: center;
+  gap: 7px 6px !important;
+  padding: 0 !important;
+  opacity: 1;
+}
 #cartao#cartao.mini .st-hora {
   display: block !important;
-  order: -1;
-  font-size: 19px !important;
-  line-height: 22px !important;
+  grid-area: hora;
+  font-size: 30px !important;
+  line-height: 32px !important;
   font-weight: 700;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   color: var(--glass-text-main, #ffffff) !important;
   max-width: none !important;
 }
 #cartao#cartao.mini #st-cpu,
 #cartao#cartao.mini #st-ram {
-  padding: 1px 8px !important;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.1);
+  height: 20px;
+  line-height: 20px !important;
+  font-size: 10.5px !important;
+  text-align: center;
+  padding: 0 !important;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  max-width: none !important;
 }
+#cartao#cartao.mini #st-cpu { grid-area: cpu; }
+#cartao#cartao.mini #st-ram { grid-area: ram; }
+#cartao#cartao.mini #st-cpu.alta { color: var(--alerta) !important; }
 #cartao#cartao.mini #st-widget { display: none !important; }
-#cartao#cartao.mini .st-musica { color: var(--accent, #ffffff) !important; }
-#cartao#cartao.mini .st-musica::before { content: "¶A a0"; }
+#cartao#cartao.mini .st-musica {
+  grid-area: musica;
+  font-size: 10.5px !important;
+  line-height: 14px !important;
+  color: var(--accent, #ffffff) !important;
+  max-width: none !important;
+  min-width: 0;
+}
+#cartao#cartao.mini .st-musica::before { content: "\266A\00a0"; }
 
 /* ---------- Botão de Expansão (Tela Cheia) ---------- */
 .cab-btn.expandir svg {
@@ -3281,8 +3323,8 @@ html[data-destacado="1"] #cartao.tela-cheia #proj-term {
   -webkit-app-region: no-drag;
 }
 .mini .menu-posicoes {
-  top: 36px;
-  right: 86px;
+  top: 30px;
+  right: 15px;
 }
 .menu-pos-grade {
   display: grid;
