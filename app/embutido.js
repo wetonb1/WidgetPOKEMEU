@@ -114,10 +114,6 @@ function criarGerenciador({ pastaPty, enviar = () => {}, localizar = (p) => p, a
       terminais.delete(id);
       return { erro: t.erro || 'não consegui iniciar o programa dentro do widget' };
     }
-    // se iniciado com prompt passado em argumento da CLI, já inicia cronometrando a quest
-    if (args && (args.includes('-i') || args.some((a) => typeof a === 'string' && !a.startsWith('-')))) {
-      iniciarQuest(t, 'início');
-    }
     // comandoAceito: false = esta IA não tem telas confirmadas e o widget não vai digitar (quem chamou põe na área de transferência)
     const comandoAceito = comandoInicial ? comando(id, comandoInicial) : false;
     return { termId: id, pid: t.h.pid, iaPid, comandoAceito };
@@ -187,10 +183,9 @@ function criarGerenciador({ pastaPty, enviar = () => {}, localizar = (p) => p, a
 
     // Enter envia comando/prompt
     if (texto.includes('\r') || texto.includes('\n')) {
-      const comandoTexto = limparBufferEntrada(t.entradaBuffer);
+      const comandoTexto = limparBufferEntrada(t.entradaBuffer).trim();
       t.entradaBuffer = '';
-      const prontoAgora = promptPronto(t.cauda, t.telas);
-      if (comandoTexto || !prontoAgora.pronto) {
+      if (comandoTexto.length > 0) {
         iniciarQuest(t, comandoTexto);
       }
     }

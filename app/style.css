@@ -967,6 +967,20 @@ button { font-family: var(--font); }
 .icone-btn.ativo { background: color-mix(in srgb, var(--accent) 26%, transparent); border-color: var(--accent); color: #ffffff; }
 #poke-fav.ativo .btn-ico { color: #ffd700; text-shadow: 0 0 6px rgba(255, 215, 0, 0.7); }
 #poke-shiny.ativo .btn-ico { color: #ffd700; text-shadow: 0 0 6px rgba(255, 215, 0, 0.7); }
+[data-estilo="ios"] .icone-btn {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+  padding: 2px 8px;
+  gap: 4px;
+}
+[data-estilo="ios"] .icone-btn:hover { background: rgba(255, 255, 255, 0.16); }
+[data-estilo="ios"] .icone-btn.ativo {
+  background: color-mix(in srgb, var(--accent) 30%, rgba(255, 255, 255, 0.16));
+  border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow, rgba(255, 215, 0, 0.35));
+}
 .poke-favs { display: flex; flex-wrap: wrap; gap: 4px; min-height: 20px; max-height: 52px; overflow-y: auto; }
 .fav-btn { color: var(--text); }
 .ajustes { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
@@ -2071,31 +2085,65 @@ button { font-family: var(--font); }
 .poke-anim.hello, [data-anim] .poke-anim.hello { animation: bounce 1.2s ease-in-out 3; }
 
 /* ---------- Modo mini (minimizado) ----------
-   Só o Pokémon e a linha de status, num cantinho (340x112) */
+   Foco dominante no Pokémon (sprite ampliado com aura), cantos super-arredondados e status secundário */
+html.mini,
+body.mini,
+html.mini body {
+  background: transparent !important;
+}
+
 #cartao.mini {
-  grid-template-columns: 124px 1fr;
-  grid-template-rows: 32px 1fr;
+  grid-template-columns: 148px 1fr !important;
+  grid-template-rows: 32px 1fr !important;
   grid-template-areas:
     "cab cab"
     "poke status";
-  border-radius: 28px;
+  border-radius: 38px !important;
 }
-.mini .abas, .mini .conteudo, .mini .narracao, .mini .poke-cabecalho, .mini .poke-tipos { display: none; }
-.mini .lado-poke { padding: 3px 4px; border-right: none; }
-.mini .poke-tela { min-height: 0; }
-.mini .poke-img { transform: scale(1.15); transform-origin: center center; }
+.mini .abas, .mini .conteudo, .mini .narracao, .mini .poke-cabecalho, .mini .poke-tipos { display: none !important; }
+.mini .lado-poke {
+  padding: 4px !important;
+  border-right: none !important;
+  border-radius: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.mini .poke-tela {
+  min-height: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.mini .poke-anim {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+.mini .poke-img {
+  transform: scale(1.65) !important;
+  transform-origin: center center !important;
+  filter: drop-shadow(0 4px 14px var(--pet-glow, rgba(255, 255, 255, 0.35))) !important;
+  max-width: 96px !important;
+  max-height: 72px !important;
+}
 .mini .poke-vazio { font-size: 32px; }
 .mini .status {
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 1px;
+  flex-direction: column !important;
+  align-items: flex-start !important;
+  justify-content: center !important;
+  gap: 2px !important;
+  margin: 0 !important;
+  padding: 5px 8px !important;
+  border-radius: 22px !important;
   background: var(--bg);
 }
-.mini .st { border: none; padding: 0 4px; line-height: 14px; font-size: 10px; color: var(--apagado); }
-.mini .st b { font-weight: 600; color: var(--text); }
-.mini .st-musica { max-width: 200px; flex: none; }
-.mini .st-hora, .mini .st-modo { display: none; } /* no mini cabem cpu, ram, widget e música */
+.mini .st { border: none !important; padding: 0 4px !important; line-height: 12px !important; font-size: 9.5px !important; color: var(--apagado) !important; }
+.mini .st b { font-weight: 600 !important; color: var(--text) !important; }
+.mini .st-musica { max-width: 170px !important; flex: none !important; }
+.mini .st-hora, .mini .st-modo { display: none !important; } /* no mini cabem cpu, ram, widget e música */
 
 /* ---------- Tela de carregamento: pokébola cúbica ----------
    Um cubo 3D (6 faces) com cantos arredondados: em cima a cor do Pokémon
@@ -2662,45 +2710,45 @@ html[data-destacado="1"] body {
 }
 [data-estilo="ios"] .carregando-barra { background: rgba(255, 255, 255, 0.1); }
 [data-estilo="ios"] #cartao.mini {
-  grid-template-columns: 124px 1fr;
-  grid-template-rows: 36px 1fr;
-  padding: 0 8px 8px 8px;
-  overflow: hidden;
-  border-radius: 34px;
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  background-color: color-mix(in srgb, var(--c-media, #141624) 42%, rgba(13, 15, 23, 0.40));
+  grid-template-columns: 152px 1fr !important;
+  grid-template-rows: 36px 1fr !important;
+  padding: 0 10px 10px 10px !important;
+  overflow: hidden !important;
+  border-radius: 38px !important;
+  border: 1px solid rgba(255, 255, 255, 0.22) !important;
+  background-color: color-mix(in srgb, var(--c-media, #141624) 42%, rgba(13, 15, 23, 0.40)) !important;
   background-image:
-    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 75%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%);
+    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 26%, transparent), transparent 75%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.35),
     inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 12px 36px rgba(0, 0, 0, 0.38);
+    0 14px 40px rgba(0, 0, 0, 0.40) !important;
 }
 [data-estilo="ios"] .mini .lado-poke {
-  padding: 2px;
-  border-radius: 26px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  padding: 4px !important;
+  border-radius: 28px !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 2px 12px var(--pet-glow, rgba(255, 255, 255, 0.15)) !important;
 }
 [data-estilo="ios"] .mini .status {
-  margin: 0;
-  padding: 4px 10px;
-  border-radius: 22px;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.10);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  margin: 0 !important;
+  padding: 5px 8px !important;
+  border-radius: 22px !important;
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
 }
 [data-estilo="ios"] .mini .st {
-  border: none;
-  line-height: 13px;
-  font-size: 10px;
-  color: var(--glass-text-sub, rgba(235, 235, 245, 0.65));
+  border: none !important;
+  line-height: 12px !important;
+  font-size: 9.5px !important;
+  color: var(--glass-text-sub, rgba(235, 235, 245, 0.65)) !important;
 }
 [data-estilo="ios"] .mini .st b {
-  font-weight: 600;
-  color: var(--glass-text-main, #ffffff);
+  font-weight: 600 !important;
+  color: var(--glass-text-main, #ffffff) !important;
 }
 
 /* ----- aba cerebro no iOS ----- */
@@ -2936,67 +2984,63 @@ html[data-destacado="1"] #proj-term {
 /* ---------- Snap & Dock nas bordas da tela (estilo Coucou) ---------- */
 #cartao.dock-topo,
 [data-estilo="ios"] #cartao.dock-topo {
-  border-top: none !important;
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
+  border-top-color: transparent !important;
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.12) !important;
 }
 
 #cartao.dock-baixo,
 [data-estilo="ios"] #cartao.dock-baixo {
-  border-bottom: none !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+  border-bottom-color: transparent !important;
   box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
 }
 
 #cartao.dock-esquerda,
 [data-estilo="ios"] #cartao.dock-esquerda {
-  border-left: none !important;
-  border-top-left-radius: 0 !important;
-  border-bottom-left-radius: 0 !important;
+  border-left-color: transparent !important;
   box-shadow: 16px 0 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
 }
 
 #cartao.dock-direita,
 [data-estilo="ios"] #cartao.dock-direita {
-  border-right: none !important;
-  border-top-right-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
+  border-right-color: transparent !important;
   box-shadow: -16px 0 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
 }
 
-/* Cantos combinados */
+/* Cantos combinados (mantendo cantos arredondados lisos sem fundo preto) */
 #cartao.dock-topo.dock-esquerda,
 [data-estilo="ios"] #cartao.dock-topo.dock-esquerda {
-  border-top: none !important;
-  border-left: none !important;
-  border-top-left-radius: 0 !important;
+  border-top-color: transparent !important;
+  border-left-color: transparent !important;
 }
 #cartao.dock-topo.dock-direita,
 [data-estilo="ios"] #cartao.dock-topo.dock-direita {
-  border-top: none !important;
-  border-right: none !important;
-  border-top-right-radius: 0 !important;
+  border-top-color: transparent !important;
+  border-right-color: transparent !important;
 }
 #cartao.dock-baixo.dock-esquerda,
 [data-estilo="ios"] #cartao.dock-baixo.dock-esquerda {
-  border-bottom: none !important;
-  border-left: none !important;
-  border-bottom-left-radius: 0 !important;
+  border-bottom-color: transparent !important;
+  border-left-color: transparent !important;
 }
 #cartao.dock-baixo.dock-direita,
 [data-estilo="ios"] #cartao.dock-baixo.dock-direita {
-  border-bottom: none !important;
-  border-right: none !important;
-  border-bottom-right-radius: 0 !important;
+  border-bottom-color: transparent !important;
+  border-right-color: transparent !important;
 }
 
-/* Mini adaptado ao dock */
-#cartao.mini.dock-topo { border-top-left-radius: 0 !important; border-top-right-radius: 0 !important; border-top: none !important; }
-#cartao.mini.dock-baixo { border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; border-bottom: none !important; }
-#cartao.mini.dock-esquerda { border-top-left-radius: 0 !important; border-bottom-left-radius: 0 !important; border-left: none !important; }
-#cartao.mini.dock-direita { border-top-right-radius: 0 !important; border-bottom-right-radius: 0 !important; border-right: none !important; }
+/* No mini, SEMPRE manter formato de cápsula arredondada sem cantos pretos no fundo */
+#cartao.mini,
+#cartao.mini.dock-topo,
+#cartao.mini.dock-baixo,
+#cartao.mini.dock-esquerda,
+#cartao.mini.dock-direita,
+[data-estilo="ios"] #cartao.mini,
+[data-estilo="ios"] #cartao.mini.dock-topo,
+[data-estilo="ios"] #cartao.mini.dock-baixo,
+[data-estilo="ios"] #cartao.mini.dock-esquerda,
+[data-estilo="ios"] #cartao.mini.dock-direita {
+  border-radius: 38px !important;
+}
 
 /* ---------- Botão de Posições e Menu Flutuante ---------- */
 .cab-btn.posicoes svg {

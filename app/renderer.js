@@ -983,6 +983,12 @@ const pokemon = (() => {
   let favFranquias = [];      // [{ fonte, id, nome, imagem }]
 
   const ehAnime = () => !!atual && atual.fonte !== 'pokemon';
+  const criarEl = (tag, classe, conteudo) => {
+    const e = document.createElement(tag);
+    if (classe) e.className = classe;
+    if (conteudo !== undefined) e.textContent = conteudo;
+    return e;
+  };
   const temaDaFonte = () => FONTE_TEMA[atual.fonte] || FONTE_TEMA.anilist;
   // destaque do personagem: a cor tirada da imagem dele (ou a paleta da fonte, de reserva)
   const corDoPersonagem = () => atual.cor || temaDaFonte().accent;
@@ -1151,15 +1157,15 @@ const pokemon = (() => {
   function desenharBotoes() {
     const favorito = atual && (ehAnime() ? favFranquias.some((f) => mesmoPersonagem(f, atual)) : favoritos.includes(atual.slug));
     el.fav.replaceChildren(
-      el('span', 'btn-ico', favorito ? '★' : '☆'),
-      el('span', 'btn-txt', 'fav')
+      criarEl('span', 'btn-ico', favorito ? '★' : '☆'),
+      criarEl('span', 'btn-txt', 'fav')
     );
     el.fav.classList.toggle('ativo', !!favorito);
     el.fav.title = favorito ? 'Remover dos favoritos' : 'Favoritar (★)';
 
     el.shiny.replaceChildren(
-      el('span', 'btn-ico', '✨'),
-      el('span', 'btn-txt', 'shiny')
+      criarEl('span', 'btn-ico', '✨'),
+      criarEl('span', 'btn-txt', 'shiny')
     );
     el.shiny.classList.toggle('ativo', usarShiny && !ehAnime());
     el.shiny.disabled = ehAnime();
@@ -1482,8 +1488,8 @@ const pokemon = (() => {
     const anterior = tela.querySelector('.shiny-particula-recipiente');
     if (anterior) anterior.remove();
 
-    const recip = el('div', 'shiny-particula-recipiente');
-    recip.append(el('div', 'shiny-onda'));
+    const recip = criarEl('div', 'shiny-particula-recipiente');
+    recip.append(criarEl('div', 'shiny-onda'));
 
     if (el.img) {
       el.img.classList.remove('shiny-flash-sprite');
@@ -1495,7 +1501,7 @@ const pokemon = (() => {
 
     const CORES = ['#ffd700', '#ffffff', '#80f7ff', '#ffe66d', '#ff9eed', '#ffd700'];
     for (let i = 0; i < 16; i++) {
-      const estrela = el('div', 'shiny-estrela');
+      const estrela = criarEl('div', 'shiny-estrela');
       const cor = CORES[i % CORES.length];
       const tam = 9 + Math.floor(Math.random() * 9); // 9px a 17px
       const left = 8 + Math.floor(Math.random() * 84); // 8% a 92%
@@ -4474,7 +4480,6 @@ const terminalEmb = (() => {
     const term = new Terminal({
       fontFamily: FONTE, fontSize: 13, cursorBlink: true, scrollback: 2000, allowTransparency: true,
       windowsPty: { backend: 'conpty', buildNumber: 19045 },
-      windowsMode: true,
       theme: { background: 'rgba(0, 0, 0, 0)', foreground: cor('--text', '#cccccc'), cursor: cor('--accent', '#ffffff'), selectionBackground: 'rgba(255, 255, 255, 0.28)' },
     });
     const fit = new (typeof FitAddon === 'function' ? FitAddon : FitAddon.FitAddon)();
@@ -4519,7 +4524,7 @@ const terminalEmb = (() => {
       if (q && q.estado === 'executando') {
         algumExecutando = true;
         const ms = Math.max(0, agoraMs - q.inicio);
-        const str = '⏱️ ' + formatarTempoQuest(ms);
+        const str = formatarTempoQuest(ms);
         const chipAba = barraAbas.querySelector(`.et-quest-tempo[data-term-id="${s.termId}"]`);
         if (chipAba) {
           chipAba.textContent = str;
@@ -4561,7 +4566,7 @@ const terminalEmb = (() => {
     const executando = q.estado === 'executando';
     const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
     elStatus.className = 'et-quest-status ' + (executando ? 'executando' : 'concluido');
-    elStatus.textContent = executando ? `⏱️ quest: ${formatarTempoQuest(ms)}` : `✓ quest: ${formatarTempoQuest(ms)}`;
+    elStatus.textContent = executando ? `quest: ${formatarTempoQuest(ms)}` : `✓ quest: ${formatarTempoQuest(ms)}`;
     elStatus.title = executando
       ? `Quest em andamento (${s.nome}): ${formatarTempoQuest(ms)}`
       : `Última quest concluída (${s.nome}): ${formatarTempoQuest(ms)}`;
@@ -4607,7 +4612,7 @@ const terminalEmb = (() => {
         const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
         const chip = el('span', 'et-quest-tempo ' + (executando ? 'executando' : 'concluido'));
         chip.dataset.termId = s.termId;
-        chip.textContent = (executando ? '⏱️ ' : '✓ ') + formatarTempoQuest(ms);
+        chip.textContent = (executando ? '' : '✓ ') + formatarTempoQuest(ms);
         chip.title = executando
           ? `Quest em andamento: ${formatarTempoQuest(ms)}`
           : `Última quest concluída em: ${formatarTempoQuest(ms)}`;
@@ -4763,7 +4768,7 @@ const terminalEmb = (() => {
           const executando = quest.estado === 'executando';
           const ms = executando ? Math.max(0, Date.now() - quest.inicio) : quest.duracaoMs;
           chipLista.className = 'ps-quest-chip ' + (executando ? 'executando' : 'concluido');
-          chipLista.textContent = (executando ? '⏱️ ' : '✓ ') + formatarTempoQuest(ms);
+          chipLista.textContent = (executando ? '' : '✓ ') + formatarTempoQuest(ms);
           chipLista.title = executando ? `Quest em andamento: ${formatarTempoQuest(ms)}` : `Última quest: ${formatarTempoQuest(ms)}`;
         }
       });
@@ -6145,7 +6150,7 @@ const projetos = (() => {
         const ms = executando ? Math.max(0, Date.now() - q.inicio) : q.duracaoMs;
         chipQuest = el('span', 'ps-quest-chip ' + (executando ? 'executando' : 'concluido'));
         chipQuest.dataset.termId = s.termId || '';
-        chipQuest.textContent = (executando ? '⏱️ ' : '✓ ') + formatarTempoQuest(ms);
+        chipQuest.textContent = (executando ? '' : '✓ ') + formatarTempoQuest(ms);
         chipQuest.title = executando ? `Quest em andamento: ${formatarTempoQuest(ms)}` : `Última quest: ${formatarTempoQuest(ms)}`;
       }
 
@@ -7548,6 +7553,8 @@ const abas = (() => {
   async function alternarMini() {
     mini = !mini;
     cartao.classList.toggle('mini', mini);
+    document.documentElement.classList.toggle('mini', mini);
+    document.body.classList.toggle('mini', mini);
     document.getElementById('ico-mini').classList.toggle('oculto', mini);
     document.getElementById('ico-restaurar').classList.toggle('oculto', !mini);
     btnMini.title = mini ? 'Restaurar' : 'Minimizar';
