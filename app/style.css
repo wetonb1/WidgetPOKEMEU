@@ -2511,9 +2511,15 @@ html[data-destacado="1"] body {
 }
 [data-estilo="ios"] .icone-btn:hover { background: rgba(255, 255, 255, 0.16); color: #ffffff; }
 [data-estilo="ios"] .icone-btn.ativo {
-  background: color-mix(in srgb, var(--accent) 30%, rgba(255, 255, 255, 0.12));
+  background: color-mix(in srgb, var(--accent) 30%, rgba(255, 255, 255, 0.16));
   border-color: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow, rgba(255, 215, 0, 0.35));
   color: #ffffff;
+}
+[data-estilo="ios"] #poke-fav.ativo .btn-ico,
+[data-estilo="ios"] #poke-shiny.ativo .btn-ico {
+  color: #ffd700;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.8);
 }
 [data-estilo="ios"] .sub { color: var(--apagado); }
 

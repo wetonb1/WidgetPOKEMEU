@@ -1169,7 +1169,7 @@ const pokemon = (() => {
     );
     el.shiny.classList.toggle('ativo', usarShiny && !ehAnime());
     el.shiny.disabled = ehAnime();
-    el.shiny.title = ehAnime() ? 'Brilho (shiny) só existe para Pokémon' : 'Alternar brilhante (shiny ✨)';
+    el.shiny.title = ehAnime() ? 'Brilho (shiny) só existe para Pokémon' : (usarShiny ? 'Desativar brilhante (shiny)' : 'Alternar brilhante (shiny ✨)');
   }
 
   function desenharFavoritos() {
@@ -1461,7 +1461,13 @@ const pokemon = (() => {
     else buscarAnime(b.dataset.poke, { primeiraVez: true, caixa: el.bloqResultados });
   });
 
-  el.fav.addEventListener('click', () => {
+  el.fav.addEventListener('click', async () => {
+    const textoDigitado = el.busca.value.trim();
+    if (textoDigitado && (!atual || normalizar(textoDigitado) !== atual.slug)) {
+      const ok = await (fonteBusca === 'pokemon' ? loadPokemon(textoDigitado, { usuario: true }) : buscarAnime(textoDigitado, { caixa: el.resultados }));
+      el.busca.value = '';
+      if (!ok) return;
+    }
     if (!atual) return;
     if (ehAnime()) {
       const jaAnime = favFranquias.some((f) => mesmoPersonagem(f, atual));
@@ -1524,7 +1530,13 @@ const pokemon = (() => {
     }, 1400);
   }
 
-  el.shiny.addEventListener('click', () => {
+  el.shiny.addEventListener('click', async () => {
+    const textoDigitado = el.busca.value.trim();
+    if (textoDigitado && (!atual || normalizar(textoDigitado) !== atual.slug)) {
+      const ok = await (fonteBusca === 'pokemon' ? loadPokemon(textoDigitado, { usuario: true }) : buscarAnime(textoDigitado, { caixa: el.resultados }));
+      el.busca.value = '';
+      if (!ok) return;
+    }
     if (!atual || ehAnime()) return; // brilho só existe para Pokémon
     usarShiny = !usarShiny;
     falar(usarShiny ? 'shinyOn' : 'shinyOff');
