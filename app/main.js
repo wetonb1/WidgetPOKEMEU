@@ -454,7 +454,10 @@ function criarJanela(posicao) {
     snapBordasJanela(janela);
     verificarBordasJanela(janela);
   });
-  janela.webContents.once('did-finish-load', () => setTimeout(() => verificarBordasJanela(janela), 300));
+  janela.webContents.once('did-finish-load', () => setTimeout(() => {
+    snapBordasJanela(janela);
+    verificarBordasJanela(janela);
+  }, 300));
 
   // a tela nunca navega nem abre janelas novas
   janela.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
@@ -1748,6 +1751,8 @@ ipcMain.handle('janela:modo', (e, modo) => {
     janela.setMaximumSize(MINI.largura, MINI.altura);
     janela.setResizable(false);
     aplicarTamanho(MINI.largura, MINI.altura);
+    snapBordasJanela(janela);
+    verificarBordasJanela(janela);
   } else {
     if (modoAtual === 'mini') {
       // volta do mini: limites normais e o tamanho de antes
@@ -1756,6 +1761,8 @@ ipcMain.handle('janela:modo', (e, modo) => {
       janela.setMinimumSize(MIN.largura, MIN.altura);
       const t = tamanhoAntesDoMini || { largura: TAMANHO_PADRAO.largura, altura: TAMANHO_PADRAO.altura, modo: 'normal' };
       aplicarTamanho(t.largura, t.altura);
+      snapBordasJanela(janela);
+      verificarBordasJanela(janela);
     }
   }
   modoAtual = modo;
@@ -1815,7 +1822,7 @@ function verificarBordasJanela(w = janela) {
   const disp = screen.getDisplayMatching(b);
   if (!disp) return;
   const area = disp.workArea;
-  const SNAP = 14;
+  const SNAP = 18;
   const dock = {
     topo: b.y <= area.y + SNAP,
     baixo: (b.y + b.height) >= (area.y + area.height - SNAP),
@@ -1865,6 +1872,7 @@ function animarJanelaPara(w, xFinal, yFinal, duracaoMs = 280) {
   const larg = b.width;
   const alt = b.height;
   if (xIni === xFinal && yIni === yFinal) {
+    snapBordasJanela(win);
     verificarBordasJanela(win);
     return;
   }
@@ -1886,6 +1894,7 @@ function animarJanelaPara(w, xFinal, yFinal, duracaoMs = 280) {
       clearInterval(timer);
       timersAnimJanelas.delete(win);
       win.setBounds({ x: xFinal, y: yFinal, width: larg, height: alt });
+      snapBordasJanela(win);
       verificarBordasJanela(win);
     }
   }, 16);
