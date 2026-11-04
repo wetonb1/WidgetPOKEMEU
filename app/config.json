@@ -6,7 +6,7 @@
   "corPokebola": "#e3350d",
   "shiny": false,
   "gifAnimado": false,
-  "aceleracaoGPU": false,
+  "aceleracaoGPU": true,
   "redeEmProcesso": false,
   "desempenho": "normal",
   "economiaAutomatica": true,

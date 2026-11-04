@@ -8,6 +8,7 @@ const INTERVALO_STATS = 3000; // ms entre uma leitura e a próxima (o dobro no m
 let economico = false;
 const preferencias = { visualizador: true, animacoes: true };
 
+
 let ultimoStats = null;
 const GB = 1024 ** 3;
 const um = (n) => n.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -7493,7 +7494,7 @@ const abas = (() => {
   // continua legível e vira uma mancha difusa no seu lado do cartão (CSS); a troca é suave.
   if (IOS) {
     const LADOS = ['--c-esq', '--c-dir', '--c-topo', '--c-baixo'];
-    const BRILHO_MAX = 0.2; // 0 = preto, 1 = branco
+    const BRILHO_MAX = 0.34; // 0 = preto, 1 = branco
     const escurecer = ([r, g, b]) => {
       const brilho = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
       const k = brilho > BRILHO_MAX ? BRILHO_MAX / brilho : 1;
@@ -7508,8 +7509,7 @@ const abas = (() => {
       if (!lidos.length) return;
       const media = [0, 1, 2].map((i) => Math.round(lidos.reduce((s, c) => s + c[i], 0) / lidos.length));
       const raiz = document.documentElement.style;
-      rgb.forEach((c, i) => raiz.setProperty(LADOS[i], 'rgba(' + escurecer(c || media).join(', ') + ', 0.45)'));
-      raiz.setProperty('--c-media', 'rgba(' + escurecer(media).join(', ') + ', 0.50)');
+      rgb.forEach((c, i) => raiz.setProperty(LADOS[i], 'rgba(' + escurecer(c || media).join(', ') + ', 0.6)'));
     });
   }
   if (IOS) {
@@ -7905,6 +7905,7 @@ const ajustes = (() => {
     visualizador: document.getElementById('cfg-visualizador'),
     animacoes: document.getElementById('cfg-animacoes'),
     atualizacao: document.getElementById('cfg-atualizacao'),
+    gpu: document.getElementById('cfg-gpu'),
   };
 
   // a GPU só muda ao nascer o processo: salva e avisa

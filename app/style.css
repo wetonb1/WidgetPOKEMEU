@@ -1851,6 +1851,7 @@ button { font-family: var(--font); }
   50% { opacity: 0.72; transform: scale(0.97); }
 }
 .et-corpo { position: relative; flex: 1; min-height: 0; border: 1px solid var(--linha); background: #000000; overflow: hidden; }
+[data-estilo="ios"] .et-corpo { border-color: rgba(255, 255, 255, 0.08); border-radius: 14px; background: rgba(6, 7, 12, 0.62); }
 .et-term { position: absolute; inset: 4px 2px 4px 6px; display: none; }
 .et-term.ativo { display: block; }
 .et-term .xterm { height: 100%; }
@@ -2394,6 +2395,17 @@ html[data-estilo="ios"] {
   --vidro-borda: rgba(255, 255, 255, 0.09);
   --vidro-forte: rgba(255, 255, 255, 0.14);  /* hover / selecionado */
   --mola: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* Liquid Glass: reflexo em diagonal, lente suave nas bordas e as cores do que está ao redor do widget */
+  --vidro-reflexo: linear-gradient(115deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.02) 26%, transparent 46%);
+  --vidro-desktop:
+    radial-gradient(60% 110% at 0% 50%, var(--c-esq, transparent), transparent 72%),
+    radial-gradient(60% 110% at 100% 50%, var(--c-dir, transparent), transparent 72%),
+    radial-gradient(110% 60% at 50% 0%, var(--c-topo, transparent), transparent 72%),
+    radial-gradient(110% 60% at 50% 100%, var(--c-baixo, transparent), transparent 72%);
+  --vidro-lente:
+    inset 0 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 26px rgba(255, 255, 255, 0.035);
 }
 html[data-estilo="ios"],
 html[data-estilo="ios"] body,
@@ -2413,18 +2425,16 @@ html[data-destacado="1"] body {
   grid-template-rows: 46px 1fr 44px;
   column-gap: 10px;
   padding: 0 12px;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.13);
   border-radius: 26px;
   overflow: hidden;
-  -webkit-backdrop-filter: blur(28px) saturate(180%);
-  backdrop-filter: blur(28px) saturate(180%);
-  background-color: rgba(16, 18, 28, 0.84);
-  background-image:
-    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 65%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07) 0%, rgba(255, 255, 255, 0.01) 100%);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 16px 48px rgba(0, 0, 0, 0.45);
+  /* Sem backdrop-filter aqui: atrás do cartão só existe a janela transparente, ele não desfocaria nada e custava
+     10 pontos de CPU parado (medido). O vidro são as cores do desktop lidas ao redor (--c-*), o reflexo e a lente.
+     Sem sombra externa: o cartão tem o tamanho da janela, ela só pintaria de preto os cantos arredondados. */
+  background-color: rgba(20, 22, 33, 0.64);
+  background-image: var(--vidro-reflexo), var(--vidro-desktop),
+    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 65%);
+  box-shadow: var(--vidro-lente);
 }
 
 /* ----- barra de cima ----- */
@@ -2448,12 +2458,12 @@ html[data-destacado="1"] body {
   transition: background 0.22s ease, color 0.22s ease, box-shadow 0.22s ease, transform 0.2s var(--glass-spring);
 }
 [data-estilo="ios"] .aba:hover {
-  background: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.09);
   color: #ffffff;
   transform: translateY(-1px);
 }
 [data-estilo="ios"] .aba.ativa {
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.24) 0%, rgba(255, 255, 255, 0.12) 100%);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.07) 100%);
   color: #ffffff;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: var(--brilho-topo), 0 3px 10px rgba(0, 0, 0, 0.2);
@@ -2477,9 +2487,9 @@ html[data-destacado="1"] body {
   box-shadow: var(--brilho-topo), 0 4px 10px rgba(0, 0, 0, 0.2);
 }
 [data-estilo="ios"] .cab-btn:active { transform: scale(0.92); }
-[data-estilo="ios"] .cab-btn.fechar:hover { background: #ff5f57; border-color: #ff5f57; }
-[data-estilo="ios"] .cab-btn.config.ativa { background: rgba(255, 255, 255, 0.26); border-color: rgba(255, 255, 255, 0.4); }
-[data-estilo="ios"] .cab-btn.power:hover { background: #ff453a; border-color: #ff453a; }
+[data-estilo="ios"] .cab-btn.fechar:hover { background: rgba(255, 95, 87, 0.5); border-color: rgba(255, 95, 87, 0.6); }
+[data-estilo="ios"] .cab-btn.config.ativa { background: rgba(255, 255, 255, 0.17); border-color: rgba(255, 255, 255, 0.26); }
+[data-estilo="ios"] .cab-btn.power:hover { background: rgba(255, 69, 58, 0.5); border-color: rgba(255, 69, 58, 0.6); }
 [data-estilo="ios"] .power-caixa {
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 20px;
@@ -2491,10 +2501,10 @@ html[data-destacado="1"] body {
 /* ----- cartões de vidro: Pokémon, conteúdo e status ----- */
 [data-estilo="ios"] .lado-poke,
 [data-estilo="ios"] .conteudo {
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 20px;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.03) 100%), rgba(20, 21, 32, 0.65);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 24px rgba(0, 0, 0, 0.22);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.085) 0%, rgba(255, 255, 255, 0.02) 42%, rgba(255, 255, 255, 0.035) 100%), rgba(14, 15, 24, 0.24);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14), 0 6px 20px rgba(0, 0, 0, 0.14);
 }
 [data-estilo="ios"] .lado-poke { padding: 10px 12px; }
 [data-estilo="ios"] .conteudo { padding: 12px 14px; }
@@ -2565,7 +2575,7 @@ html[data-destacado="1"] body {
 [data-estilo="ios"] .sugestoes button:hover,
 [data-estilo="ios"] .dialogo-botoes button:hover,
 [data-estilo="ios"] .fav-btn:hover {
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
   color: #ffffff;
   transform: translateY(-1px);
   border-color: rgba(255, 255, 255, 0.24);
@@ -2781,7 +2791,7 @@ html[data-destacado="1"] body {
 [data-estilo="ios"] .estilo-op.ativo { background: rgba(255, 255, 255, 0.2); color: #ffffff; box-shadow: 0 1px 6px rgba(0, 0, 0, 0.25); }
 
 /* ----- diálogo: vidro por cima de tudo ----- */
-[data-estilo="ios"] .dialogo { border-radius: 18px; background: rgba(10, 10, 16, 0.72); }
+[data-estilo="ios"] .dialogo { border-radius: 18px; background: rgba(10, 10, 16, 0.5); -webkit-backdrop-filter: blur(14px) saturate(140%); backdrop-filter: blur(14px) saturate(140%); }
 [data-estilo="ios"] .dialogo-caixa {
   gap: 10px;
   padding: 16px;
@@ -2821,17 +2831,6 @@ html[data-destacado="1"] body {
   padding: 0 16px 0 10px !important;
   overflow: hidden !important;
   border-radius: 75px !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-  backdrop-filter: blur(28px) saturate(180%) !important;
-  background-color: rgba(16, 18, 28, 0.86) !important;
-  background-image:
-    radial-gradient(90% 70% at 0% 0%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 75%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.12),
-    0 14px 40px rgba(0, 0, 0, 0.45) !important;
   position: relative !important;
 }
 [data-estilo="ios"] #cartao.mini .lado-poke,
@@ -2974,7 +2973,7 @@ html[data-destacado="1"] body {
 [data-estilo="ios"] .eco-linha { border-bottom-color: rgba(255, 255, 255, 0.08); }
 [data-estilo="ios"] .cer-eco h2, [data-estilo="ios"] .cer-man h2 { color: #ffffff; }
 [data-estilo="ios"] .man-linha { border-bottom-color: rgba(255, 255, 255, 0.08); }
-[data-estilo="ios"] .graf-area { border: none; border-radius: 14px; }
+[data-estilo="ios"] .graf-area { border: none; border-radius: 14px; background: rgba(6, 7, 12, 0.5); }
 [data-estilo="ios"] #graf-filtro { border: none; border-radius: 8px; background: rgba(255, 255, 255, 0.08); padding: 3px 10px; }
 [data-estilo="ios"] .graf-info { border: none; border-left: 3px solid var(--cor, var(--accent)); border-radius: 10px; background: rgba(20, 20, 28, 0.88); }
 
@@ -3003,13 +3002,9 @@ html[data-destacado="1"][data-estilo="ios"] #cartao {
   grid-template-rows: 44px 1fr !important;
   padding-bottom: 10px;
   border-radius: 24px !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
-  backdrop-filter: blur(28px) saturate(180%) !important;
-  background-color: rgba(16, 18, 28, 0.88) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    0 16px 48px rgba(0, 0, 0, 0.50) !important;
+  border: 1px solid rgba(255, 255, 255, 0.13) !important;
+  background-color: rgba(20, 22, 33, 0.8) !important;
+  box-shadow: var(--vidro-lente) !important;
   overflow: hidden !important;
 }
 html[data-destacado="1"] #aba-projetos.ativo.terminal:not(.usando) {
@@ -3100,19 +3095,19 @@ html[data-destacado="1"] #proj-term {
   background: rgba(74, 168, 255, 0.28);
   border-color: #4aa8ff;
   color: #ffffff;
-  box-shadow: 0 0 8px rgba(74, 168, 255, 0.4);
+  box-shadow: 0 0 4px rgba(74, 168, 255, 0.16);
 }
 .forca-pill.ativa.medium {
   background: rgba(255, 217, 59, 0.28);
   border-color: #ffd93b;
   color: #ffffff;
-  box-shadow: 0 0 8px rgba(255, 217, 59, 0.4);
+  box-shadow: 0 0 4px rgba(255, 217, 59, 0.16);
 }
 .forca-pill.ativa.high {
   background: rgba(255, 107, 107, 0.28);
   border-color: #ff6b6b;
   color: #ffffff;
-  box-shadow: 0 0 8px rgba(255, 107, 107, 0.4);
+  box-shadow: 0 0 4px rgba(255, 107, 107, 0.16);
 }
 
 /* ---------- Snap & Dock nas bordas da tela (estilo Coucou) ---------- */
@@ -3121,7 +3116,6 @@ html[data-destacado="1"] #proj-term {
   border-top: none !important;
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35), inset 0 -1px 0 rgba(255, 255, 255, 0.12) !important;
 }
 
 #cartao.dock-baixo,
@@ -3129,7 +3123,6 @@ html[data-destacado="1"] #proj-term {
   border-bottom: none !important;
   border-bottom-left-radius: 0 !important;
   border-bottom-right-radius: 0 !important;
-  box-shadow: 0 -16px 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
 }
 
 #cartao.dock-esquerda,
@@ -3137,7 +3130,6 @@ html[data-destacado="1"] #proj-term {
   border-left: none !important;
   border-top-left-radius: 0 !important;
   border-bottom-left-radius: 0 !important;
-  box-shadow: 16px 0 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
 }
 
 #cartao.dock-direita,
@@ -3145,7 +3137,6 @@ html[data-destacado="1"] #proj-term {
   border-right: none !important;
   border-top-right-radius: 0 !important;
   border-bottom-right-radius: 0 !important;
-  box-shadow: -16px 0 40px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.20) !important;
 }
 
 /* Cantos combinados (atracado em duas paredes simultâneas) */
@@ -3438,8 +3429,8 @@ html[data-destacado="1"] #cartao.tela-cheia #proj-term {
 .pos-btn:hover {
   background: var(--botao-cheio);
   color: #0b0c10;
-  border-color: rgba(255, 255, 255, 0.6);
-  transform: scale(1.12);
+  border-color: rgba(255, 255, 255, 0.24);
+  transform: scale(1.06);
 }
 .pos-btn:active {
   transform: scale(0.94);

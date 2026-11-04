@@ -285,9 +285,9 @@ function salvarConfig(cfg) {
   return true;
 }
 
-// Sem aceleração de hardware (padrão): medido no cenário B, CPU 15% -> 5% de
-// 1 núcleo e -185 MB de memória privada (na época da janela transparente).
-// O efeito varia por PC: "aceleracaoGPU": true religa.
+// Com GPU (padrão): é o que deixa o widget acompanhar um monitor de 240 Hz. Medido em 1100x680 no RX 5500 XT:
+// grafo arrastando 48% -> 6% de CPU de 1 núcleo e intervalo entre quadros (p95) 8,4 -> 4,3 ms, em troca de 150 a 270 MB
+// de memória privada. Sem GPU tudo funciona, só mais pesado na CPU: "aceleração por GPU" em Settings (vale ao reabrir).
 // (A config é lida aqui, antes do app ficar pronto, porque depois não dá mais.)
 const cfgInicial = carregarConfig();
 if (!cfgInicial.aceleracaoGPU) app.disableHardwareAcceleration();
@@ -309,7 +309,7 @@ if (cfgInicial.redeEmProcesso) app.commandLine.appendSwitch('enable-features', '
 let modoAtual = 'normal';
 let tamanhoAntesDoMini = null;
 let salvarTamanhoTimer = null;
-// Estilo iOS: o cartão é OPACO (nada do que está atrás aparece). A cor dele vem do que está
+// Estilo iOS: o vidro não desfoca o desktop de verdade. A cor dele vem do que está
 // AO REDOR do widget: a cada 1,5 s (3 s no modo econômico) o medidor lê faixas finas da tela
 // logo fora de cada lado (esquerda, direita, cima, baixo) e devolve a cor média de cada uma
 // ("-" quando o lado encosta na borda da tela). A tela monta com elas um degradê suave, como
@@ -367,8 +367,8 @@ function criarJanela(posicao) {
     minHeight: MIN.altura,
     maxWidth: MAX.largura,
     maxHeight: MAX.altura,
-    // CMD: opaca (mais leve de desenhar). iOS: janela transparente só para os cantos
-    // redondos do CSS saírem lisos; o cartão em si é opaco. Sem frame: a barra é nossa.
+    // CMD: opaca (mais leve de desenhar). iOS: janela transparente para os cantos redondos
+    // do CSS saírem lisos e o cartão de vidro deixar o desktop aparecer. Sem frame: a barra é nossa.
     frame: false,
     transparent: ios,
     backgroundColor: ios ? '#00000000' : '#0c0c0c',
@@ -1127,7 +1127,7 @@ ipcMain.handle('cerebro:escolher-pasta', async (e) => {
 const PASTA_PRINTS = path.join(os.tmpdir(), 'meu-widget-prints');
 function salvarPrintDaAreaDeTransferencia() {
   const img = clipboard.readImage();
-  if (img.isEmpty()) return '';
+  if (img.isEmpty()) return null;
   fs.mkdirSync(PASTA_PRINTS, { recursive: true });
   const limite = Date.now() - 24 * 3600 * 1000;
   for (const f of fs.readdirSync(PASTA_PRINTS)) {
@@ -1141,7 +1141,7 @@ function salvarPrintDaAreaDeTransferencia() {
   return { imagem: arquivo, largura: width, altura: height, bytes: png.length, miniatura: img.resize({ height: 48 }).toDataURL() };
 }
 ipcMain.handle('term:colar', async (e) => {
-  if (!daJanela(e)) return { texto: '', imagem: '' };
+  if (!daJanela(e)) return { texto: '', imagem: '', erro: 'janela recusada' };
   const texto = String((await clipboard.readText()) || '').slice(0, 200000);
   if (texto) return { texto, imagem: '' };
   try { return { texto: '', imagem: '', ...salvarPrintDaAreaDeTransferencia() }; } catch (erro) { return { texto: '', imagem: '', erro: erro.message }; }
@@ -1819,8 +1819,8 @@ ipcMain.handle('janela:alternar-expandir', (e) => {
   if (!w || w.isDestroyed()) return { expandido: false };
 
   const b = w.getBounds();
-  const disp = screen.getDisplayMatching(b);
-  const area = disp ? disp.workArea : screen.getPrimaryDisplay().workArea;
+  const disp = screen.getDisplayMatching(b) || screen.getPrimaryDisplay();
+  const area = disp.workArea;
 
   if (!w._expandido) {
     w._boundsAntesExpandir = { x: b.x, y: b.y, width: b.width, height: b.height };
@@ -1838,7 +1838,6 @@ ipcMain.handle('janela:alternar-expandir', (e) => {
     w.moveTop();
     w.focus();
     w._expandido = true;
-    snapBordasJanela(w);
     verificarBordasJanela(w, true);
     w.webContents.send('janela:expandido', true);
     return { expandido: true };
@@ -1852,8 +1851,8 @@ ipcMain.handle('janela:alternar-expandir', (e) => {
     } else {
       w.setMinimumSize(460, 240);
     }
-    w.setBounds(prev);
     w._expandido = false;
+    w.setBounds(prev);
     snapBordasJanela(w);
     verificarBordasJanela(w, true);
     w.webContents.send('janela:expandido', false);
