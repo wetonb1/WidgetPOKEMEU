@@ -44,6 +44,8 @@ static class Pty {
     [DllImport("kernel32.dll")] static extern int CreatePseudoConsole(COORD size, IntPtr input, IntPtr output, uint flags, out IntPtr pc);
     [DllImport("kernel32.dll")] static extern int ResizePseudoConsole(IntPtr pc, COORD size);
     [DllImport("kernel32.dll")] static extern void ClosePseudoConsole(IntPtr pc);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool SetConsoleCP(uint cp);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool SetConsoleOutputCP(uint cp);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool InitializeProcThreadAttributeList(IntPtr list, int count, int flags, ref IntPtr size);
     [DllImport("kernel32.dll", SetLastError = true)] static extern bool UpdateProcThreadAttribute(IntPtr list, uint flags, IntPtr attr, IntPtr value, IntPtr size, IntPtr prev, IntPtr ret);
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
@@ -71,6 +73,7 @@ static class Pty {
     static int Main(string[] a) {
         int colunas = 80, linhas = 24;
         try { colunas = int.Parse(a[0]); linhas = int.Parse(a[1]); } catch { }
+        try { SetConsoleCP(65001); SetConsoleOutputCP(65001); } catch { }
         canalErro = GetStdHandle(-12);
         canalSaida = GetStdHandle(-11);
         IntPtr canalEntrada = GetStdHandle(-10);
@@ -84,6 +87,7 @@ static class Pty {
         IntPtr entradaL, entradaE, saidaL, saidaE, pc;
         if (!CreatePipe(out entradaL, out entradaE, IntPtr.Zero, 0) || !CreatePipe(out saidaL, out saidaE, IntPtr.Zero, 0)) { Controle("ERRO CreatePipe " + Marshal.GetLastWin32Error()); return 3; }
         COORD tam = new COORD { X = (short)colunas, Y = (short)linhas };
+        COORD tamAtual = tam;
         int hr = CreatePseudoConsole(tam, entradaL, saidaE, 0, out pc);
         if (hr != 0) { Controle("ERRO CreatePseudoConsole " + hr + " (precisa do Windows 10 1809 ou mais novo)"); return 4; }
         CloseHandle(entradaL); CloseHandle(saidaE); // o conhost guarda as cópias dele
@@ -149,7 +153,10 @@ static class Pty {
                             WriteFile(entradaE, dados, tamanho, out escrito, IntPtr.Zero);
                         } else if (tipo == 1 && tamanho >= 4) {
                             COORD t2 = new COORD { X = (short)BitConverter.ToUInt16(pendente, pos + 5), Y = (short)BitConverter.ToUInt16(pendente, pos + 7) };
-                            if (t2.X > 0 && t2.Y > 0) ResizePseudoConsole(pc, t2);
+                            if (t2.X > 0 && t2.Y > 0 && (t2.X != tamAtual.X || t2.Y != tamAtual.Y)) {
+                                tamAtual = t2;
+                                ResizePseudoConsole(pc, t2);
+                            }
                         }
                         pos += 5 + tamanho;
                     }

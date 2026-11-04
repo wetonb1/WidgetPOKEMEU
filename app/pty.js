@@ -86,7 +86,7 @@ function linhaDeComando(programa, args = []) {
 function criar({ exe, pasta, programa, args = [], env = process.env, colunas = 100, linhas = 30, aoDados = () => {}, aoFim = () => {} }) {
   const linha = linhaDeComando(programa, args);
   const filho = spawn(exe, [String(Math.max(2, colunas | 0)), String(Math.max(2, linhas | 0))], {
-    env: { COLORTERM: 'truecolor', ...env, WIDGET_PTY_LINHA: linha, WIDGET_PTY_PASTA: pasta || '' },
+    env: { COLORTERM: 'truecolor', PYTHONIOENCODING: 'utf-8', LANG: 'en_US.UTF-8', LC_ALL: 'en_US.UTF-8', ...env, WIDGET_PTY_LINHA: linha, WIDGET_PTY_PASTA: pasta || '' },
     stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true,
   });
   let pidPrograma = null;

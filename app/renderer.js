@@ -4431,7 +4431,13 @@ const terminalEmb = (() => {
     if (!s) return;
     try {
       s.fit.fit();
-      if (s.vivo) window.widget.termTamanho(s.termId, s.term.cols, s.term.rows); // o processo precisa saber o tamanho de verdade
+      const c = s.term.cols;
+      const r = s.term.rows;
+      if (c > 0 && r > 0 && (c !== s.ultimoCols || r !== s.ultimoRows)) {
+        s.ultimoCols = c;
+        s.ultimoRows = r;
+        if (s.vivo) window.widget.termTamanho(s.termId, c, r);
+      }
     } catch { /* ainda sem tamanho (aba escondida) */ }
   }
 
@@ -4467,6 +4473,8 @@ const terminalEmb = (() => {
     corpo.append(host);
     const term = new Terminal({
       fontFamily: FONTE, fontSize: 13, cursorBlink: true, scrollback: 2000, allowTransparency: true,
+      windowsPty: { backend: 'conpty', buildNumber: 19045 },
+      windowsMode: true,
       theme: { background: 'rgba(0, 0, 0, 0)', foreground: cor('--text', '#cccccc'), cursor: cor('--accent', '#ffffff'), selectionBackground: 'rgba(255, 255, 255, 0.28)' },
     });
     const fit = new (typeof FitAddon === 'function' ? FitAddon : FitAddon.FitAddon)();

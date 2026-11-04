@@ -195,7 +195,14 @@ function criarGerenciador({ pastaPty, enviar = () => {}, localizar = (p) => p, a
       }
     }
   };
-  const tamanho = (id, c, l) => { const t = terminais.get(id); if (t && !t.acabou) t.h.redimensionar(c, l); };
+  const tamanho = (id, c, l) => {
+    const t = terminais.get(id);
+    if (!t || t.acabou) return;
+    if (c === t.cols && l === t.rows) return;
+    t.cols = c;
+    t.rows = l;
+    t.h.redimensionar(c, l);
+  };
 
   // digita o comando quando o Claude estiver esperando você (nunca numa tela de confirmação). Devolve false se não há como.
   function comando(id, texto) {
