@@ -5058,10 +5058,10 @@ const terminalEmb = (() => {
     const antes = marcas(textoAntes);
     const agy = ia === 'antigravity' || (ia !== 'claude' && /Antigravity CLI \d/.test(textoAntes)); // o agy aberto à mão num PowerShell também
     const claude = !agy && (ia === 'claude' || /Claude Code v\d/.test(textoAntes));
-    // O agy também lê a imagem direto da área de transferência (Ctrl+V; no Windows também Alt+V, que o terminal não intercepta). Como não sabemos
-    // como ele desenha o anexo, olhamos 3 sinais: um "[...image/imagem/video...]" novo na tela, o erro dele "No image or video found in the clipboard" ou
-    // a tela ter mudado; o caminho do PNG só é colado se o Alt+V não funcionar.
-    const chipAgy = (t) => (t.match(/\[[^\]\n]*(?:image|imagem|video|media|attach|anex)[^\]\n]*\]/gi) || []).length;
+    // O agy também lê a imagem direto da área de transferência (Ctrl+V; no Windows também Alt+V, que o terminal não intercepta). Olhamos 3 sinais:
+    // o contador "1 media attached" subir (visto no agy 1.5.0), o erro dele "No image or video found in the clipboard" ou
+    // a tela ter mudado (o contador pode quebrar a linha numa janela estreita); o caminho do PNG só é colado se o Alt+V não funcionar.
+    const chipAgy = (t) => Math.max(0, ...[...t.matchAll(/(\d+) media attached/g)].map((m) => Number(m[1])));
     const semImagemAgy = (t) => (t.match(/No image or video found in the clipboard/g) || []).length;
     const chipsAntes = chipAgy(textoAntes);
     const errosAntes = semImagemAgy(textoAntes);

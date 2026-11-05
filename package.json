@@ -14,6 +14,7 @@
     "testar-sessoes": "node tools/testar-sessoes.js",
     "testar-pty": "node tools/testar-pty.js",
     "testar-embutido": "node tools/testar-embutido.js",
+    "testar-colar": "node tools/testar-colar.js",
     "testar-lateral": "node tools/testar-lateral.js",
     "testar-mini": "node tools/testar-mini.js",
     "testar-uso-tela": "node tools/testar-uso-tela.js && node tools/testar-uso-tela-agy.js",
