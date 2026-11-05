@@ -77,6 +77,8 @@ setInterval(() => {}, 1000);
     await foto('1-antes');
 
     // ---- abrir direto, sem tarefa, sem prompt ----
+    ok((await ev(`document.querySelectorAll('.proj-abrir').length`)) === 0, 'os projetos nascem recolhidos: nenhuma opção à vista');
+    await ev(`document.querySelector('.proj-cab').click()`);
     await ev(`document.querySelector('.proj-abrir').click()`);
     ok(await aguardar(async () => await ev(`document.getElementById('aba-projetos').classList.contains('terminal')`)), '[▶ abrir claude] abre o terminal na hora');
     ok(!(await visivel('#pa-form')), 'sem a janelinha de tarefa (nada para escrever antes)');
@@ -139,7 +141,8 @@ setInterval(() => {}, 1000);
     // ================= 10.3: várias IAs na mesma tela =================
     await ev(`document.getElementById('et-voltar').click()`);
     await pausa(300);
-    const cartao = (id) => `[...document.querySelectorAll('.proj-cartao')].find(c => c.querySelector('.proj-id').textContent === '${id}')`;
+    const cartao = (id) => `document.querySelector('.proj-cartao[data-id="${id}"]')`;
+    for (const id of ['jogo', 'site']) await ev(`(() => { const c = ${cartao(id)}; if (!c.classList.contains('aberto')) c.querySelector('.proj-cab').click(); })()`);
     const texto = (id, sel) => ev(`${cartao(id)}.querySelector(${JSON.stringify(sel)}).textContent`);
     const botoes = (id) => ev(`[...${cartao(id)}.querySelectorAll('button')].map(b => ({ t: b.textContent.trim(), off: b.disabled, dica: b.title }))`);
     const clicarIA = (id, nome) => ev(`[...${cartao(id)}.querySelectorAll('.proj-ias .proj-pill')].find(x => x.textContent === ${JSON.stringify(nome)}).click()`);

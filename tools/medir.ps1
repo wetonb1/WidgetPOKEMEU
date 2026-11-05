@@ -15,12 +15,14 @@
 # Cenários: A = ocioso (música pausada)
 #           B = música tocando (com visualizador)
 #           D = ocioso depois de ter tocado música (captura de áudio já criada; música pausada)
+#           P = aba Projects aberta
+#           M = modo mini (minimizado)
 # Cada rodada vira uma linha em tools\resultados.csv, mais uma linha "mediana".
 param(
     [int]$Segundos = 60,
     [int]$Aquecer = 20,
     [switch]$Anexar,
-    [ValidateSet('A', 'B', 'C', 'D', 'P')]
+    [ValidateSet('A', 'B', 'C', 'D', 'P', 'M')]
     [string]$Cenario = 'A',
     [string]$Variante = 'base',
     [int]$Rodadas = 3,

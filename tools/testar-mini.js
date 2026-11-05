@@ -118,11 +118,18 @@ public static class Hit {
     const mini = await alvos();
     const d = await ev('devicePixelRatio');
     const pts = mini.map((a) => [a.x, a.y]);
-    pts.push([Math.round(200 * d), Math.round(130 * d)]); // fundo do cartão: tem de continuar arrastando
+    pts.push([Math.round(200 * d), Math.round(116 * d)]); // fundo do cartão: tem de continuar arrastando
     const h = testarPontos(filho.pid, pts);
     const arrasto = h.codigos.pop();
     for (const [i, a] of mini.entries()) console.log(`  ${a.nome}: ${a.w}x${a.h} em (${a.x},${a.y}) windows=${h.codigos[i]} página=${a.topo}`);
     ok(mini.length > 0, 'mini: há botões visíveis');
+    ok((await ev('innerWidth')) === 244 && (await ev('innerHeight')) === 124, 'mini: a janela tem 244x124');
+    ok(!(await ev(`!!document.getElementById('btn-mini-vidro')`)), 'mini: não existe mais o botão de trocar o vidro');
+    const pokemon = await ev(`(() => { const t = document.getElementById('poke-tela') || document.querySelector('.poke-tela'); const r = t.getBoundingClientRect(); return { a: r.height, topo: r.top, base: r.bottom }; })()`);
+    ok(pokemon.a / 124 >= 0.9 && pokemon.topo >= 0 && pokemon.base <= 124, `mini: o Pokémon ocupa ${Math.round(pokemon.a / 1.24)}% da altura sem cortar`);
+    if (estilo === 'ios') for (let i = 0; i < 12 && !(await ev(`!!document.documentElement.style.getPropertyValue('--mv-base')`)); i++) await pausa(500);
+    const tom = await ev(`document.documentElement.style.getPropertyValue('--mv-base')`);
+    ok(estilo === 'ios' ? /^rgb\(/.test(tom) : !tom, `mini: tom automático só no iOS, lido das cores ao redor (${tom || 'sem tom'})`);
     for (const [i, a] of mini.entries()) {
       ok(h.codigos[i] === HTCLIENT, `mini: ${a.nome} recebe o clique do mouse (Windows respondeu ${h.codigos[i]}; 1 = clique, 2 = arrasto)`);
       ok(a.topo === a.nome, `mini: nada cobre ${a.nome} na página`);

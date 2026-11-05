@@ -65,7 +65,6 @@ widget. Não acho que valha a pena agora.
 | Chave | Padrão | O que faz | Custo medido |
 |---|---|---|---|
 | `aceleracaoGPU` | `true` | `false` desenha na CPU (chave em Settings, vale ao reabrir) | Com GPU: 150 a 270 MB a mais de privada e fluidez de 240 Hz; números na Fase 11, no fim deste arquivo |
-| `miniVidro` | `"cristal"` | Estilo de vidro do mini (botão de gota): só variáveis CSS | Zero |
 | `desempenho` | `"normal"` | `"economico"`: intervalos dobrados (sistema 6 s, música 4 s, processos 16,5 s), visualizador a 15 quadros/s e rosto sem animação nem GIF | Economiza ~12–16% de CPU (A e B) |
 | `economiaAutomatica` | `true` | Entra no modo econômico sozinho com CPU do PC acima de 90% (2 das últimas 5 leituras) ou com um app em tela cheia, e volta quando passa | A checagem de tela cheia custa ~1 ms a cada 5,5 s |
 | `visualizador` | `true` | `false` não captura áudio e esconde as barras (o espaço vai para os Apps) | B: 5,1% → 4,6% (~0,6 ponto); mais ~2 pontos nos 10 s depois de pausar (cenário D) |
@@ -312,3 +311,17 @@ Com a config real do dono (Pikachu, `gifAnimado: true`, janela de 1400x780):
 `npm run medir` (cenário A, iOS, 1 rodada de 30 s, com a config real): 6,1% de 1 núcleo e 354 MB de privada, 5 processos. O da Fase 10 (`depois-otim-final`) era 6,4% e 156 MB, sem GPU: a CPU ficou igual, com fluidez de 240 Hz, e a conta veio na memória.
 
 A CPU do grafo é uma leitura curta e ruidosa: rodadas isoladas foram de 6% a 41% na mesma configuração. Compare só a tendência.
+
+## Fase 13: mini menor e projetos recolhidos
+
+`tools/medir.ps1`, visual iOS, 2 rodadas de 40 s, mediana (`antes-mini-menor` e `depois-mini-menor` em `tools/resultados.csv`). O cenário novo `M` mede o mini.
+
+| Cenário | CPU de 1 núcleo, antes → depois | RAM privada, antes → depois |
+|---|---|---|
+| A, ocioso | 11,0% → 10,8% | 371 → 355 MB |
+| P, aba Projects | 12,7% → 10,9% | 370 → 335 MB |
+| M, mini | 9,2% → 9,4% | 283 → 277 MB |
+
+A CPU ficou dentro do ruído: as rodadas do cenário A variaram de 8,8% a 12,8%. O ganho claro é a memória da aba Projects, com as 2 rodadas em 335 MB contra 369 a 371 MB.
+
+Na aba Projects, com os 9 projetos do dono recolhidos: 591 → 312 elementos, 404 → 268 ouvintes de evento, 147 → 12 botões e lista de 1.774 → 510 px de altura. Expandir um projeto cria só as opções dele (+33 elementos). O tom automático não acrescenta processo nem leitura.

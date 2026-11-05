@@ -36,6 +36,7 @@ const PREPARO = {
   B: "abas.mostrar('music', { salvar: false }); true",
   C: "abas.mostrar('cerebro', { salvar: false }); true",
   P: "abas.mostrar('projetos', { salvar: false }); true",
+  M: "document.getElementById('btn-mini').click(); true", // mini: janela pequena, nenhuma aba aberta
   D: "abas.mostrar('music', { salvar: false }); visualizador.tocando(true); true", // o ciclo da música pausa logo depois
 };
 const preparo = PREPARO[process.env.WIDGET_CENARIO];

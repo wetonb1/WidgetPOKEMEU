@@ -5056,6 +5056,7 @@ const terminalEmb = (() => {
     const marcas = (t) => (t.match(/\[Image #\d+\]/g) || []).length;
     const textoAntes = textoDaTela({ term });
     const antes = marcas(textoAntes);
+    const agy = ia === 'antigravity' || (ia !== 'claude' && /Antigravity CLI \d/.test(textoAntes)); // o agy aberto à mão num PowerShell também
     const claude = !agy && (ia === 'claude' || /Claude Code v\d/.test(textoAntes));
     // O agy também lê a imagem direto da área de transferência (Ctrl+V; no Windows também Alt+V, que o terminal não intercepta). Como não sabemos
     // como ele desenha o anexo, olhamos 3 sinais: um "[...image/imagem/video...]" novo na tela, o erro dele "No image or video found in the clipboard" ou
@@ -5734,12 +5735,49 @@ const projetos = (() => {
   });
 
   // ----- cartões -----
+  // Como uma pasta: o projeto nasce recolhido (só o nome) e as opções só existem depois de expandir. Abertos valem até fechar o widget.
+  const projetosAbertos = new Set();
   function cartao(p) {
     const c = el('div', 'proj-cartao');
+    c.dataset.id = p.id;
     c.style.setProperty('--cor', /^#[0-9a-f]{6}$/i.test(p.cor) ? p.cor : '#4f9dff');
+    c.title = p.pasta + (p.tags.length ? '\ntags: ' + p.tags.join(', ') : '');
+    const seta = el('span', 'proj-seta', '▸');
+    const cab = el('div', 'proj-cab');
+    cab.tabIndex = 0;
+    cab.setAttribute('role', 'button');
     const aberto = quando(p.ultima_abertura);
+    // recolhido, só o que pede atenção continua à vista no lugar da data
+    const aviso = !p.pasta_existe ? 'pasta não encontrada' : (p.pausa ? 'pausado' : '');
+    const lado = el('span', 'proj-quando' + (aviso ? ' proj-alerta' : ''), aviso || (aberto ? 'aberto em ' + aberto : 'nunca aberto'));
+    cab.append(seta, el('span', 'proj-nome', p.nome), lado);
+    let corpo = null; // criado só na 1ª vez que expande
+    const mostrar = (abrir) => {
+      if (abrir && !corpo) c.append(corpo = corpoDoCartao(p));
+      if (corpo) corpo.classList.toggle('oculto', !abrir);
+      c.classList.toggle('aberto', abrir);
+      seta.textContent = abrir ? '▾' : '▸';
+      cab.setAttribute('aria-expanded', String(abrir));
+      cab.title = abrir ? 'Recolher este projeto' : 'Expandir para ver as opções deste projeto';
+    };
+    const alternar = () => {
+      const abrir = !projetosAbertos.has(p.id);
+      if (abrir) projetosAbertos.add(p.id); else projetosAbertos.delete(p.id);
+      mostrar(abrir);
+    };
+    cab.addEventListener('click', alternar);
+    cab.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); alternar(); }
+    });
+    c.append(cab);
+    mostrar(projetosAbertos.has(p.id));
+    return c;
+  }
+  // as opções do projeto: descrição, etiquetas, IA e botões
+  function corpoDoCartao(p) {
+    const c = el('div', 'proj-corpo');
     const meta = el('div', 'proj-meta');
-    meta.append(el('span', 'proj-chip-padrao', iaCurta(p.ia) + ' · ' + p.modelo_padrao));
+    meta.append(el('span', 'proj-id', p.id), el('span', 'proj-chip-padrao', iaCurta(p.ia) + ' · ' + p.modelo_padrao));
     if (p.grupo) {
       const chipPasta = el('span', 'proj-chip-pasta', `pasta: ${p.grupo}`);
       chipPasta.title = `Pasta de organização: ${p.grupo} (clique para filtrar só esta pasta)`;
@@ -5754,12 +5792,6 @@ const projetos = (() => {
     if (p.pular_permissoes) meta.append(el('span', 'proj-alerta', 'abre sem pedir permissões'));
     if (p.usar_api_key) meta.append(el('span', 'proj-alerta', 'cobra pela chave de API'));
     if (p.pausa) meta.append(el('span', 'proj-alerta', (p.pausa.motivo === 'limite' ? 'pausado (limite)' : 'pausado') + ' em ' + quando(p.pausa.data)));
-    const cab = el('div', 'proj-cab');
-    cab.append(
-      el('span', 'proj-nome', p.nome),
-      el('span', 'proj-id', p.id),
-      el('span', 'proj-quando', aberto ? 'aberto em ' + aberto : 'nunca aberto'),
-    );
     // o botão principal e a escolha do modelo ficam à vista; o resto (anterior, editar, preparar, pausar, remover) fica em "mais"
     const estado = { ia: p.ia, modelo: '', retomar: null }; // a IA e o modelo desta abertura (começam no padrão do projeto)
     const extra = el('div', 'proj-extra oculto');
@@ -5777,8 +5809,7 @@ const projetos = (() => {
       botao('[pausar com segurança]', () => iniciarPausa(p), 'Chegou no limite de uso? Guia: compactar, atualizar o estado do projeto e anotar a pausa'),
       botao('[remover]', () => pedirRemocao(p), 'Tira do cadastro (a pasta do projeto não é apagada)'),
     );
-    c.title = p.pasta + (p.tags.length ? '\ntags: ' + p.tags.join(', ') : '');
-    c.append(cab, el('div', 'proj-desc', p.descricao || 'sem descrição'), meta, linhaIA(p, estado, mais), extra);
+    c.append(el('div', 'proj-desc', p.descricao || 'sem descrição'), meta, linhaIA(p, estado, mais), extra);
     return c;
   }
   // a IA (pílulas), o modelo (lista suspensa como no Antigravity) e os botões de abrir. O principal é o [▶ abrir <IA>].
@@ -8099,9 +8130,10 @@ const abas = (() => {
   if (IOS) {
     const LADOS = ['--c-esq', '--c-dir', '--c-topo', '--c-baixo'];
     const BRILHO_MAX = 0.34; // 0 = preto, 1 = branco
-    const escurecer = ([r, g, b]) => {
+    const BRILHO_MINI = 0.2; // o tom de fundo do mini é mais escuro: o Pokémon e o texto ficam em cima dele
+    const escurecer = ([r, g, b], teto = BRILHO_MAX) => {
       const brilho = (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
-      const k = brilho > BRILHO_MAX ? BRILHO_MAX / brilho : 1;
+      const k = brilho > teto ? teto / brilho : 1;
       // 80% a própria cor (mais escura), 20% o grafite padrão: nunca fica preto chapado
       return [r, g, b].map((v, i) => Math.round(v * k * 0.8 + [20, 20, 28][i] * 0.2));
     };
@@ -8114,6 +8146,11 @@ const abas = (() => {
       const media = [0, 1, 2].map((i) => Math.round(lidos.reduce((s, c) => s + c[i], 0) / lidos.length));
       const raiz = document.documentElement.style;
       rgb.forEach((c, i) => raiz.setProperty(LADOS[i], 'rgba(' + escurecer(c || media).join(', ') + ', 0.6)'));
+      // o mini assume sozinho o tom do que está ao redor: reaproveita a mesma leitura, sem custo novo
+      const tom = escurecer(media).join(', ');
+      raiz.setProperty('--mv-base', 'rgb(' + escurecer(media, BRILHO_MINI).join(', ') + ')');
+      raiz.setProperty('--mv-tinta-1', 'rgba(' + tom + ', 0.5)');
+      raiz.setProperty('--mv-tinta-2', 'rgba(' + tom + ', 0.3)');
     });
   }
   if (IOS) {
@@ -8520,21 +8557,6 @@ const ajustes = (() => {
       .catch((erro) => console.error('Erro ao salvar:', erro));
   });
 
-  // Mini: a gota troca o estilo do vidro na hora e o título mostra o nome
-  const VIDROS = [['cristal', 'Cristal'], ['ambar', 'Âmbar'], ['nevoa', 'Névoa'], ['prisma', 'Prisma'], ['meia-noite', 'Meia-noite'], ['gelo', 'Gelo']];
-  const btnVidro = document.getElementById('btn-mini-vidro');
-  const aplicarVidro = (id) => {
-    document.documentElement.dataset.miniVidro = id;
-    const i = VIDROS.findIndex(([v]) => v === id);
-    btnVidro.title = `Vidro: ${VIDROS[i][1]} (clique para o próximo: ${VIDROS[(i + 1) % VIDROS.length][1]})`;
-  };
-  btnVidro.addEventListener('click', () => {
-    const i = VIDROS.findIndex(([v]) => v === document.documentElement.dataset.miniVidro);
-    const proximo = VIDROS[(i + 1) % VIDROS.length][0];
-    aplicarVidro(proximo);
-    mudarConfig((cfg) => { cfg.miniVidro = proximo; }).catch((erro) => console.error('Erro ao salvar:', erro));
-  });
-
   // avisar de atualizações: ligar confere já (é um clique seu); desligar esconde o botão
   caixa.atualizacao.addEventListener('change', () => {
     const ligar = caixa.atualizacao.checked;
@@ -8610,7 +8632,6 @@ const ajustes = (() => {
       caixa.animacoes.checked = cfg.animacoes !== false;
       caixa.atualizacao.checked = cfg.avisarAtualizacao !== false;
       caixa.gpu.checked = cfg.aceleracaoGPU !== false;
-      aplicarVidro(cfg.miniVidro || 'cristal');
     },
   };
 })();

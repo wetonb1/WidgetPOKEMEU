@@ -371,7 +371,7 @@ Nada em segundo plano, nenhuma rotação de contas, nada de login/HOME/chaveiro/
 
 **11.6 Fluidez.** Padrão agora é `aceleracaoGPU: true`; a config antiga migra 1 vez (`gpuMigrada`) e depois vale a chave "aceleração por GPU" em Settings (vale ao reabrir). Números em `docs/OTIMIZACAO.md`.
 
-**11.7 Mini.** Sem contorno, sombra ou aura na cor do Pokémon. A gota (`#btn-mini-vidro`, só no iOS) troca entre 6 vidros: cristal, âmbar, névoa, prisma, meia-noite e gelo (`miniVidro` na config; são só variáveis em `html.mini[data-mini-vidro]`).
+**11.7 Mini.** Sem contorno, sombra ou aura na cor do Pokémon. O botão de gota com 6 vidros saiu na 13.2: o tom agora é automático.
 
 
 ## Fase 12: sem transparência, print de volta e o Brain que pensa
@@ -387,3 +387,11 @@ Nada em segundo plano, nenhuma rotação de contas, nada de login/HOME/chaveiro/
 **Bug antigo corrigido:** `rgb()` usava `parseInt(...) || padrão`, e o canal `00` virava a cor padrão (o roxo `#4c0075` aparecia verde).
 
 **12.4 [nomes] e a sombra.** O botão `[nomes]` (tecla N, guardado em `cerebroVisual.nomes`, ligado por padrão) esconde todos os nomes escritos no grafo; o nome continua na dica ao passar o mouse e no cartão ao clicar. A sombra é um easter egg sem aviso: ao afastar o cérebro além de ~5x a distância do enquadramento (`distEnq`, gravada em `enquadrar`) a silhueta do Pokémon escolhido começa a surgir no fundo, enorme, e fica inteira em ~10x. Sai da imagem que o widget já mostra (`#poke-img`, sem rede), pintada de uma cor só com um fio de luz roxa (tinta marrom no Manuscrito) e fica em cache enquanto o Pokémon for o mesmo. Depende só da câmera: nenhum quadro extra, parado continua em 0 desenhos. [centralizar] (ou R) faz ela sumir.
+
+## Fase 13: mini menor e projetos como pastas
+
+**13.1 Mini.** A janela foi de 280x150 para 244x124 (`MINI` em `main.js`) e a moldura do Pokémon é de 116px, 94% da altura (antes 89%). No visual CMD, as pílulas de cpu/ram usam 9px, porque a fonte de console é mais larga.
+
+**13.2 Tom automático.** Saíram o botão de gota, a chave `miniVidro` e os 6 vidros. A tela já recebia as cores ao redor do widget (`tela:fundo`, a leitura do 11.5); com a média delas o `onFundo` calcula `--mv-base`, `--mv-tinta-1` e `--mv-tinta-2`. Não há processo nem leitura nova, só 3 variáveis CSS quando a cor muda. Ele lê a tela, não o arquivo do papel de parede: uma janela encostada no widget também muda o tom. Só no visual iOS.
+
+**13.3 Projetos recolhidos.** Cada projeto nasce como uma linha (seta, nome e data; `pasta não encontrada` ou `pausado` ficam no lugar da data) e `corpoDoCartao` só cria as opções ao expandir. Os abertos ficam em `projetosAbertos`, na memória: sobrevivem a filtros e recargas, mas o widget sempre abre com tudo recolhido. A lista virou uma coluna só, com os projetos recuados dentro da pasta, para expandir um não embaralhar os vizinhos.

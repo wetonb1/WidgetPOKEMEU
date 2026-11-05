@@ -1299,19 +1299,18 @@ button { font-family: var(--font); }
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(335px, 1fr)); /* 1 coluna na janela mínima: cabem os botões */
+  grid-template-columns: minmax(0, 1fr); /* lista como de arquivos: expandir um projeto não embaralha os vizinhos */
   align-content: start;
-  gap: 8px;
+  gap: 4px;
   overflow-y: auto;
   padding-right: 4px;
 }
 .proj-lista > .cer-aviso, .proj-lista > .cer-erro-texto { grid-column: 1 / -1; }
-/* cartão: harmonioso, com faixa da cor do projeto à esquerda e seções bem divididas */
+/* cartão: recolhido é só uma linha (como uma pasta); expandido traz as opções, com a faixa da cor do projeto à esquerda */
 .proj-cartao {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 8px 10px 7px;
+  padding: 0 10px;
   border: 1px solid var(--linha);
   border-left: 4px solid var(--cor);
   background: linear-gradient(135deg, color-mix(in srgb, var(--cor) 10%, #141418) 0%, #101014 65%);
@@ -1323,7 +1322,10 @@ button { font-family: var(--font); }
   border-left-color: var(--cor);
   background: linear-gradient(135deg, color-mix(in srgb, var(--cor) 15%, #16161c) 0%, #121217 70%);
 }
-.proj-cab { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.proj-cab { display: flex; align-items: center; gap: 6px; min-width: 0; min-height: 26px; cursor: pointer; }
+.proj-seta { order: -1; flex-shrink: 0; width: 12px; text-align: center; font-size: 11px; color: var(--apagado); }
+.proj-cartao.aberto .proj-seta { color: var(--cor); }
+.proj-corpo { display: flex; flex-direction: column; gap: 5px; padding: 2px 0 8px; }
 .proj-nome { flex: 0 1 auto; min-width: 60px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cor); font-size: 13.5px; font-weight: 700; }
 .proj-id { flex-shrink: 0; padding: 0 5px; border: 1px solid rgba(255, 255, 255, 0.08); background: rgba(255, 255, 255, 0.03); font-size: 10px; color: var(--apagado); }
 .proj-quando { margin-left: auto; flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10.5px; color: var(--apagado); }
@@ -1560,9 +1562,10 @@ button { font-family: var(--font); }
 }
 .proj-pasta-grade {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(335px, 1fr));
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 3px;
   align-content: start;
+  margin-left: 14px; /* o projeto fica "dentro" da pasta */
 }
 .proj-pasta-grade > .cer-aviso {
   grid-column: 1 / -1;
@@ -1819,8 +1822,6 @@ button { font-family: var(--font); }
 /* terminal aberto: painel lateral ao lado da lista de projetos (a lista fica estreita, o terminal ocupa o resto) */
 #aba-projetos.ativo.terminal:not(.usando) { display: grid; grid-template-columns: minmax(190px, 34%) minmax(0, 1fr); gap: 0 8px; }
 #aba-projetos.terminal:not(.usando) .proj-esq { display: flex; flex-direction: column; gap: 5px; min-width: 0; min-height: 0; }
-#aba-projetos.terminal:not(.usando) .proj-esq .proj-lista { grid-template-columns: 1fr; }
-#aba-projetos.terminal:not(.usando) .proj-esq .proj-pasta-grade { grid-template-columns: 1fr; }
 #aba-projetos.terminal:not(.usando) .proj-esq .proj-topo { flex-wrap: wrap; gap: 2px 8px; }
 #aba-projetos.terminal:not(.usando) .proj-term { min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 4px; }
 #aba-projetos.terminal.usando .proj-term { display: none; }
@@ -2952,7 +2953,7 @@ html[data-destacado="1"] body {
 }
 [data-estilo="ios"] .proj-cartao:hover { background: linear-gradient(135deg, color-mix(in srgb, var(--cor) 38%, transparent), rgba(255, 255, 255, 0.1) 70%); }
 [data-estilo="ios"] .proj-nome { color: #ffffff; }
-[data-estilo="ios"] .proj-cab::before { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--cor); align-self: center; flex-shrink: 0; }
+[data-estilo="ios"] .proj-cab::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--cor); flex-shrink: 0; }
 [data-estilo="ios"] .proj-acoes { margin-left: -4px; }
 [data-estilo="ios"] .pj-cor { border: none; border-radius: 8px; background: transparent; }
 [data-estilo="ios"] .pj-grade input[type="text"] { padding: 4px 10px; }
@@ -3213,14 +3214,14 @@ html[data-destacado="1"] #proj-term {
   border-top-right-radius: 0 !important;
 }
 
-/* Mini: cartão 280x150 em duas colunas centradas na mesma linha: Pokémon à esquerda; hora, cpu/ram e música à direita.
+/* Mini: cartão 244x124 em duas colunas centradas na mesma linha: Pokémon à esquerda; hora, cpu/ram e música à direita.
    A janela do mini tem o tamanho exato do cartão: sombra externa só pintaria os cantos de preto,
    então o relevo vem só de sombras internas. #cartao#cartao vence as regras de dock acima. */
 #cartao#cartao.mini {
-  grid-template-columns: 134px minmax(0, 1fr) !important;
+  grid-template-columns: 116px minmax(0, 1fr) !important;
   column-gap: 6px !important;
-  padding: 0 16px 0 6px !important;
-  border-radius: 30px !important;
+  padding: 0 13px 0 5px !important;
+  border-radius: 26px !important;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.22),
     inset 0 0 22px rgba(255, 255, 255, 0.04) !important;
@@ -3242,46 +3243,25 @@ html[data-destacado="1"] #proj-term {
     radial-gradient(60% 110% at 0% 50%, var(--c-esq, transparent), transparent 72%),
     radial-gradient(60% 110% at 100% 50%, var(--c-dir, transparent), transparent 72%) !important;
 }
-/* Estilos de vidro do mini (botão de gota): cada um é só este conjunto de cores */
-html[data-estilo="ios"], html[data-mini-vidro="cristal"] {
-  --mv-base: rgb(34, 42, 58); --mv-luz: rgba(255, 255, 255, 0.16);
+/* Tom do mini: vem das cores ao redor do widget (renderer.js, onFundo). Estes valores só valem até a 1ª leitura ou sem o medidor */
+html[data-estilo="ios"] {
+  --mv-base: rgb(34, 42, 58); --mv-luz: rgba(255, 255, 255, 0.14);
   --mv-tinta-1: rgba(190, 220, 255, 0.2); --mv-tinta-2: rgba(255, 255, 255, 0.09);
 }
-html.mini[data-mini-vidro="ambar"] {
-  --mv-base: rgb(46, 30, 16); --mv-luz: rgba(255, 228, 190, 0.14);
-  --mv-tinta-1: rgba(255, 176, 84, 0.24); --mv-tinta-2: rgba(255, 220, 170, 0.08);
-}
-html.mini[data-mini-vidro="nevoa"] {
-  --mv-base: rgb(58, 60, 70); --mv-luz: rgba(255, 255, 255, 0.1);
-  --mv-tinta-1: rgba(255, 255, 255, 0.13); --mv-tinta-2: rgba(255, 255, 255, 0.13);
-}
-html.mini[data-mini-vidro="prisma"] {
-  --mv-base: rgb(24, 22, 40); --mv-luz: rgba(255, 255, 255, 0.13);
-  --mv-tinta-1: rgba(120, 160, 255, 0.25); --mv-tinta-2: rgba(255, 120, 200, 0.19);
-}
-html.mini[data-mini-vidro="meia-noite"] {
-  --mv-base: rgb(8, 10, 20); --mv-luz: rgba(255, 255, 255, 0.07);
-  --mv-tinta-1: rgba(70, 90, 170, 0.22); --mv-tinta-2: rgba(255, 255, 255, 0.05);
-}
-html.mini[data-mini-vidro="gelo"] {
-  --mv-base: rgb(16, 44, 58); --mv-luz: rgba(220, 250, 255, 0.14);
-  --mv-tinta-1: rgba(120, 230, 240, 0.23); --mv-tinta-2: rgba(200, 250, 255, 0.1);
-}
-#cartao:not(.mini) #btn-mini-vidro, html:not([data-estilo="ios"]) #btn-mini-vidro { display: none; }
 @keyframes mini-entra { from { opacity: 0; transform: scale(0.94); } to { opacity: 1; transform: scale(1); } }
 
 /* Pokémon: caixa fixa; o clique e a reação ao mouse continuam nele (área de arrasto não recebe ponteiro) */
 #cartao#cartao.mini .poke-tela {
   flex: none !important;
-  width: 134px !important;
-  height: 134px !important;
+  width: 116px !important;
+  height: 116px !important;
   -webkit-app-region: no-drag;
 }
 #cartao#cartao.mini .poke-img { filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.35)) !important; }
-#cartao#cartao.mini .lado-poke::before { inset: 14px 0; opacity: 0.34; background: radial-gradient(closest-side, rgba(255, 255, 255, 0.34), transparent 100%); }
+#cartao#cartao.mini .lado-poke::before { inset: 8px 0; opacity: 0.34; background: radial-gradient(closest-side, rgba(255, 255, 255, 0.34), transparent 100%); }
 
 /* botões: só os úteis aqui; área de arrasto não recebe :hover, por isso ficam sempre visíveis, discretos */
-#cartao#cartao.mini #cabecalho { top: 8px !important; right: 15px !important; height: 18px !important; min-height: 18px !important; }
+#cartao#cartao.mini #cabecalho { top: 7px !important; right: 12px !important; height: 18px !important; min-height: 18px !important; }
 #cartao#cartao.mini .icone-cmd,
 #cartao#cartao.mini #btn-config,
 #cartao#cartao.mini #btn-expandir,
@@ -3296,15 +3276,15 @@ html.mini[data-mini-vidro="gelo"] {
   grid-template-columns: 1fr 1fr;
   grid-template-areas: "hora hora" "cpu ram" "musica musica";
   align-content: center;
-  gap: 7px 6px !important;
-  padding: 0 !important;
+  gap: 5px 5px !important;
+  padding: 18px 0 0 !important;
   opacity: 1;
 }
 #cartao#cartao.mini .st-hora {
   display: block !important;
   grid-area: hora;
-  font-size: 30px !important;
-  line-height: 32px !important;
+  font-size: 26px !important;
+  line-height: 28px !important;
   font-weight: 700;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -3313,22 +3293,24 @@ html.mini[data-mini-vidro="gelo"] {
 }
 #cartao#cartao.mini #st-cpu,
 #cartao#cartao.mini #st-ram {
-  height: 20px;
-  line-height: 20px !important;
-  font-size: 10.5px !important;
+  height: 18px;
+  line-height: 18px !important;
+  font-size: 10px !important;
   text-align: center;
   padding: 0 !important;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.08);
   max-width: none !important;
 }
+html:not([data-estilo="ios"]) #cartao#cartao.mini #st-cpu,
+html:not([data-estilo="ios"]) #cartao#cartao.mini #st-ram { font-size: 9px !important; } /* a fonte de console é mais larga */
 #cartao#cartao.mini #st-cpu { grid-area: cpu; }
 #cartao#cartao.mini #st-ram { grid-area: ram; }
 #cartao#cartao.mini #st-cpu.alta { color: var(--alerta) !important; }
 #cartao#cartao.mini #st-widget { display: none !important; }
 #cartao#cartao.mini .st-musica {
   grid-area: musica;
-  font-size: 10.5px !important;
+  font-size: 10px !important;
   line-height: 14px !important;
   color: var(--accent, #ffffff) !important;
   max-width: none !important;
@@ -3441,8 +3423,9 @@ html[data-destacado="1"] #cartao.tela-cheia #proj-term {
   -webkit-app-region: no-drag;
 }
 .mini .menu-posicoes {
-  top: 30px;
-  right: 15px;
+  top: 28px;
+  right: 12px;
+  padding: 4px;
 }
 .menu-pos-grade {
   display: grid;

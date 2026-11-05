@@ -117,6 +117,23 @@ const ok = (c, m) => { console.log((c ? 'ok    ' : 'FALHOU ') + m); if (!c) falh
     })()`);
     ok(maoNaPibic, 'Projeto "Mão" está dentro da seção "PIBIC"');
 
+    // 3b. Como uma pasta: recolhido é só uma linha, sem nenhuma opção criada; só o projeto expandido mostra as opções
+    ok((await ev(`document.querySelectorAll('.proj-abrir').length`)) === 0, 'Os projetos nascem recolhidos: nenhuma opção existe');
+    const alturaLinha = await ev(`document.querySelector('.proj-cartao').getBoundingClientRect().height`);
+    ok(alturaLinha <= 32, `Projeto recolhido é uma linha pequena (${alturaLinha}px)`);
+    const cabMao = `document.querySelector('.proj-cartao[data-id="mao"] .proj-cab')`;
+    await ev(`${cabMao}.click()`);
+    ok((await ev(`document.querySelectorAll('.proj-abrir').length`)) === 1, 'Expandir um projeto mostra as opções só dele');
+    await ev(`${cabMao}.click()`);
+    ok((await ev(`document.querySelector('.proj-cartao[data-id="mao"] .proj-corpo').classList.contains('oculto')`)), 'Clicar de novo recolhe o projeto');
+    await ev(`${cabMao}.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }))`);
+    ok(await ev(`document.querySelector('.proj-cartao[data-id="mao"]').classList.contains('aberto')`), 'Enter no teclado também expande');
+    await ev(`[...document.querySelectorAll('.proj-pasta-chip')].find((b) => b.textContent.includes('PIBIC')).click()`);
+    await pausa(200);
+    await ev(`[...document.querySelectorAll('.proj-pasta-chip')].find((b) => b.textContent.includes('todas')).click()`);
+    await pausa(200);
+    ok(await ev(`document.querySelector('.proj-cartao[data-id="mao"]').classList.contains('aberto')`), 'Filtrar e voltar não recolhe o projeto expandido');
+
     // 4. Verifica badge de pasta no cartão de Mão
     const badgeTexto = await ev(`document.querySelector('.proj-chip-pasta')?.textContent`);
     ok(badgeTexto === 'pasta: PIBIC', `Badge de pasta no cartão está correto: "${badgeTexto}"`);

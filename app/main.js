@@ -29,7 +29,7 @@ if (app && app.isPackaged && !process.env._MEU_WIDGET_DELEGADO) {
 const TAMANHO_PADRAO = { largura: 900, altura: 400 };
 const MIN = { largura: 720, altura: 320 };
 const MAX = { largura: 1400, altura: 900 };
-const MINI = { largura: 280, altura: 150 };
+const MINI = { largura: 244, altura: 124 };
 const MARGEM = 12; // distância da borda da tela
 
 // A config do usuário fica em %APPDATA%\meu-widget\config.json
@@ -162,7 +162,6 @@ function tamanhoValidoJanela(t) {
   };
 }
 
-const VIDROS_MINI = ['cristal', 'ambar', 'nevoa', 'prisma', 'meia-noite', 'gelo'];
 const ESTILOS_GRAFO = ['constelacao', 'neural', 'nebulosa', 'atlas', 'manuscrito'];
 const CORES_GRAFO = ['projeto', 'tema', 'tempo', 'relevancia'];
 const sanitizarVisualCerebro = (v) => ({
@@ -182,7 +181,6 @@ function sanitizarConfig(cfg, modelo) {
     // o false antigo ficava gravado em toda config: migra 1 vez para o novo padrão (ligada); depois vale a chave em Settings
     aceleracaoGPU: cfg.gpuMigrada === true ? bool(cfg.aceleracaoGPU, modelo.aceleracaoGPU) : true,
     gpuMigrada: true,
-    miniVidro: VIDROS_MINI.includes(cfg.miniVidro) ? cfg.miniVidro : VIDROS_MINI[0], // estilo de vidro do mini (botão de gota)
     redeEmProcesso: bool(cfg.redeEmProcesso, false), // veja a nota perto do disableHardwareAcceleration
     desempenho: cfg.desempenho === 'economico' ? 'economico' : 'normal',
     economiaAutomatica: bool(cfg.economiaAutomatica, modelo.economiaAutomatica),
@@ -1837,7 +1835,7 @@ ipcMain.handle('janela:alternar-expandir', (e) => {
   if (!w._expandido) {
     w._boundsAntesExpandir = { x: b.x, y: b.y, width: b.width, height: b.height };
     if (w === janela && modoAtual === 'mini') {
-      // saindo do mini direto para o expandido: "restaurar" volta ao tamanho normal, não aos 280x150
+      // saindo do mini direto para o expandido: "restaurar" volta ao tamanho normal, não ao tamanho do mini
       if (tamanhoAntesDoMini) Object.assign(w._boundsAntesExpandir, { width: tamanhoAntesDoMini.largura, height: tamanhoAntesDoMini.altura });
       modoAtual = 'normal';
       janela.webContents.send('tela:modo', 'normal');
