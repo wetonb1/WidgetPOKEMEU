@@ -5056,18 +5056,30 @@ const terminalEmb = (() => {
     const marcas = (t) => (t.match(/\[Image #\d+\]/g) || []).length;
     const textoAntes = textoDaTela({ term });
     const antes = marcas(textoAntes);
-    const claude = ia === 'claude' || (ia !== 'antigravity' && /Claude Code v\d/.test(textoAntes));
-    let colouCaminho = !claude;
-    if (claude) window.widget.termEntrada(termId, '\x1bv'); else term.paste(r.imagem);
+    const claude = !agy && (ia === 'claude' || /Claude Code v\d/.test(textoAntes));
+    // O agy também lê a imagem direto da área de transferência (Ctrl+V; no Windows também Alt+V, que o terminal não intercepta). Como não sabemos
+    // como ele desenha o anexo, olhamos 3 sinais: um "[...image/imagem/video...]" novo na tela, o erro dele "No image or video found in the clipboard" ou
+    // a tela ter mudado; o caminho do PNG só é colado se o Alt+V não funcionar.
+    const chipAgy = (t) => (t.match(/\[[^\]\n]*(?:image|imagem|video|media|attach|anex)[^\]\n]*\]/gi) || []).length;
+    const semImagemAgy = (t) => (t.match(/No image or video found in the clipboard/g) || []).length;
+    const chipsAntes = chipAgy(textoAntes);
+    const errosAntes = semImagemAgy(textoAntes);
+    const tamanhoAntes = textoAntes.replace(/\s/g, '').length;
+    const alt = claude || agy;
+    let colouCaminho = !alt;
+    if (alt) window.widget.termEntrada(termId, '\x1bv'); else term.paste(r.imagem);
     seloColagem(`Print gravado (${detalhe}), enviando...`, 'pendente', r.miniatura || '');
     let tentativas = 0;
     const conferir = () => {
       const tela = textoDaTela({ term });
-      if (marcas(tela) > antes) seloColagem(`✓ Print anexado pela IA (${detalhe})`);
+      const semImagem = agy && !colouCaminho && semImagemAgy(tela) > errosAntes;
+      if (marcas(tela) > antes || (agy && !colouCaminho && chipAgy(tela) > chipsAntes)) seloColagem(`✓ Print anexado pela IA (${detalhe})`);
       else if (colouCaminho && tela.replace(/\s/g, '').includes(nome)) seloColagem(`✓ Print colado no prompt (${detalhe}): a IA lê o arquivo ao enviar`); // sem espaços: o caminho quebra a linha com recuo
-      else if (++tentativas < (colouCaminho ? 6 : 18)) setTimeout(conferir, 400); // o Alt+V do Claude leva ~3 s (ele abre um PowerShell para ler a imagem)
+      else if (semImagem) { colouCaminho = true; tentativas = 0; term.paste(r.imagem); setTimeout(conferir, 400); }
+      else if (++tentativas < (colouCaminho ? 6 : agy ? 8 : 18)) setTimeout(conferir, 400); // o Alt+V do Claude leva ~3 s (ele abre um PowerShell para ler a imagem)
+      else if (agy && !colouCaminho && tela.replace(/\s/g, '').length !== tamanhoAntes) seloColagem(`Alt+V enviado ao Antigravity (${detalhe}): confira o anexo no prompt`); // a tela mudou, sem erro: provavelmente anexou
       else if (!colouCaminho) { colouCaminho = true; tentativas = 0; term.paste(r.imagem); setTimeout(conferir, 400); }
-      else seloColagem(`Print gravado (${detalhe}), mas não apareceu no terminal`, 'erro');
+      else seloColagem(`Print gravado (${detalhe}), mas não apareceu no terminal${agy ? ' (se houver um painel aberto no agy, feche com Esc e tente de novo)' : ''}`, 'erro');
     };
     setTimeout(conferir, 400);
   }
