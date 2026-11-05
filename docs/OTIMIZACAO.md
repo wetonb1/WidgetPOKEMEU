@@ -325,3 +325,19 @@ A CPU do grafo é uma leitura curta e ruidosa: rodadas isoladas foram de 6% a 41
 A CPU ficou dentro do ruído: as rodadas do cenário A variaram de 8,8% a 12,8%. O ganho claro é a memória da aba Projects, com as 2 rodadas em 335 MB contra 369 a 371 MB.
 
 Na aba Projects, com os 9 projetos do dono recolhidos: 591 → 312 elementos, 404 → 268 ouvintes de evento, 147 → 12 botões e lista de 1.774 → 510 px de altura. Expandir um projeto cria só as opções dele (+33 elementos). O tom automático não acrescenta processo nem leitura.
+
+## Fase 14: ler o projeto e busca ampla de skills
+
+Nada roda em segundo plano: em repouso o custo é zero (1 ouvinte de IPC a mais). Tudo abaixo acontece só por clique. Medido em 2026-11-05, com a rede e o PC da máquina do dono.
+
+| Ação | Custo |
+| --- | --- |
+| Varredura da pasta | 0 tokens; até 0,3 s nos 9 projetos cadastrados (teto de 8 s e 60 mil arquivos) |
+| [ler projeto] | 20 a 28 mil tokens de entrada (estimativa em 4 projetos reais: caracteres/4, sem contar a resposta nem o contexto fixo da sessão) |
+| Primeira busca, índice vazio | 56 s; 25 consultas da API e cerca de 2.100 pedidos ao raw (fora do limite da API); lê cerca de 5 mil skills |
+| Busca de outro projeto | 19 s na medição, com 16 consultas da API (repositórios novos da comunidade para aqueles termos) |
+| Repetir a busca em 24 h | Sem rede (só refaz a nota) |
+| Índice no disco | 1,6 MB em `skills-indice.json` |
+
+Sem conta o GitHub dá 60 consultas da API por hora: cabem cerca de 3 projetos novos por hora. Ao chegar no limite, a busca responde com o índice e avisa.
+Primeira versão do [ler projeto] mandava abrir 25 arquivos inteiros: de 48 a 340 mil tokens. Por isso o teto de 15 arquivos e 120 linhas por arquivo.
