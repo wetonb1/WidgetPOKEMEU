@@ -137,7 +137,7 @@ class TestAlvos(Base):
         codigo, saida = self.rodar("--alvo", "antigravity")
         self.assertEqual(codigo, 0, saida)
         base = self.widget / ".agents" / "skills"
-        self.assertEqual(sorted(p.name for p in base.iterdir()), ["cerebro-ler", "cerebro-compactar"])
+        self.assertEqual(sorted(p.name for p in base.iterdir()), ["cerebro-compactar", "cerebro-ler"])
         self.assertIn("Powershell".lower(), (base / "cerebro-compactar" / "SKILL.md").read_text(encoding="utf-8").lower(), "a variante do agy")
         self.assertFalse((base / "cerebro-compactar" / "variantes").exists())
         marca = json.loads((base / "cerebro-ler" / ".instalado.json").read_text(encoding="utf-8"))
