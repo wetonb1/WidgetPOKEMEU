@@ -779,6 +779,7 @@
                 <button type="button" id="pks-fechar" class="principal">fechar</button>
               </div>
             </div>
+            <div id="pks-perfil" class="pks-perfil oculto"></div>
             <div class="pks-filtros">
               <button type="button" class="pks-filtro-btn ativo" data-filtro="todos">todas (<span id="pks-cnt-todos">0</span>)</button>
               <button type="button" class="pks-filtro-btn pks-filtro-essencial" data-filtro="essencial">essenciais (<span id="pks-cnt-essenciais">0</span>)</button>
@@ -786,13 +787,36 @@
               <button type="button" class="pks-filtro-btn" data-filtro="instaladas">instaladas (<span id="pks-cnt-instaladas">0</span>)</button>
               <button type="button" class="pks-filtro-btn pks-filtro-online" data-filtro="online">online (<span id="pks-cnt-online">0</span>)</button>
               <span class="dialogo-espaco"></span>
-              <button type="button" id="pks-btn-online" class="botao-cmd pks-btn-buscar-online" title="Buscar repositórios online (GitHub, Anthropic, OpenAI)">[buscar online]</button>
+              <button type="button" id="pks-btn-online" class="botao-cmd pks-btn-buscar-online" title="Procura em todos os repositórios de skills, usando o que o [ler projeto] entendeu. Só roda neste clique.">[buscar online]</button>
             </div>
+            <input type="search" id="pks-busca" class="pks-busca" placeholder="filtrar por nome, assunto ou motivo" autocomplete="off" aria-label="Filtrar skills">
             <div id="pks-lista" class="pks-lista"></div>
+            <div id="pks-lote" class="pks-lote oculto">
+              <span id="pks-lote-texto"></span>
+              <span class="dialogo-espaco"></span>
+              <button type="button" id="pks-lote-limpar" class="botao-cmd">[limpar]</button>
+              <button type="button" id="pks-lote-revisar" class="principal">revisar e instalar</button>
+            </div>
             <div class="pks-rodape">
               <span class="pks-dica">Dica: Digite <code>/avaliar</code> (local) ou <code>/avaliar online</code> (GitHub/Anthropic/OpenAI) na sua sessão (&lt; 250 tokens).</span>
               <button type="button" id="pks-copiar-cmd" class="botao-cmd" title="Copiar comando /avaliar">[copiar /avaliar]</button>
             </div>
+          </div>
+
+          <!-- revisão das skills baixadas: nada entra na biblioteca nem no projeto antes de confirmar aqui -->
+          <div id="pkr-caixa" class="dialogo-caixa cc-caixa pks-caixa oculto">
+            <div class="cc-topo">
+              <div class="pks-topo-tit">
+                <h2>revisar antes de instalar</h2>
+                <div id="pkr-resumo" class="pks-stack"></div>
+              </div>
+              <div class="dialogo-botoes">
+                <button type="button" id="pkr-voltar">voltar</button>
+                <button type="button" id="pkr-instalar" class="principal">instalar</button>
+              </div>
+            </div>
+            <div class="pks-perfil">Uma skill é um conjunto de instruções que a IA obedece, e a verificação automática não pega tudo. Skills com aviso vêm desmarcadas: leia antes de marcar.</div>
+            <div id="pkr-lista" class="pks-lista"></div>
           </div>
 
           <form id="pe-form" class="dialogo-caixa cc-caixa oculto" autocomplete="off">

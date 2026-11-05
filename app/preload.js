@@ -47,6 +47,12 @@ contextBridge.exposeInMainWorld('widget', {
   projetosPreparar: (id, confirmar) => ipcRenderer.invoke('projetos:preparar', String(id), confirmar === true),
   projetosPreencherEstado: (id, dados) => ipcRenderer.invoke('projetos:preencher-estado', String(id), dados),
   projetosAvaliarSkills: (id, online) => ipcRenderer.invoke('projetos:avaliar-skills', String(id), online === true),
+  projetosBuscarSkills: (id) => ipcRenderer.invoke('projetos:buscar-skills', String(id)),
+  projetosTarefaLer: (id) => ipcRenderer.invoke('projetos:tarefa-ler', String(id)),
+  onSkillsBuscaProgresso: (fn) => ipcRenderer.on('skills:busca-progresso', (_e, id, progresso) => fn(id, progresso)),
+  skillsLoteRevisar: (itens) => ipcRenderer.invoke('skills:lote-revisar', itens.map((i) => ({ repo: String(i.repo), caminho: String(i.caminho || '') }))),
+  skillsLoteInstalar: (chaves, projeto) => ipcRenderer.invoke('skills:lote-instalar', chaves.map(String), String(projeto)),
+  skillsLoteCancelar: () => ipcRenderer.invoke('skills:lote-cancelar'),
   projetosEscolherPasta: (inicial) => ipcRenderer.invoke('projetos:escolher-pasta', inicial ? String(inicial) : ''),
   // abrir a IA de um projeto: modo novo | continuar | retomar; ou abrir um PowerShell na pasta do projeto
   projetosAbrirIA: (id, opcoes) => ipcRenderer.invoke('projetos:abrir-ia', String(id), opcoes),

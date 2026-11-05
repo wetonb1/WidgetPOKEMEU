@@ -5,8 +5,9 @@
 // Os dados de adicionar/editar vão pela entrada padrão, em JSON (sem problema de aspas ou acentos).
 // Sem dependência do Electron: dá para testar com "node tools/testar-cerebro.js".
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
-const { executar, pastaRaizWidget } = require('./cerebro');
+const { executar, pastaRaizWidget, pastaTools } = require('./cerebro');
 const ias = require('./ias');
 
 const ID = /^[a-z0-9][a-z0-9-]{0,29}$/;
@@ -40,6 +41,22 @@ function obterAssinatura() {
   }
 }
 
+// a pasta dos perfis escritos pelo [ler projeto] (a mesma do perfil_projeto.py)
+function pastaPerfis() {
+  const base = process.env.MEU_WIDGET_PASTA || (process.env.APPDATA ? path.join(process.env.APPDATA, 'meu-widget') : path.join(os.homedir(), '.config', 'meu-widget'));
+  return path.join(base, 'perfis');
+}
+// a data do último [ler projeto] entra aqui, depois do cache: o perfil muda sem mexer no projetos.json
+function comPerfil(r) {
+  const lista = r && r.ok && r.dados && r.dados.projetos;
+  if (Array.isArray(lista)) {
+    for (const p of lista) {
+      try { p.perfil_em = fs.statSync(path.join(pastaPerfis(), p.id + '.json')).mtime.toISOString(); } catch { p.perfil_em = null; }
+    }
+  }
+  return r;
+}
+
 function invalidarCache() {
   cacheListar = null;
   mtimeAssinatura = '';
@@ -68,14 +85,14 @@ function campos(c) {
 async function listar() {
   const ass = obterAssinatura();
   if (cacheListar && ass && ass === mtimeAssinatura) {
-    return JSON.parse(JSON.stringify(cacheListar));
+    return comPerfil(JSON.parse(JSON.stringify(cacheListar)));
   }
   const r = await rodar(['listar', '--json']);
   if (r && r.ok) {
     cacheListar = r;
     mtimeAssinatura = ass;
   }
-  return r;
+  return comPerfil(r);
 }
 
 const adicionar = async (dados) => { invalidarCache(); return rodar(['adicionar', '--json'], JSON.stringify(campos(dados))); };
@@ -124,6 +141,10 @@ const registrarPausa = async (id, motivo = 'limite', ia = '') => {
 const criarWorktree = (id) => (ID.test(id) ? rodar(['worktree', id, '--json']) : falhou('id inválido'));
 
 // Avalia a aderência de skills para o projeto com base no cérebro e stack (opcionalmente incluindo repositórios online)
+// o [ler projeto]: o que a busca precisa saber (perfil escrito pela IA + varredura) e a tarefa curta que abre a sessão de leitura
+const perfilLer = (id) => (ID.test(id) ? executar(['ler', id, '--json'], undefined, 'perfil_projeto.py') : falhou('id inválido'));
+const tarefaLerProjeto = (id) => `ler projeto e gravar perfil de skills: rode python "${pastaTools().replace(/\\/g, '/')}/perfil_projeto.py" instrucoes ${id} e siga o que ele imprimir.`;
+
 const avaliarSkills = (id, online = false) => (ID.test(id) ? rodar(['avaliar-skills', id, ...(online === true ? ['--online'] : []), '--json']) : falhou('id inválido'));
 
-module.exports = { criarWorktree, avaliarSkills, listar, adicionar, editar, remover, validar, marcarAbertura, preparar, preencherEstado, montarPrompt, registrarSessao, estadoDaPausa, salvarEstadoDaPausa, registrarPausa };
+module.exports = { criarWorktree, avaliarSkills, perfilLer, tarefaLerProjeto, listar, adicionar, editar, remover, validar, marcarAbertura, preparar, preencherEstado, montarPrompt, registrarSessao, estadoDaPausa, salvarEstadoDaPausa, registrarPausa };

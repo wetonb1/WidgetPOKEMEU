@@ -1194,6 +1194,7 @@ ipcMain.handle('projetos:remover', (e, id) => (daJanela(e) && textoCurto(id) ? p
 ipcMain.handle('projetos:preparar', (e, id, confirmar) => (daJanela(e) && textoCurto(id) ? projetos.preparar(id, confirmar === true) : RECUSADO));
 ipcMain.handle('projetos:preencher-estado', (e, id, dados) => (daJanela(e) && textoCurto(id) && dados && typeof dados === 'object' ? projetos.preencherEstado(id, dados) : RECUSADO));
 ipcMain.handle('projetos:avaliar-skills', (e, id, online) => (daJanela(e) && textoCurto(id) ? projetos.avaliarSkills(id, online === true) : RECUSADO));
+ipcMain.handle('projetos:tarefa-ler', (e, id) => (daJanela(e) && textoCurto(id) ? { ok: true, tarefa: projetos.tarefaLerProjeto(id) } : RECUSADO));
 // Abrir a IA do projeto num terminal novo (o widget não espera a sessão terminar). As opções de cada IA
 // ficam em app/ias.js; a janela em app/terminal.js; o prompt e o registro no projetos.py.
 const ias = require('./ias');
@@ -1556,10 +1557,11 @@ ipcMain.handle('skills:importar', async (e, confirmar, categoria) => {
 // Catálogo online ([buscar online]): procura skills nos repositórios do GitHub e baixa a PASTA de uma skill para uma pasta temporária; de lá
 // segue o mesmo fluxo seguro de importar (revisar tudo antes; nada é executado nem instalado). Só roda por clique, com limites de tamanho.
 // MEU_WIDGET_GITHUB_API / MEU_WIDGET_GITHUB_RAW trocam os endereços (só para os testes automáticos, com um GitHub de mentira).
-const { criarCatalogo, FONTES: FONTES_SKILLS, ErroCatalogo } = require('./catalogo-skills');
+const { criarCatalogo, FONTES: FONTES_SKILLS, ErroCatalogo, juntarAvaliacao, cabecalhoSkill } = require('./catalogo-skills');
 const catalogoSkills = criarCatalogo({
   api: process.env.MEU_WIDGET_GITHUB_API || undefined, raw: process.env.MEU_WIDGET_GITHUB_RAW || undefined,
   arquivoCache: path.join(PASTA_CONFIG, 'skills-catalogo.json'),
+  arquivoIndice: path.join(PASTA_CONFIG, 'skills-indice.json'),
 });
 let pastaBaixada = null;  // pasta temporária da última skill baixada do catálogo
 let rotuloOrigem = null;  // "github:dono/repo/caminho": de onde a skill veio, para a biblioteca registrar
@@ -1592,6 +1594,98 @@ ipcMain.handle('skills:catalogo-baixar', async (e, repo, caminho) => {
     return erroDoCatalogo(x);
   }
 });
+
+// Busca por projeto: usa o perfil do [ler projeto] (sem ele, a varredura da pasta, bem mais fraca) e procura em todo o acervo. Só roda por clique.
+ipcMain.handle('projetos:buscar-skills', async (e, id) => {
+  if (!daJanela(e) || !textoCurto(id)) return RECUSADO;
+  const local = respostaPy(await projetos.avaliarSkills(id, false));
+  if (local.erro) return { ok: false, tipo: 'erro', erro: local.erro };
+  const lido = respostaPy(await projetos.perfilLer(id));
+  if (lido.erro) return { ok: false, tipo: 'erro', erro: lido.erro };
+  const perfil = lido.dados.perfil || { termos: lido.dados.varredura.termos, stack: [], evitar: [] };
+  try {
+    const avisar = (x) => { if (!e.sender.isDestroyed()) e.sender.send('skills:busca-progresso', id, x); };
+    const busca = await catalogoSkills.buscarParaProjeto(perfil, avisar);
+    return { ok: true, dados: juntarAvaliacao(local.dados, busca) };
+  } catch (x) { return erroDoCatalogo(x); }
+});
+
+// O executar() devolve ok: true para qualquer JSON que o Python imprimir, inclusive { ok: false }: aqui o erro vira erro.
+function respostaPy(r) {
+  if (!r || !r.ok) return { erro: (r && r.erro) || 'sem resposta' };
+  const dados = r.dados || {};
+  return dados.ok === false ? { erro: dados.erro || 'falhou' } : { dados };
+}
+// "ambos" responde uma IA por vez: instalou se pelo menos uma aceitou (as skills de fora entram só como compatíveis com o Claude)
+function veredito(r) {
+  const p = respostaPy(r);
+  if (p.erro) return { ok: false, alvos: [], erro: p.erro };
+  const lista = Array.isArray(p.dados.resultados) ? p.dados.resultados : [];
+  const certos = lista.filter((x) => x.ok).map((x) => x.alvo);
+  return { ok: certos.length > 0, alvos: certos, erro: certos.length ? '' : (lista[0] && lista[0].erro) || 'não instalou' };
+}
+
+// Instalar várias de uma vez: baixa cada skill para uma pasta temporária e mostra tudo numa tela só (lote-revisar). Nada entra na biblioteca nem no
+// projeto antes do lote-instalar, que só aceita as chaves do lote revisado: a tela nunca manda caminhos.
+let loteSkills = null; // { pasta, itens: Map(chave -> { origem, rotulo, nome, naBiblioteca }) }
+function limparLote() {
+  if (!loteSkills) return;
+  try { fs.rmSync(loteSkills.pasta, { recursive: true, force: true }); } catch { /* em uso: o Windows limpa a pasta temporária depois */ }
+  loteSkills = null;
+}
+ipcMain.handle('skills:lote-revisar', async (e, pedidos) => {
+  if (!daJanela(e) || !Array.isArray(pedidos) || !pedidos.length || pedidos.length > 40) return RECUSADO;
+  limparLote();
+  const lote = { pasta: fs.mkdtempSync(path.join(os.tmpdir(), 'meu-widget-lote-')), itens: new Map() };
+  loteSkills = lote;
+  const arvores = new Map();
+  const revisoes = [];
+  for (const [i, p] of pedidos.entries()) {
+    const repo = p && typeof p.repo === 'string' ? p.repo : '';
+    const caminho = p && typeof p.caminho === 'string' ? p.caminho : '';
+    const chave = String(i);
+    const base = { chave, repo, caminho, nome: caminho.split('/').pop() || repo };
+    try {
+      catalogoSkills.validarRepo(repo);
+      if (!arvores.has(repo)) arvores.set(repo, await catalogoSkills.arvore(repo)); // a mesma árvore serve para todas do repositório
+      const b = await catalogoSkills.baixar(repo, caminho, path.join(lote.pasta, chave), arvores.get(repo));
+      const rotulo = `github:${repo}${caminho ? '/' + caminho : ''}`.slice(0, 250);
+      const r = await skillsLib.importar(b.pasta, false, '', rotulo);
+      const jaTem = !r.ok && /já existe uma skill (\S+) na biblioteca/.exec(r.erro || '');
+      if (jaTem) {
+        lote.itens.set(chave, { origem: b.pasta, rotulo, nome: jaTem[1], naBiblioteca: true });
+        revisoes.push({ ...base, nome: jaTem[1], naBiblioteca: true, arquivos: [], alertas: [], avisos: [] });
+        continue;
+      }
+      const d = respostaPy(r);
+      if (d.erro) { revisoes.push({ ...base, erro: d.erro }); continue; }
+      lote.itens.set(chave, { origem: b.pasta, rotulo, nome: d.dados.nome, naBiblioteca: false });
+      revisoes.push({ ...base, nome: d.dados.nome, arquivos: d.dados.arquivos, alertas: d.dados.alertas, avisos: d.dados.avisos, skill_md: String(d.dados.skill_md || '').slice(0, 60000) });
+    } catch (x) {
+      revisoes.push({ ...base, erro: erroDoCatalogo(x).erro });
+    }
+  }
+  return { ok: true, revisoes };
+});
+ipcMain.handle('skills:lote-instalar', async (e, chaves, projeto) => {
+  if (!daJanela(e) || !loteSkills || !Array.isArray(chaves) || !textoCurto(projeto)) return RECUSADO;
+  const lote = loteSkills;
+  const resultados = [];
+  for (const chave of chaves) {
+    const item = lote.itens.get(String(chave));
+    if (!item) continue;
+    let nome = item.nome;
+    if (!item.naBiblioteca) {
+      const imp = respostaPy(await skillsLib.importar(item.origem, true, '', item.rotulo));
+      if (imp.erro) { resultados.push({ nome, ok: false, erro: imp.erro }); continue; }
+      nome = imp.dados.nome;
+    }
+    resultados.push({ nome, ...veredito(await skillsLib.instalar(nome, 'projeto', projeto, 'ambos')) });
+  }
+  limparLote();
+  return { ok: true, resultados };
+});
+ipcMain.handle('skills:lote-cancelar', (e) => { if (daJanela(e)) limparLote(); return { ok: true }; });
 
 // seletor de pasta do "Adicionar"/"Editar": só devolve o caminho escolhido (quem grava é o projetos.py)
 ipcMain.handle('projetos:escolher-pasta', async (e, inicial) => {

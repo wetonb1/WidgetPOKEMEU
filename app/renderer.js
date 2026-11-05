@@ -5517,7 +5517,7 @@ const projetos = (() => {
   const caixas = {
     form: $('pj-form'), estado: $('pe-form'), confirma: $('pc-caixa'), abrir: $('pa-form'), instalar: $('pi-caixa'),
     escolha: $('px-caixa'), rapido: $('pq-caixa'), pausa: $('pz-caixa'), trocar: $('pt-caixa'),
-    skills: $('pks-caixa'), pastaForm: $('pj-pasta-form'), moverForm: $('pj-mover-form'),
+    skills: $('pks-caixa'), revisaoSkills: $('pkr-caixa'), pastaForm: $('pj-pasta-form'), moverForm: $('pj-mover-form'),
   };
   const f = {
     titulo: $('pj-titulo'), pasta: $('pj-pasta'), nome: $('pj-nome'), id: $('pj-id'), grupo: $('pj-grupo'), descricao: $('pj-descricao'),
@@ -5536,7 +5536,7 @@ const projetos = (() => {
 
   let modalProjetoSkills = null; // o projeto atualmente inspecionado no modal de skills
   let avaliacaoSkillsAtual = null; // dados avaliados das skills do projeto
-  let filtroSkills = 'todos'; // 'todos' | 'essencial' | 'util' | 'instaladas'
+  let filtroSkills = 'todos'; // 'todos' | 'essencial' | 'util' | 'instaladas' | 'online'
   let termoFiltro = ''; // filtro de texto da lista de projetos
   let pastaFiltro = ''; // '' = todas; '__sem_pasta__' = sem pasta; ou nome da pasta
   let editandoPasta = null; // nome da pasta sendo renomeada (null = criando)
@@ -5828,6 +5828,9 @@ const projetos = (() => {
     psBtn.classList.add('proj-ps');
     const btnSkills = botao('[skills]', () => abrirSkillsModal(p), 'Ver e instalar as skills recomendadas para este projeto');
     btnSkills.classList.add('proj-btn-skills');
+    const btnLer = botao(p.perfil_em ? '[reler projeto]' : '[ler projeto]', () => lerProjeto(p, estado.modelo, estado.ia),
+      `${p.perfil_em ? 'Lido em ' + new Date(p.perfil_em).toLocaleDateString('pt-BR') + '. ' : ''}Abre uma sessão de IA que lê o cérebro e os arquivos principais e grava do que o projeto trata; a busca de skills usa isso. Gasta cerca de 25 mil tokens, só neste clique.`);
+    btnLer.classList.add('proj-btn-ler');
     const escolherModelo = (modelo) => { estado.modelo = modelo; };
     function desenharModelo() {
       const ia = iaInfo(estado.ia);
@@ -5943,6 +5946,7 @@ const projetos = (() => {
     acoesIA.append(...[
       continuar,
       psBtn,
+      btnLer,
       btnSkills,
       p.pausa && botao('[continuar da pausa]', () => abrirSessao(p, estado.modelo, 'novo', '', { retomada: true, ia: estado.ia }),
         'Sessão nova que já começa lendo o estado do projeto no cérebro: você não precisa explicar de novo'),
@@ -6140,36 +6144,92 @@ const projetos = (() => {
   }
 
   // ----- Modal de avaliação de skills do projeto -----
-  async function abrirSkillsModal(p, buscarOnline = false) {
+  const num = (v) => Number(v).toLocaleString('pt-BR');
+  const POR_VEZ = 100;        // skills desenhadas por vez (a busca pode trazer centenas; a lista inteira continua alcançável)
+  const marcadas = new Map(); // "repo|caminho" -> skill online marcada para instalar
+  let limiteLista = POR_VEZ;
+  let pedidoSkills = 0;       // só a resposta do último pedido entra na tela
+  let revisaoInstalou = false;
+
+  const chaveOnline = (s) => `${s.repo}|${s.caminho || ''}`;
+  // "ambos" responde uma IA por vez e o Python pode responder um erro em JSON: instalou se pelo menos uma IA aceitou
+  function instalouEm(r) {
+    const d = (r && r.dados) || {};
+    if (!r || !r.ok || d.ok === false) return { ok: false, erro: (r && r.erro) || d.erro || 'falhou' };
+    const lista = Array.isArray(d.resultados) ? d.resultados : null;
+    if (!lista) return { ok: true, erro: '' };
+    return lista.some((x) => x.ok) ? { ok: true, erro: '' } : { ok: false, erro: (lista[0] && lista[0].erro) || 'falhou' };
+  }
+
+  async function lerProjeto(p, modelo = '', ia = p.ia) {
+    const r = await chamar(() => window.widget.projetosTarefaLer(p.id));
+    if (!r.ok) { dizer(r.erro || 'Não consegui preparar a leitura do projeto.'); return; }
+    fechar();
+    dizer(`Abrindo uma sessão para ler ${p.nome}. Quando ela terminar, clique em [skills] > [buscar online].`);
+    await abrirSessao(p, modelo, 'novo', r.tarefa, { ia });
+  }
+
+  function desenharPerfilSkills(dados) {
+    const caixa = $('pks-perfil');
+    const partes = [];
+    const pr = dados.projeto;
+    if (pr.perfil_em) {
+      const b = el('b', null, pr.assunto || 'Projeto lido.');
+      partes.push(b, document.createTextNode(` (lido em ${new Date(pr.perfil_em).toLocaleDateString('pt-BR')})`));
+    } else {
+      partes.push(el('b', null, 'Este projeto ainda não foi lido. '), document.createTextNode('A lista usa só os tipos de arquivo e as dependências da pasta. Leia o projeto para achar mais skills e com mais precisão. '));
+    }
+    const ler = botao(pr.perfil_em ? '[reler projeto]' : '[ler projeto]', () => lerProjeto(modalProjetoSkills), 'Abre uma sessão de IA que lê o projeto e grava do que ele trata. Gasta cerca de 25 mil tokens, só neste clique.');
+    partes.push(document.createTextNode(' '), ler);
+    if (dados.busca) {
+      const b = dados.busca;
+      const ofic = b.repositorios.filter((x) => x.oficial).length;
+      partes.push(el('div', null, `Busca: ${num(b.lidas)} skills em ${b.repositorios.length} repositórios (${ofic} oficiais). Aparecem só as que combinam com o projeto, da mais útil para a menos útil.`));
+      if (b.faltaram) partes.push(el('div', null, `${num(b.faltaram)} skills ficaram sem descrição desta vez: clique em [buscar online] de novo para completar.`));
+      for (const a of b.avisos || []) partes.push(el('div', 'cer-erro-texto', a));
+    }
+    caixa.replaceChildren(...partes);
+    caixa.classList.remove('oculto');
+  }
+
+  async function abrirSkillsModal(p, buscarOnline = false, manterFiltro = false) {
     if (!p) return;
+    if (!modalProjetoSkills || modalProjetoSkills.id !== p.id) { marcadas.clear(); $('pks-busca').value = ''; }
     modalProjetoSkills = p;
-    filtroSkills = buscarOnline ? 'online' : 'todos';
+    const pedido = ++pedidoSkills;
+    if (!manterFiltro) filtroSkills = 'todos';
+    limiteLista = POR_VEZ;
     $('pks-titulo').textContent = `skills para ${p.nome}`;
-    $('pks-stack').textContent = buscarOnline
-      ? 'Consultando repositórios online (GitHub, Anthropic, OpenAI)...'
-      : 'Analisando cérebro e stack em 0 tokens...';
+    $('pks-stack').textContent = buscarOnline ? 'Consultando os repositórios de skills...' : 'Analisando o projeto em 0 tokens...';
     $('pks-lista').replaceChildren(el('div', 'cer-aviso', buscarOnline
-      ? 'Buscando skills online relevantes ao stack nos repositórios oficiais e da comunidade...'
+      ? 'Procurando em todo o acervo. A primeira busca lê milhares de skills e leva cerca de 1 minuto; as próximas saem do disco.'
       : 'Calculando aderência das skills com base no cérebro...'));
     document.querySelectorAll('.pks-filtro-btn').forEach((b) => b.classList.toggle('ativo', b.dataset.filtro === filtroSkills));
     mostrarCaixa('skills');
 
     try {
-      const res = await chamar(() => window.widget.projetosAvaliarSkills(p.id, buscarOnline));
-      if (!res.ok) {
-        $('pks-lista').replaceChildren(el('div', 'cer-erro-texto', res.erro || 'Não consegui avaliar as skills deste projeto.'));
+      const res = await chamar(() => (buscarOnline ? window.widget.projetosBuscarSkills(p.id) : window.widget.projetosAvaliarSkills(p.id, false)));
+      if (pedido !== pedidoSkills) return;
+      const dados = res.dados || res;
+      if (!res.ok || dados.ok === false) {
+        $('pks-lista').replaceChildren(el('div', 'cer-erro-texto', res.erro || dados.erro || 'Não consegui avaliar as skills deste projeto.'));
         return;
       }
-      const dados = res.dados || res;
       avaliacaoSkillsAtual = dados;
       $('pks-stack').textContent = `Stack: ${dados.projeto.stack || 'Geral'}${dados.projeto.online ? ' · com busca online' : ''}`;
+      desenharPerfilSkills(dados);
       desenharSkillsModal();
       if (buscarOnline && dados.resumo && dados.resumo.online) {
-        dizer(`Encontrei ${dados.resumo.online} skill(s) online relevante(s) para este projeto!`);
+        dizer(`Encontrei ${num(dados.resumo.online)} skills online que combinam com este projeto!`);
       }
     } catch (e) {
-      $('pks-lista').replaceChildren(el('div', 'cer-erro-texto', 'Erro ao carregar skills: ' + e.message));
+      if (pedido === pedidoSkills) $('pks-lista').replaceChildren(el('div', 'cer-erro-texto', 'Erro ao carregar skills: ' + e.message));
     }
+  }
+
+  function desenharLoteSkills() {
+    $('pks-lote').classList.toggle('oculto', !marcadas.size);
+    $('pks-lote-texto').textContent = `${marcadas.size} marcada${marcadas.size > 1 ? 's' : ''}`;
   }
 
   function desenharSkillsModal() {
@@ -6182,24 +6242,26 @@ const projetos = (() => {
     $('pks-cnt-instaladas').textContent = resumo.instaladas_projeto || 0;
     const cntOnline = $('pks-cnt-online');
     if (cntOnline) cntOnline.textContent = resumo.online || 0;
+    desenharLoteSkills();
 
+    const texto = $('pks-busca').value.trim().toLowerCase();
     const filtradas = lista.filter((s) => {
-      if (filtroSkills === 'essencial') return s.nivel === 'essencial';
-      if (filtroSkills === 'util') return s.nivel === 'util';
-      if (filtroSkills === 'instaladas') return s.instalada_projeto;
-      if (filtroSkills === 'online') return s.origem === 'online';
-      return true;
+      if (filtroSkills === 'essencial' && s.nivel !== 'essencial') return false;
+      if (filtroSkills === 'util' && s.nivel !== 'util') return false;
+      if (filtroSkills === 'instaladas' && !s.instalada_projeto) return false;
+      if (filtroSkills === 'online' && s.origem !== 'online') return false;
+      return !texto || `${s.nome} ${s.descricao || ''} ${s.razao || ''} ${s.fonte || ''}`.toLowerCase().includes(texto);
     });
 
     if (!filtradas.length) {
-      const aviso = filtroSkills === 'online'
+      const aviso = filtroSkills === 'online' && !texto
         ? 'Nenhuma skill online na lista ainda. Clique em "[buscar online]" acima para consultar os repositórios.'
         : 'Nenhuma skill encontrada neste filtro.';
       $('pks-lista').replaceChildren(el('div', 'cer-aviso', aviso));
       return;
     }
 
-    const items = filtradas.map((s) => {
+    const items = filtradas.slice(0, limiteLista).map((s) => {
       const item = el('div', `pks-item ${s.nivel}${s.origem === 'online' ? ' pks-item-online' : ''}`);
       const cab = el('div', 'pks-item-cab');
 
@@ -6207,6 +6269,18 @@ const projetos = (() => {
         ? el('span', 'pks-badge-fonte', s.fonte || 'Online')
         : el('span', 'pks-item-cat', s.categoria || 'local');
 
+      if (s.origem === 'online') {
+        const marca = el('input', 'pks-marca');
+        marca.type = 'checkbox';
+        marca.title = 'Marcar para revisar e instalar junto com as outras';
+        marca.setAttribute('aria-label', `Marcar ${s.nome}`);
+        marca.checked = marcadas.has(chaveOnline(s));
+        marca.addEventListener('change', () => {
+          if (marca.checked) marcadas.set(chaveOnline(s), s); else marcadas.delete(chaveOnline(s));
+          desenharLoteSkills();
+        });
+        cab.append(marca);
+      }
       cab.append(
         el('span', 'pks-item-nome', s.nome),
         badgeFonte,
@@ -6216,7 +6290,7 @@ const projetos = (() => {
       const razao = el('div', 'pks-item-razao', s.razao);
       let descRepo = null;
       if (s.origem === 'online' && s.repo) {
-        descRepo = el('div', 'pj-nota pks-item-sub', `${s.repo}${s.caminho ? ' · ' + s.caminho : ''}${s.descricao ? ' — ' + s.descricao : ''}`);
+        descRepo = el('div', 'pj-nota pks-item-sub', `${s.repo}${s.copias > 1 ? ` · em ${s.copias} repositórios` : ''}${s.descricao ? ' — ' + s.descricao : ''}`);
       }
 
       const rodape = el('div', 'pks-item-rodape');
@@ -6228,41 +6302,22 @@ const projetos = (() => {
         const btnRemover = botao('[remover]', async () => {
           btnRemover.disabled = true;
           btnRemover.textContent = 'removendo...';
-          try {
-            await window.widget.skillsRemover(s.nome, 'projeto', modalProjetoSkills.id, 'ambos');
-            dizer(`Skill ${s.nome} removida do projeto ${modalProjetoSkills.nome}.`);
-            await abrirSkillsModal(modalProjetoSkills, !!avaliacaoSkillsAtual.projeto.online);
-          } catch (e) {
-            console.error('Erro ao remover skill:', e);
+          const r = instalouEm(await chamar(() => window.widget.skillsRemover(s.nome, 'projeto', modalProjetoSkills.id, 'ambos')));
+          if (!r.ok) {
             btnRemover.disabled = false;
             btnRemover.textContent = '[remover]';
+            dizer(`Não consegui remover ${s.nome}: ${r.erro}`);
+            return;
           }
+          dizer(`Skill ${s.nome} removida do projeto ${modalProjetoSkills.nome}.`);
+          await abrirSkillsModal(modalProjetoSkills, !!avaliacaoSkillsAtual.projeto.online, true);
         }, 'Remover esta skill do projeto');
         acoes.append(btnRemover);
       } else if (s.origem === 'online') {
-        const btnBaixar = el('button', 'botao-cmd pks-btn-instalar pks-btn-baixar', '+ baixar e instalar');
+        const btnBaixar = el('button', 'botao-cmd pks-btn-instalar pks-btn-baixar', '+ revisar e instalar');
         btnBaixar.type = 'button';
-        btnBaixar.title = `Baixar ${s.nome} do repositório ${s.repo} e instalar no projeto`;
-        btnBaixar.addEventListener('click', async () => {
-          btnBaixar.disabled = true;
-          btnBaixar.textContent = 'baixando do GitHub...';
-          try {
-            const bx = await window.widget.skillsCatalogoBaixar(s.repo, s.caminho || '');
-            if (!bx || !bx.ok) throw new Error(bx && bx.erro ? bx.erro : 'falha ao baixar');
-            btnBaixar.textContent = 'importando...';
-            const imp = await window.widget.skillsImportar(true, 'ferramentas');
-            if (!imp || !imp.ok) throw new Error(imp && imp.erro ? imp.erro : 'falha ao importar');
-            btnBaixar.textContent = 'instalando no projeto...';
-            await window.widget.skillsInstalar(s.nome, 'projeto', modalProjetoSkills.id, 'ambos');
-            dizer(`Skill online ${s.nome} baixada e instalada no projeto ${modalProjetoSkills.nome}!`);
-            await abrirSkillsModal(modalProjetoSkills, true);
-          } catch (e) {
-            console.error('Erro ao baixar e instalar skill online:', e);
-            btnBaixar.disabled = false;
-            btnBaixar.textContent = '+ baixar e instalar';
-            dizer('Não consegui baixar a skill online: ' + e.message);
-          }
-        });
+        btnBaixar.title = `Baixa ${s.nome} de ${s.repo} para uma pasta temporária e mostra tudo antes de instalar`;
+        btnBaixar.addEventListener('click', () => revisarLote([s]));
         acoes.append(btnBaixar);
       } else {
         const btnInstalar = el('button', 'botao-cmd pks-btn-instalar', '+ instalar no projeto');
@@ -6270,15 +6325,15 @@ const projetos = (() => {
         btnInstalar.addEventListener('click', async () => {
           btnInstalar.disabled = true;
           btnInstalar.textContent = 'instalando...';
-          try {
-            await window.widget.skillsInstalar(s.nome, 'projeto', modalProjetoSkills.id, 'ambos');
-            dizer(`Skill ${s.nome} instalada no projeto ${modalProjetoSkills.nome}!`);
-            await abrirSkillsModal(modalProjetoSkills, !!avaliacaoSkillsAtual.projeto.online);
-          } catch (e) {
-            console.error('Erro ao instalar skill:', e);
+          const r = instalouEm(await chamar(() => window.widget.skillsInstalar(s.nome, 'projeto', modalProjetoSkills.id, 'ambos')));
+          if (!r.ok) {
             btnInstalar.disabled = false;
             btnInstalar.textContent = '+ instalar no projeto';
+            dizer(`Não consegui instalar ${s.nome}: ${r.erro}`);
+            return;
           }
+          dizer(`Skill ${s.nome} instalada no projeto ${modalProjetoSkills.nome}!`);
+          await abrirSkillsModal(modalProjetoSkills, !!avaliacaoSkillsAtual.projeto.online, true);
         });
         acoes.append(btnInstalar);
       }
@@ -6289,7 +6344,108 @@ const projetos = (() => {
       return item;
     });
 
+    const resto = filtradas.length - limiteLista;
+    if (resto > 0) {
+      items.push(botao(`[mostrar mais ${Math.min(resto, POR_VEZ)} (faltam ${num(resto)})]`, () => { limiteLista += POR_VEZ; desenharSkillsModal(); }, 'Continua a lista'));
+    }
     $('pks-lista').replaceChildren(...items);
+  }
+
+  // ----- revisão das skills marcadas: uma tela só, e nada é instalado antes de confirmar -----
+  async function revisarLote(itens) {
+    revisaoInstalou = false;
+    $('pkr-resumo').textContent = `baixando ${itens.length} skill${itens.length > 1 ? 's' : ''}...`;
+    $('pkr-instalar').classList.remove('oculto');
+    $('pkr-instalar').disabled = true;
+    $('pkr-lista').replaceChildren(el('div', 'cer-aviso', 'Baixando do GitHub para uma pasta temporária. Nada é instalado nem executado aqui.'));
+    mostrarCaixa('revisaoSkills');
+    const r = await chamar(() => window.widget.skillsLoteRevisar(itens));
+    if (!r.ok) {
+      $('pkr-resumo').textContent = '';
+      $('pkr-lista').replaceChildren(el('div', 'cer-erro-texto', r.erro || 'Não consegui baixar as skills.'));
+      return;
+    }
+    desenharRevisaoLote(r.revisoes);
+  }
+
+  function desenharRevisaoLote(revisoes) {
+    const atualizarBotao = () => {
+      const n = [...$('pkr-lista').querySelectorAll('.pks-marca')].filter((m) => m.checked).length;
+      $('pkr-instalar').disabled = !n;
+      $('pkr-instalar').textContent = n ? `instalar ${n} no projeto` : 'instalar';
+    };
+    const comAviso = revisoes.filter((d) => d.alertas && d.alertas.length).length;
+    $('pkr-resumo').textContent = `${revisoes.length} skill${revisoes.length > 1 ? 's' : ''} em ${modalProjetoSkills.nome}${comAviso ? ` · ${comAviso} com aviso` : ''}`;
+    $('pkr-lista').replaceChildren(...revisoes.map((d) => {
+      const item = el('div', `pkr-item${d.alertas && d.alertas.length ? ' perigo' : ''}`);
+      const cab = el('div', 'pks-item-cab');
+      if (d.erro) {
+        cab.append(el('span', 'pks-item-nome', d.nome));
+        item.append(cab, el('div', 'cer-erro-texto', d.erro));
+        return item;
+      }
+      const marca = el('input', 'pks-marca');
+      marca.type = 'checkbox';
+      marca.dataset.chave = d.chave;
+      marca.checked = !d.alertas.length; // com aviso, instalar é uma escolha consciente
+      marca.setAttribute('aria-label', `Instalar ${d.nome}`);
+      marca.addEventListener('change', atualizarBotao);
+      cab.append(marca, el('span', 'pks-item-nome', d.nome), el('span', 'pks-badge-fonte', d.repo));
+      item.append(cab);
+      if (d.naBiblioteca) {
+        item.append(el('div', 'pj-nota', 'Já está na sua biblioteca (revisada antes): só falta instalar neste projeto.'));
+        return item;
+      }
+      const scripts = d.arquivos.filter((a) => a.script).map((a) => a.arquivo);
+      item.append(el('div', 'pj-nota', `${d.arquivos.length} arquivo(s)${scripts.length ? `; SCRIPTS: ${scripts.join(', ')}` : '; nenhum script'}`));
+      for (const a of d.alertas) {
+        const l = el('div', 'sk-alerta');
+        l.append(el('b', null, `aviso: ${a.arquivo}${a.linha ? ':' + a.linha : ''} `), document.createTextNode(a.motivo + (a.trecho ? ' | ' : '')));
+        if (a.trecho) l.append(el('code', null, a.trecho));
+        item.append(l);
+      }
+      if (!d.alertas.length) item.append(el('div', 'sk-alerta ok', 'nenhum trecho perigoso encontrado (isso não garante nada: leia o conteúdo)'));
+      for (const a of d.avisos || []) item.append(el('div', 'sk-alerta ok', 'aviso de formato: ' + a));
+      const ver = el('details');
+      ver.append(el('summary', null, 'ler o SKILL.md'), el('pre', null, d.skill_md || ''));
+      item.append(ver);
+      return item;
+    }));
+    atualizarBotao();
+  }
+
+  async function instalarRevisadas() {
+    const chaves = [...$('pkr-lista').querySelectorAll('.pks-marca')].filter((m) => m.checked).map((m) => m.dataset.chave);
+    if (!chaves.length) return;
+    const btn = $('pkr-instalar');
+    btn.disabled = true;
+    btn.textContent = 'instalando...';
+    const r = await chamar(() => window.widget.skillsLoteInstalar(chaves, modalProjetoSkills.id));
+    btn.textContent = 'instalar';
+    if (!r.ok) {
+      btn.disabled = false;
+      $('pkr-resumo').textContent = r.erro || 'Não consegui instalar.';
+      return;
+    }
+    const certas = r.resultados.filter((x) => x.ok);
+    revisaoInstalou = certas.length > 0;
+    btn.classList.add('oculto');
+    marcadas.clear();
+    $('pkr-resumo').textContent = `${certas.length} de ${r.resultados.length} instalada${r.resultados.length > 1 ? 's' : ''}`;
+    $('pkr-lista').replaceChildren(...r.resultados.map((x) => {
+      const item = el('div', 'pkr-item');
+      const parcial = x.ok && x.alvos && x.alvos.length === 1 ? ` (só no ${nomeIA(x.alvos[0])}: é o que ela declara aceitar)` : '';
+      item.append(x.ok ? el('div', 'sk-alerta ok', `${x.nome}: instalada${parcial}`) : el('div', 'cer-erro-texto', `${x.nome}: ${x.erro}`));
+      return item;
+    }));
+    dizer(`${certas.length} skill${certas.length === 1 ? '' : 's'} instalada${certas.length === 1 ? '' : 's'} em ${modalProjetoSkills.nome}.`);
+  }
+
+  async function voltarDaRevisao() {
+    await chamar(() => window.widget.skillsLoteCancelar());
+    if (revisaoInstalou) { revisaoInstalou = false; await abrirSkillsModal(modalProjetoSkills, true, true); return; }
+    mostrarCaixa('skills');
+    desenharSkillsModal();
   }
 
   // ----- janelinhas (uma por vez dentro de #proj-dialogo) -----
@@ -7332,6 +7488,16 @@ const projetos = (() => {
 
   // Ações do modal de skills do projeto
   $('pks-fechar').addEventListener('click', fechar);
+  window.widget.onSkillsBuscaProgresso((id, x) => {
+    if (!modalProjetoSkills || id !== modalProjetoSkills.id) return;
+    $('pks-stack').textContent = x.etapa === 'repositorios' ? `Lendo repositórios de skills: ${x.feitas} de ${x.total}...`
+      : x.etapa === 'descricoes' ? `Lendo descrições: ${x.feitas} de ${x.total} (só a primeira busca demora)...` : 'Dando nota para cada skill...';
+  });
+  $('pks-busca').addEventListener('input', () => { limiteLista = POR_VEZ; desenharSkillsModal(); });
+  $('pks-lote-limpar').addEventListener('click', () => { marcadas.clear(); desenharSkillsModal(); });
+  $('pks-lote-revisar').addEventListener('click', () => { if (marcadas.size) revisarLote([...marcadas.values()]); });
+  $('pkr-instalar').addEventListener('click', instalarRevisadas);
+  $('pkr-voltar').addEventListener('click', voltarDaRevisao);
   const btnPksOnline = $('pks-btn-online');
   if (btnPksOnline) {
     btnPksOnline.addEventListener('click', async () => {
@@ -7361,6 +7527,7 @@ const projetos = (() => {
       document.querySelectorAll('.pks-filtro-btn').forEach((b) => b.classList.remove('ativo'));
       btn.classList.add('ativo');
       filtroSkills = btn.dataset.filtro;
+      limiteLista = POR_VEZ;
       desenharSkillsModal();
     });
   });
