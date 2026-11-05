@@ -333,7 +333,7 @@ Nada roda em segundo plano: em repouso o custo é zero (1 ouvinte de IPC a mais)
 | Ação | Custo |
 | --- | --- |
 | Varredura da pasta | 0 tokens; até 0,3 s nos 9 projetos cadastrados (teto de 8 s e 60 mil arquivos) |
-| [ler projeto] | 20 a 28 mil tokens de entrada (estimativa em 4 projetos reais: caracteres/4, sem contar a resposta nem o contexto fixo da sessão) |
+| [ler projeto] | 20 a 28 mil tokens de entrada (estimativa em 4 projetos reais: caracteres/4, sem contar a resposta nem o contexto fixo da sessão); roda no Antigravity, então sai da cota dele e não da do Claude |
 | Primeira busca, índice vazio | 56 s; 25 consultas da API e cerca de 2.100 pedidos ao raw (fora do limite da API); lê cerca de 5 mil skills |
 | Busca de outro projeto | 19 s na medição, com 16 consultas da API (repositórios novos da comunidade para aqueles termos) |
 | Repetir a busca em 24 h | Sem rede (só refaz a nota) |

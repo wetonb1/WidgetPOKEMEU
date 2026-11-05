@@ -5828,8 +5828,8 @@ const projetos = (() => {
     psBtn.classList.add('proj-ps');
     const btnSkills = botao('[skills]', () => abrirSkillsModal(p), 'Ver e instalar as skills recomendadas para este projeto');
     btnSkills.classList.add('proj-btn-skills');
-    const btnLer = botao(p.perfil_em ? '[reler projeto]' : '[ler projeto]', () => lerProjeto(p, estado.modelo, estado.ia),
-      `${p.perfil_em ? 'Lido em ' + new Date(p.perfil_em).toLocaleDateString('pt-BR') + '. ' : ''}Abre uma sessão de IA que lê o cérebro e os arquivos principais e grava do que o projeto trata; a busca de skills usa isso. Gasta cerca de 25 mil tokens, só neste clique.`);
+    const btnLer = botao(p.perfil_em ? '[reler projeto]' : '[ler projeto]', () => lerProjeto(p),
+      `${p.perfil_em ? 'Lido em ' + new Date(p.perfil_em).toLocaleDateString('pt-BR') + '. ' : ''}Abre uma sessão do Antigravity (Gemini 3.8 Flash, esforço alto, sempre, não importa a IA marcada ao lado) que lê o cérebro e os arquivos principais e grava do que o projeto trata; a busca de skills usa isso. Só neste clique.`);
     btnLer.classList.add('proj-btn-ler');
     const escolherModelo = (modelo) => { estado.modelo = modelo; };
     function desenharModelo() {
@@ -6161,12 +6161,17 @@ const projetos = (() => {
     return lista.some((x) => x.ok) ? { ok: true, erro: '' } : { ok: false, erro: (lista[0] && lista[0].erro) || 'falhou' };
   }
 
-  async function lerProjeto(p, modelo = '', ia = p.ia) {
+  // A leitura é sempre do Antigravity no Gemini 3.8 Flash de esforço alto, qualquer que seja a IA do projeto ou a marcada no card.
+  const IA_LEITURA = 'antigravity';
+  const MODELO_LEITURA = 'gemini-3.8-flash-high';
+  async function lerProjeto(p) {
+    const info = iaInfo(IA_LEITURA);
+    if (!info || !info.modelos || !info.modelos[MODELO_LEITURA]) { dizer('O Antigravity (Gemini 3.8 Flash, esforço alto) não está cadastrado no widget.'); return; }
     const r = await chamar(() => window.widget.projetosTarefaLer(p.id));
     if (!r.ok) { dizer(r.erro || 'Não consegui preparar a leitura do projeto.'); return; }
     fechar();
-    dizer(`Abrindo uma sessão para ler ${p.nome}. Quando ela terminar, clique em [skills] > [buscar online].`);
-    await abrirSessao(p, modelo, 'novo', r.tarefa, { ia });
+    dizer(`Abrindo o Antigravity para ler ${p.nome}. Quando ele terminar, clique em [skills] > [buscar online].`);
+    await abrirSessao(p, MODELO_LEITURA, 'novo', r.tarefa, { ia: IA_LEITURA });
   }
 
   function desenharPerfilSkills(dados) {
@@ -6179,7 +6184,7 @@ const projetos = (() => {
     } else {
       partes.push(el('b', null, 'Este projeto ainda não foi lido. '), document.createTextNode('A lista usa só os tipos de arquivo e as dependências da pasta. Leia o projeto para achar mais skills e com mais precisão. '));
     }
-    const ler = botao(pr.perfil_em ? '[reler projeto]' : '[ler projeto]', () => lerProjeto(modalProjetoSkills), 'Abre uma sessão de IA que lê o projeto e grava do que ele trata. Gasta cerca de 25 mil tokens, só neste clique.');
+    const ler = botao(pr.perfil_em ? '[reler projeto]' : '[ler projeto]', () => lerProjeto(modalProjetoSkills), 'Abre uma sessão do Antigravity (Gemini 3.8 Flash, esforço alto) que lê o projeto e grava do que ele trata. Só neste clique.');
     partes.push(document.createTextNode(' '), ler);
     if (dados.busca) {
       const b = dados.busca;
