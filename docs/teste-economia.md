@@ -57,7 +57,7 @@ O objetivo é uma sessão **sem nenhuma regra e sem nenhuma skill do cérebro**,
 
    ```powershell
    cd D:\programação\widget-dev\WidgetBRAIN
-   foreach ($s in "cerebro-buscar","cerebro-compactar","cerebro-titulos","cerebro-cabecalho","cerebro-ler") { python skills-biblioteca\skills.py remover $s --escopo global }
+   foreach ($s in "cerebro-ler","cerebro-compactar","cerebro-titulos","cerebro-cabecalho") { python skills-biblioteca\skills.py remover $s --escopo global }
    ```
 
    **Depois dos testes, reinstale** (`python skills-biblioteca\skills.py instalar <nome> --escopo global`, ou Alt+6 `[instalar]`).

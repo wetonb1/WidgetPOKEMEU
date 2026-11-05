@@ -33,7 +33,7 @@ function montarVersaoNova(base) {
   gravar(base, '.claude/commands/x.md', 'x');
   gravar(base, 'app/__pycache__/x.pyc', 'lixo');
   gravar(base, 'skills-biblioteca/catalogo.json', JSON.stringify({ skills: [
-    { nome: 'cerebro-buscar', titulo: 'NOVO titulo', origem: 'local' },
+    { nome: 'cerebro-ler', titulo: 'NOVO titulo', origem: 'local' },
     { nome: 'skill-nova', titulo: 'Skill nova', origem: 'local' },
     { nome: 'importada', titulo: 'do dev', origem: 'local' },
   ] }));
@@ -53,7 +53,7 @@ function montarInstalacaoDoUsuario(raiz) {
   gravar(raiz, 'importacoes/meu-arquivo.txt', 'meu');
   gravar(raiz, 'node_modules/pacote/index.js', 'modulo');
   gravar(raiz, 'skills-biblioteca/catalogo.json', JSON.stringify({ skills: [
-    { nome: 'cerebro-buscar', titulo: 'ANTIGO titulo', origem: 'local' },
+    { nome: 'cerebro-ler', titulo: 'ANTIGO titulo', origem: 'local' },
     { nome: 'importada', titulo: 'MINHA skill importada', origem: 'github:alguem/repo' },
   ] }));
   gravar(raiz, 'skills-biblioteca/minha-skill/SKILL.md', 'minha skill');
@@ -97,7 +97,7 @@ const teste = async (nome, fn) => {
     assert.ok(existe(raiz, 'app/antigo-so-do-usuario.js'));
     // catálogo: oficial atualiza, nova entra, a importada do usuário fica
     const cat = JSON.parse(ler(raiz, 'skills-biblioteca/catalogo.json')).skills;
-    assert.strictEqual(cat.find((s) => s.nome === 'cerebro-buscar').titulo, 'NOVO titulo');
+    assert.strictEqual(cat.find((s) => s.nome === 'cerebro-ler').titulo, 'NOVO titulo');
     assert.ok(cat.some((s) => s.nome === 'skill-nova'));
     assert.strictEqual(cat.find((s) => s.nome === 'importada').titulo, 'MINHA skill importada');
     // backup do que foi trocado, e o resumo

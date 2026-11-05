@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Instalador básico: as 2 skills do cérebro (cerebro-buscar e cerebro-compactar) (pelo skills.py) + o que não é skill.
+"""Instalador básico: as 2 skills do cérebro (cerebro-ler e cerebro-compactar) (pelo skills.py) + o que não é skill.
 
   python skills-biblioteca/instalar_basico.py             só no projeto do widget: <widget>/.claude/skills
   python skills-biblioteca/instalar_basico.py --global    no usuário: ~/.claude (skills, comando
@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "cerebro" / "tools"
 import skills  # noqa: E402
 import tokens  # noqa: E402  (estimar_tokens: o custo do bloco em toda conversa)
 
-BASICAS = ("cerebro-buscar", "cerebro-compactar")  # as 3 separadas (titulos, cabecalho, ler) ficam na biblioteca para quem preferir
+BASICAS = ("cerebro-ler", "cerebro-compactar")
 MAX_BLOCO = 12  # linhas do bloco do CLAUDE.md global (entra em toda conversa)
 TITULO_BLOCO = "## Cérebro (memória dos meus projetos)"
 ALVOS = ("claude", "antigravity", "ambos")

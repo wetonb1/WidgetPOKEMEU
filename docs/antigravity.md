@@ -226,10 +226,10 @@ inicial completo (várias linhas, aspas) pelo terminal externo.
 |---|---|---|
 | Destino no projeto | `<pasta>/.agents/skills/<nome>/` (o `skills.py instalar --alvo antigravity --escopo projeto`) | CONFIRMADO (seção 4 e teste 10.5) |
 | Destino global | `~/.gemini/antigravity-cli/skills/` (variável `SKILLS_GLOBAL_ANTIGRAVITY` nos testes) | NÃO CONFIRMADO por teste: só a documentação |
-| `cerebro-buscar` no agy (texto neutro, sem variante) | pergunta "use a skill cerebro-buscar: o que decidimos sobre o grafo 3d do cerebro?" (`gemini-3.8-flash-low`, na pasta do widget): leu o `SKILL.md` da skill, rodou `python ".../cerebro.py" buscar grafo 3d cerebro --projeto meu-widget` (permissão pedida e aprovada) e depois pediu o `cerebro.py ler estado/meu-widget.md ...` (passo 4 da skill; recusado de propósito neste teste). **Não leu nenhum arquivo do cérebro direto.** Obs.: o `AGENTS.md` do widget também manda consultar o cérebro, então o teste não separa as duas instruções | CONFIRMADO |
+| `cerebro-ler` no agy (texto neutro, sem variante) | pergunta "use a skill cerebro-ler: o que decidimos sobre o grafo 3d do cerebro?" (`gemini-3.8-flash-low`, na pasta do widget): leu o `SKILL.md` da skill, rodou `python ".../cerebro.py" ler estado/meu-widget.md ...` e carregou todas as conversas (passo 3 da skill). **Não leu nenhum arquivo do cérebro direto.** Obs.: o `AGENTS.md` do widget também manda consultar o cérebro, então o teste não separa as duas instruções | CONFIRMADO |
 | `cerebro-compactar` no agy (variante PowerShell) | num projeto temporário, `/cerebro-compactar salve no cérebro esta conversa de teste: ...`: leu o `SKILL.md`, montou `$OutputEncoding = ...; @' ... '@ \| python ".../cerebro.py" salvar ... --origem antigravity`, a permissão foi aprovada e o arquivo foi salvo com acentos intactos (`Decisão`, `Pendência`) e `origem: antigravity` | CONFIRMADO |
 | Acionar pelo texto livre | no mesmo projeto temporário, "use a skill cerebro-compactar: salve no cérebro..." o modelo NÃO abriu a skill: procurou "cerebro" em `~/.gemini` com `Get-ChildItem` (recusado). Com a barra (`/cerebro-compactar ...`) funcionou na hora | CONFIRMADO (use a barra quando a skill é pedida de propósito) |
-| `compativel` | `antigravity` só consta nas skills testadas acima (`cerebro-buscar` e `cerebro-compactar`); `cerebro-titulos`, `cerebro-cabecalho` e `cerebro-ler` continuam só `claude` | |
+| `compativel` | `antigravity` consta nas skills testadas acima (`cerebro-ler` e `cerebro-compactar`); `cerebro-titulos` e `cerebro-cabecalho` continuam só `claude` | |
 
 Cuidado visto no teste: o `cerebro.py` usa o cérebro **configurado** (`~/.cerebro.json` / `CEREBRO_CONFIG` / `CEREBRO_DIR`), não a pasta onde o script está. Um teste que copia
 o `tools/` para um cérebro temporário precisa levar a variável `CEREBRO_DIR` para dentro do agy; sem ela o `salvar` grava no cérebro de verdade (aconteceu no teste 10.5 e
@@ -276,7 +276,7 @@ O `importar.py resumir` e a manutenção (`consolidar` e `propor-estado`) contin
 
 ### Reconfirmação do teste de adesão (2 IAs × 2 modos)
 
-Em pasta temporária (`%TEMP%\teste-adesao-10-10`, apagada ao final), com um cérebro falso contendo a decisão inventada `Paleta Cyberpunk Neon (roxo #7B2CBF e ciano #00F5D4)` em `estado/jogo-paleta.md`, projeto preparado com `CLAUDE.md` + `AGENTS.md` e a skill `cerebro-buscar` instalada em `.claude/skills/` e `.agents/skills/`:
+Em pasta temporária (`%TEMP%\teste-adesao-10-10`, apagada ao final), com um cérebro falso contendo a decisão inventada `Paleta Cyberpunk Neon (roxo #7B2CBF e ciano #00F5D4)` em `estado/jogo-paleta.md`, projeto preparado com `CLAUDE.md` + `AGENTS.md` e a skill `cerebro-ler` instalada em `.claude/skills/` e `.agents/skills/`:
 
 | IA e modelo | Sem `prompt_inicial` (só a pergunta `"o que decidimos sobre a paleta de cores do jogo?"`) | Com `prompt_inicial` (`projetos.py prompt`) | Consultou sozinha? |
 |---|---|---|---|

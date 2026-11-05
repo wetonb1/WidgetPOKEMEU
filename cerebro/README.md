@@ -42,13 +42,11 @@ data: 2026-10-28 | origem: claude-code | projeto: meu-widget
 `estado/{projeto}.md`, com no máximo 300 palavras, nestas seções:
 `Objetivo`, `Stack`, `Decisões`, `Estado atual`, `Próximos passos`, `Armadilhas`.
 
-## Ordem de consulta (o que a IA faz)
+## Ordem de consulta (o que a IA faz com `/cerebro-ler`)
 
-1. Lê o estado do projeto.
-2. Procura pelo nome dos arquivos em `conversas/`.
-3. Lê só as duas primeiras linhas (o cabeçalho) dos candidatos.
-4. Abre por inteiro no máximo 3 arquivos.
-5. Se nada combinar, segue normalmente.
+1. Carrega o estado do projeto.
+2. Carrega as conversas do projeto (até 3 arquivos recentes ou mais, se o dono especificar).
+3. Se nada combinar, segue normalmente.
 
 Os limites de tamanho existem para que essa consulta custe poucos tokens. Um arquivo grande
 demais anula a economia.
@@ -66,7 +64,7 @@ Busca em 3 níveis (cada um só deve rodar se o anterior não bastar):
 ```
 cerebro.py titulos TERMOS [--projeto X] [--limite 8]       1. só os nomes dos arquivos
 cerebro.py cabecalho TERMOS [--arquivos A B] [--limite 5]  2. as 2 primeiras linhas (palavras-chave)
-cerebro.py ler ARQUIVO... [--max 3]                        3. o arquivo inteiro (no máximo 3)
+cerebro.py ler [ARQUIVO...] [--projeto X] [--max N]        3. arquivo inteiro ou o projeto completo (estado + conversas)
 cerebro.py buscar TERMOS [--projeto X]                     estado + 1 + 2, e sugere "abrir: ..."
 ```
 
@@ -88,7 +86,7 @@ Depois de gravar, ele atualiza o `INDICE.md` e imprime só o nome do arquivo.
 
 ## Usar o cérebro em qualquer projeto
 
-`python skills-biblioteca/instalar_basico.py [--global] [--alvo claude|antigravity|ambos]` instala as 2 skills básicas (`cerebro-buscar` e `cerebro-compactar`, usando a variante de cada IA quando existir) e os blocos globais:
+`python skills-biblioteca/instalar_basico.py [--global] [--alvo claude|antigravity|ambos]` instala a skill `cerebro-ler` e `cerebro-compactar` (usando a variante de cada IA quando existir) e os blocos globais:
 - **Claude (`claude`):** em `~/.claude` instala as skills e um bloco curto no `CLAUDE.md` global. O `~/.claude/CLAUDE.md` nunca é sobrescrito: se já existir com outro conteúdo, mostra o diff e só grava com `--aplicar-claude-md`.
 - **Antigravity (`antigravity`):** no projeto grava em `.agents/skills/`. Com `--global`, como `~/.gemini/GEMINI.md` e `~/.gemini/antigravity-cli/skills/` ficam fora da pasta do widget (e não foram confirmados por teste prático), só mostra o que gravaria e os tokens; para gravar de verdade, passe `--aplicar-gemini-md` e `--aplicar-skills-agy`.
 
@@ -101,7 +99,7 @@ Para a aba Cérebro do widget (`app/cerebro.js` chama estes comandos com `--json
 ```
 cerebro.py painel [--projeto X]            projetos, estatísticas (arquivos, KB, última compactação) e resumo do estado
 cerebro.py buscar TERMOS --limite N --com-palavras   como o buscar normal, mas até N candidatos, todos com palavras-chave
-cerebro.py ler ARQUIVO --json              traz também a data da última atualização do arquivo
+cerebro.py ler [ARQUIVO...] [--projeto X] --json    traz também a data da última atualização do arquivo
 ```
 
 Os projetos vêm de `cerebro/projetos.json` (lista de nomes ou objetos com `nome`) se existir; senão, dos campos `projeto` dos
@@ -267,8 +265,7 @@ O cérebro (conversas, estados, arquivo-morto) e o `projetos.json` podem ter **d
 - O `main` acompanha o `brain/main` e o `push` padrão vai para o `brain` (`remote.pushDefault`).
 - O hook `tools/git-hooks/pre-push` **recusa** push para o `WidgetPOKEMEU`. Ativação, em qualquer clone: `git config core.hooksPath tools/git-hooks`.
 - Ficam fora do git: `importacoes/`, `cerebro/.log/`, `*.zip` (backups) e `cerebro/indices/`. Antes de um `git add`, confira o `git status`.
-- Skills: o básico é `cerebro-buscar` + `cerebro-compactar` (global). As três separadas (`cerebro-titulos`, `-cabecalho`, `-ler`) ficam na biblioteca;
-  não instale junto com a combinada (cada uma paga o imposto fixo em toda conversa).
+- Skills básicas: `cerebro-ler` + `cerebro-compactar` (global).
 
 ## Grafo (`grafo.py`)
 

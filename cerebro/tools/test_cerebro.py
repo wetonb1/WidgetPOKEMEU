@@ -305,6 +305,37 @@ class TestLer(BaseBusca):
         self.assertEqual((codigo, texto), (2, ""))
         self.assertEqual(erro.getvalue(), "erro: máximo 3 arquivos por vez (recebi 4)\n")
 
+    def test_arquivos_do_projeto_traz_estado_e_conversas_cronologicas(self):
+        arqs = cerebro.arquivos_do_projeto(self.base, "meu-widget")
+        self.assertIn("estado/meu-widget.md", arqs)
+        self.assertIn("2026-10-28_estrutura-inicial-do-cerebro.md", arqs)
+        # O estado vem primeiro
+        self.assertEqual(arqs[0], "estado/meu-widget.md")
+
+    def test_ler_projeto_traz_tudo_sem_limite_de_3(self):
+        codigo, texto = self.rodar("ler", "--projeto", "meu-widget")
+        self.assertEqual(codigo, 0)
+        self.assertIn("== estado/meu-widget.md", texto)
+        self.assertIn("== 2026-10-28_estrutura-inicial-do-cerebro.md", texto)
+
+    def test_ler_projeto_com_max(self):
+        codigo, texto = self.rodar("ler", "--projeto", "meu-widget", "--max", "1")
+        self.assertEqual(codigo, 0)
+        self.assertIn("== estado/meu-widget.md", texto)
+        self.assertNotIn("== 2026-10-28_estrutura-inicial-do-cerebro.md", texto)
+
+    def test_ler_sem_argumentos_nem_projeto_recusa(self):
+        erro = io.StringIO()
+        with contextlib.redirect_stderr(erro):
+            codigo, texto = self.rodar("ler")
+        self.assertEqual(codigo, 2)
+        self.assertIn("informe ao menos um arquivo ou --projeto", erro.getvalue())
+
+    def test_ler_projeto_inexistente(self):
+        codigo, texto = self.rodar("ler", "--projeto", "projeto-que-nao-existe")
+        self.assertEqual(codigo, 1)
+        self.assertIn("nenhum arquivo encontrado para o projeto: projeto-que-nao-existe", texto)
+
 
 class TestBuscar(BaseBusca):
     def test_bom_resultado_nos_titulos_nao_abre_cabecalhos(self):

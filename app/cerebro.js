@@ -168,10 +168,28 @@ function buscar(texto, projeto) {
   return executar(['buscar', '--json', '--com-palavras', '--limite=' + LIMITE_RESULTADOS, ...(p ? ['--projeto=' + p] : []), '--', ...termos]);
 }
 
-// Conteúdo completo de um arquivo do cérebro ("nome.md" ou "estado/nome.md")
-function ler(arquivo) {
-  if (typeof arquivo !== 'string' || !NOME_ARQUIVO.test(arquivo) || arquivo.includes('..')) return falhou('nome de arquivo inválido');
-  return executar(['ler', '--json', '--', arquivo]);
+// Conteúdo completo de um arquivo ("nome.md" ou "estado/nome.md") ou de todo o cérebro de um projeto ({ projeto: 'id' })
+function ler(arquivoOuOpts) {
+  if (typeof arquivoOuOpts === 'object' && arquivoOuOpts !== null) {
+    const args = ['ler', '--json'];
+    const p = projetoValido(arquivoOuOpts.projeto);
+    if (p) args.push('--projeto=' + p);
+    if (Number.isInteger(arquivoOuOpts.max) && arquivoOuOpts.max > 0) {
+      args.push('--max=' + arquivoOuOpts.max);
+    }
+    if (Array.isArray(arquivoOuOpts.arquivos)) {
+      const seguros = arquivoOuOpts.arquivos.filter(a => typeof a === 'string' && NOME_ARQUIVO.test(a) && !a.includes('..'));
+      if (seguros.length) args.push('--', ...seguros);
+    }
+    if (!p && (!Array.isArray(arquivoOuOpts.arquivos) || !arquivoOuOpts.arquivos.length)) {
+      return falhou('informe um projeto ou arquivos para ler');
+    }
+    return executar(args);
+  }
+  if (typeof arquivoOuOpts !== 'string' || !NOME_ARQUIVO.test(arquivoOuOpts) || arquivoOuOpts.includes('..')) {
+    return falhou('nome de arquivo inválido');
+  }
+  return executar(['ler', '--json', '--', arquivoOuOpts]);
 }
 
 // Grava um resumo colado pela tela (comando "salvar", que valida o formato e recusa o que estiver fora)

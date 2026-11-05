@@ -145,11 +145,10 @@ class TestCustoSkill(Base):
         self.assertEqual(com["total_estimado_por_uso"], com["ao_usar"] + com["saida_ferramenta"])
         # skill que não é do cérebro não tem saída de ferramenta
         self.assertEqual(tokens.custo_skill(self.skill(self.bib, "outra"), base=self.cerebro)["saida_ferramenta"], 0)
-        # buscar = buscar + ler
-        buscar = self.skill(self.bib, "cerebro-buscar")
-        (self.cerebro / ".log" / "consultas.jsonl").write_text(json.dumps({"comando": "buscar", "caracteres": 400}) + "\n", encoding="utf-8")
-        c = tokens.custo_skill(buscar, base=self.cerebro)
-        self.assertEqual(c["saida_ferramenta"], tokens.tokens_de_caracteres(400) + tokens.SAIDA_PADRAO["ler"])
+        # ler = carrega tudo
+        (self.cerebro / ".log" / "consultas.jsonl").write_text(json.dumps({"comando": "ler", "caracteres": 400}) + "\n", encoding="utf-8")
+        c = tokens.custo_skill(pasta, base=self.cerebro)
+        self.assertEqual(c["saida_ferramenta"], tokens.tokens_de_caracteres(400))
 
 
 class TestImposto(Base):

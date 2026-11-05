@@ -22,10 +22,10 @@ botão de desligar o PC com 2 confirmações.
   chave de API só em variável do Windows, nunca em arquivo.
 
 ## Cérebro (memória em Markdown, pasta `cerebro/`)
-Serve para gastar menos tokens: consulte-o ANTES de pesquisar, só pelo `cerebro/tools/cerebro.py` (skill cerebro-buscar).
+Serve para gastar menos tokens: consulte-o ANTES de pesquisar, só pela skill `/cerebro-ler`.
 Nunca leia os arquivos dele direto.
-- Ordem: 1) `buscar termos --projeto X` (1 chamada, já traz o estado); 2) `ler` só o que combinar (máx. 3 arquivos);
-  3) nada combinou: siga normalmente.
+- Use `/cerebro-ler` para carregar o cérebro do projeto (estado + conversas).
+  Se nada combinar, siga normalmente.
 - Conversas: `cerebro/conversas/AAAA-MM-DD_assunto-de-3-a-6-palavras.md`. Linha 1 `palavras-chave: ...` (5 a 10 termos),
   linha 2 `data: AAAA-MM-DD | origem: X | projeto: Y`, linha 3 vazia, corpo com até 12 tópicos ou 150 palavras.
   Estados: `cerebro/estado/{projeto}.md` (6 seções, 300 palavras). Para gravar use `cerebro.py salvar` (ele valida).

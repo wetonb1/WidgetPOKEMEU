@@ -51,7 +51,7 @@ class TestBlocoDoAntigravity(Base):
         gemini = (BIBLIOTECA / "gemini-global.md").read_text(encoding="utf-8")
         claude = (BIBLIOTECA / "claude-global.md").read_text(encoding="utf-8")
         self.assertLessEqual(len(gemini.strip("\n").splitlines()), 12)
-        for essencial in ("## Cérebro (memória dos meus projetos)", "{CAMINHO_CEREBRO}", "cerebro-buscar", "cerebro.py", "Nunca leia os arquivos do cérebro", "máx. 3 arquivos", "sem comentar"):
+        for essencial in ("## Cérebro (memória dos meus projetos)", "{CAMINHO_CEREBRO}", "cerebro-ler", "cerebro.py", "Nunca leia os arquivos do cérebro", "sem comentar"):
             self.assertIn(essencial, claude)
             self.assertIn(essencial, gemini, "falta no gemini-global.md: " + essencial)
 
@@ -137,10 +137,10 @@ class TestAlvos(Base):
         codigo, saida = self.rodar("--alvo", "antigravity")
         self.assertEqual(codigo, 0, saida)
         base = self.widget / ".agents" / "skills"
-        self.assertEqual(sorted(p.name for p in base.iterdir()), ["cerebro-buscar", "cerebro-compactar"])
+        self.assertEqual(sorted(p.name for p in base.iterdir()), ["cerebro-ler", "cerebro-compactar"])
         self.assertIn("Powershell".lower(), (base / "cerebro-compactar" / "SKILL.md").read_text(encoding="utf-8").lower(), "a variante do agy")
         self.assertFalse((base / "cerebro-compactar" / "variantes").exists())
-        marca = json.loads((base / "cerebro-buscar" / ".instalado.json").read_text(encoding="utf-8"))
+        marca = json.loads((base / "cerebro-ler" / ".instalado.json").read_text(encoding="utf-8"))
         self.assertEqual(marca["alvo"], "antigravity")
         self.assertFalse((self.widget / ".claude").exists(), "só o agy foi pedido")
 
@@ -150,14 +150,14 @@ class TestAlvos(Base):
         self.assertIn("--aplicar-skills-agy", saida)
         self.assertFalse((self.raiz / "agy-skills").exists())
         self.rodar("--global", "--alvo", "antigravity", "--aplicar-skills-agy")
-        self.assertTrue((self.raiz / "agy-skills" / "cerebro-buscar" / "SKILL.md").is_file())
+        self.assertTrue((self.raiz / "agy-skills" / "cerebro-ler" / "SKILL.md").is_file())
         self.assertTrue((self.raiz / "agy-skills" / "cerebro-compactar" / "SKILL.md").is_file())
 
     def test_ambos_no_projeto_instala_nos_dois(self):
         codigo, saida = self.rodar("--alvo", "ambos")
         self.assertEqual(codigo, 0, saida)
-        self.assertTrue((self.widget / ".claude" / "skills" / "cerebro-buscar" / "SKILL.md").is_file())
-        self.assertTrue((self.widget / ".agents" / "skills" / "cerebro-buscar" / "SKILL.md").is_file())
+        self.assertTrue((self.widget / ".claude" / "skills" / "cerebro-ler" / "SKILL.md").is_file())
+        self.assertTrue((self.widget / ".agents" / "skills" / "cerebro-ler" / "SKILL.md").is_file())
 
     def test_alvo_invalido_e_recusado(self):
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):

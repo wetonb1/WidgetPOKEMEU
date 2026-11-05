@@ -73,11 +73,10 @@ data: {hoje} | origem: widget | projeto: {id}
 
 BLOCO_CLAUDE_MD = """## Cérebro
 O cérebro (memória dos meus projetos) fica em {cerebro}. Id deste projeto no cérebro: `{id}`.
-- Antes de pesquisar sobre este projeto ou decisões passadas, consulte-o com a skill cerebro-buscar
-  (`python "{cerebro}/tools/cerebro.py" buscar termos --projeto {id}`: 1 chamada, já traz o estado).
-  Abra só o que combinar, com `cerebro.py ler` (máx. 3 arquivos).
-- Nunca leia os arquivos do cérebro direto: use sempre o cerebro.py.
-- Ao final de uma sessão produtiva, rode /compactar (ou a skill cerebro-compactar, nas IAs sem esse comando; projeto: {id}) e, se o estado mudou, atualize-o.
+- Antes de pesquisar sobre este projeto ou decisões passadas, consulte-o com a skill /cerebro-ler
+  (carrega o estado e as conversas do projeto).
+- Nunca leia os arquivos do cérebro direto: use sempre a skill /cerebro-ler ou o cerebro.py.
+- Ao final de uma sessão produtiva, rode /compactar (skill cerebro-compactar, projeto: {id}) e, se o estado mudou, atualize-o.
 """
 
 

@@ -248,8 +248,8 @@ class TestPrepararProjeto(Base):
         self.assertTrue(feito["escrito"])
         texto = (self.pasta / "CLAUDE.md").read_text(encoding="utf-8")
         self.assertLessEqual(len(texto.splitlines()), 20)
-        for esperado in ("# Jogo do Roblox", "`jogo-do-roblox`", "/compactar", "--projeto jogo-do-roblox",
-                         "cerebro-buscar", "buscar termos --projeto jogo-do-roblox", str(self.base).replace("\\", "/"), "Nunca leia os arquivos do cérebro direto"):
+        for esperado in ("# Jogo do Roblox", "`jogo-do-roblox`", "/compactar", "projeto: jogo-do-roblox",
+                         "/cerebro-ler", str(self.base).replace("\\", "/"), "Nunca leia os arquivos do cérebro direto"):
             self.assertIn(esperado, texto)
 
     def test_existente_nao_e_sobrescrito_so_acrescenta_secao_com_diff(self):
@@ -640,7 +640,7 @@ class TestPrepararPorIA(Base):
         self.assertEqual(self.arquivos(), ["AGENTS.md"])
         texto = (self.pasta / "AGENTS.md").read_text(encoding="utf-8")
         self.assertLessEqual(len(texto.splitlines()), 20)
-        for esperado in ("# Jogo do Roblox", "## Cérebro", "`jogo-do-roblox`", "cerebro-buscar", "buscar termos --projeto jogo-do-roblox", "Nunca leia os arquivos do cérebro direto"):
+        for esperado in ("# Jogo do Roblox", "## Cérebro", "`jogo-do-roblox`", "/cerebro-ler", "Nunca leia os arquivos do cérebro direto"):
             self.assertIn(esperado, texto)
 
     def test_com_ia_reserva_gera_os_dois_arquivos(self):
@@ -698,7 +698,7 @@ class TestPrepararPorIA(Base):
     def test_o_bloco_e_neutro_e_o_prompt_inicial_nao_cita_ferramenta_de_uma_ia_so(self):
         bloco = projetos.BLOCO_CLAUDE_MD
         self.assertLessEqual(len(bloco.strip().splitlines()) + 2, projetos.MAX_LINHAS_CLAUDE_MD)
-        for neutro in ("skill cerebro-buscar", 'python "{cerebro}/tools/cerebro.py" buscar'):
+        for neutro in ("skill /cerebro-ler",):
             self.assertIn(neutro, bloco)
         prompt_base = (Path(__file__).resolve().parent / "prompt_inicial.txt").read_text(encoding="utf-8")
         self.novo()

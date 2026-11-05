@@ -66,7 +66,6 @@ COMANDOS_DA_SKILL = {
     "cerebro-titulos": ("titulos",),
     "cerebro-cabecalho": ("cabecalho",),
     "cerebro-ler": ("ler",),
-    "cerebro-buscar": ("buscar", "ler"),
     "cerebro-compactar": ("salvar",),
 }
 

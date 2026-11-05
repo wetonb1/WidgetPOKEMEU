@@ -1,0 +1,15 @@
+{
+  "nome": "cerebro-ler",
+  "titulo": "Cérebro: ler projeto completo (/cerebro-ler)",
+  "descricao_curta": "Lê a memória completa de um projeto no cérebro (o estado atual e todas as conversas/decisões históricas) de uma só vez.",
+  "exemplo_de_uso": "/cerebro-ler ou /cerebro-ler <projeto>",
+  "categoria": "cerebro",
+  "versao": "1.0.0",
+  "autor": "eu",
+  "origem": "local",
+  "compativel": [
+    "claude",
+    "antigravity"
+  ],
+  "arquivos_extras": []
+}

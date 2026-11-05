@@ -161,10 +161,10 @@
       "arquivos_extras": []
     },
     {
-      "nome": "cerebro-buscar",
-      "titulo": "Cérebro: buscar (combinada)",
-      "descricao_curta": "Os 3 níveis numa skill só: estado, títulos e cabeçalhos; sugere o que abrir.",
-      "exemplo_de_uso": "lembra o que fizemos na busca em 3 níveis do cérebro?",
+      "nome": "cerebro-compactar",
+      "titulo": "Cérebro: compactar",
+      "descricao_curta": "Resume a sessão atual num arquivo do cérebro (e o estado do projeto, se mudou).",
+      "exemplo_de_uso": "compacta esta sessão no cérebro",
       "categoria": "cerebro",
       "versao": "1.0.0",
       "autor": "eu",
@@ -176,10 +176,10 @@
       "arquivos_extras": []
     },
     {
-      "nome": "cerebro-compactar",
-      "titulo": "Cérebro: compactar",
-      "descricao_curta": "Resume a sessão atual num arquivo do cérebro (e o estado do projeto, se mudou).",
-      "exemplo_de_uso": "compacta esta sessão no cérebro",
+      "nome": "cerebro-ler",
+      "titulo": "Cérebro: ler projeto completo (/cerebro-ler)",
+      "descricao_curta": "Lê a memória completa de um projeto no cérebro (o estado atual e todas as conversas/decisões históricas) de uma só vez.",
+      "exemplo_de_uso": "/cerebro-ler ou /cerebro-ler <projeto>",
       "categoria": "cerebro",
       "versao": "1.0.0",
       "autor": "eu",

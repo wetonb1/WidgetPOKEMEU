@@ -10,7 +10,7 @@ a linha de comando é só uma camada fina por cima delas.
   cerebro.py indice
   cerebro.py titulos TERMOS [--projeto X] [--limite 8]      nível 1: só nomes
   cerebro.py cabecalho TERMOS [--arquivos A B] [--limite 5] nível 2: 2 primeiras linhas
-  cerebro.py ler ARQUIVO... [--max 3]                       nível 3: arquivo inteiro
+  cerebro.py ler [ARQUIVO...] [--projeto P] [--max N]       nível 3: arquivo inteiro ou projeto completo
   cerebro.py buscar TERMOS [--projeto X]                    estado + 1 + 2, sugere o que abrir
   cerebro.py salvar --titulo T --palavras a,b --origem O --projeto P [--data AAAA-MM-DD] [--estado]  < corpo
   cerebro.py painel [--projeto P]       projetos, estatísticas e resumo do estado (aba do widget)
@@ -614,10 +614,37 @@ def _localizar_arquivo(base, pedido):
     return None
 
 
+def arquivos_do_projeto(base, projeto):
+    """Devolve a lista de arquivos de um projeto: estado/{projeto}.md (se existir) + todas as conversas do projeto em ordem cronológica."""
+    base = Path(base)
+    chave = _chave_projeto(projeto)
+    if not chave or chave == "sem-projeto":
+        return []
+    arquivos = []
+    arq_estado = base / "estado" / f"{chave}.md"
+    if arq_estado.is_file():
+        arquivos.append(f"estado/{arq_estado.name}")
+
+    conversas = []
+    for arq in _listar(base / "conversas"):
+        try:
+            cab = ler_cabecalho(arq)
+            if _chave_projeto(cab.get("projeto")) == chave:
+                m = RE_PREFIXO_DATA.match(arq.name)
+                data = m.group(1) if m else (cab.get("data") or "")
+                conversas.append((data, arq.name))
+        except OSError:
+            continue
+    conversas.sort(key=lambda x: (x[0], x[1]))
+    for _, nome in conversas:
+        arquivos.append(nome)
+    return arquivos
+
+
 def ler_arquivos(base, pedidos, maximo=MAX_LER):
     """NÍVEL 3. Conteúdo completo de até 'maximo' arquivos (nome com ou sem caminho).
-    Devolve ([(arquivo, texto)], não encontrados)."""
-    if len(pedidos) > maximo:
+    Se maximo for None, não impõe limite de arquivos. Devolve ([(arquivo, texto)], não encontrados)."""
+    if maximo is not None and len(pedidos) > maximo:
         raise ValueError(f"máximo {maximo} arquivos por vez (recebi {len(pedidos)})")
     lidos, faltando = [], []
     for pedido in pedidos:
@@ -996,14 +1023,35 @@ def _cmd_cabecalho(args):
 
 def _cmd_ler(args):
     base = localizar_cerebro()
-    lidos, faltando = ler_arquivos(base, args.arquivos, args.max)
+    if not args.arquivos and not args.projeto:
+        print("erro: informe ao menos um arquivo ou --projeto", file=sys.stderr)
+        return 2
+
+    if args.projeto:
+        arqs_proj = arquivos_do_projeto(base, args.projeto)
+        pedidos = arqs_proj + [a for a in (args.arquivos or []) if a not in arqs_proj]
+        if not pedidos:
+            msg = f"nenhum arquivo encontrado para o projeto: {args.projeto}"
+            _imprimir(args, {"projeto": args.projeto, "arquivos": [], "nao_encontrados": []}, [msg])
+            return 1
+        if args.max is not None:
+            pedidos = pedidos[:args.max]
+        lidos, faltando = ler_arquivos(base, pedidos, maximo=None)
+    else:
+        maximo = args.max if args.max is not None else MAX_LER
+        lidos, faltando = ler_arquivos(base, args.arquivos, maximo)
+
     linhas = [f"não encontrado: {a}" for a in faltando]
     for rel, texto in lidos:
         linhas += [f"== {rel}", texto]
     dados = {"arquivos": [{"arquivo": r, "conteudo": t,
                            "atualizado": _data_modificacao(os.path.join(base, *(r.split("/") if "/" in r else ["conversas", r])))}
                           for r, t in lidos], "nao_encontrados": faltando}
-    _saida_busca(args, base, args.arquivos, dados, linhas, len(lidos), [r for r, _ in lidos])
+    if args.projeto:
+        dados["projeto"] = args.projeto
+        dados["total"] = len(lidos)
+    termos_busca = ([f"--projeto {args.projeto}"] + (args.arquivos or [])) if args.projeto else args.arquivos
+    _saida_busca(args, base, termos_busca, dados, linhas, len(lidos), [r for r, _ in lidos])
     return 1 if faltando and not lidos else 0
 
 
@@ -1092,9 +1140,10 @@ def montar_parser():
     p.add_argument("--limite", type=int, default=LIMITE_CABECALHO)
     p.set_defaults(func=_cmd_cabecalho)
 
-    p = sub.add_parser("ler", parents=[comum], help="nível 3: imprime arquivos inteiros (até 3)")
-    p.add_argument("arquivos", nargs="+")
-    p.add_argument("--max", type=int, default=MAX_LER)
+    p = sub.add_parser("ler", parents=[comum], help="nível 3: imprime arquivos inteiros de um projeto ou por nome")
+    p.add_argument("arquivos", nargs="*", default=[], help="nomes dos arquivos (com ou sem caminho)")
+    p.add_argument("--projeto", help="lê todo o cérebro do projeto (estado + todas as conversas)")
+    p.add_argument("--max", type=int, default=None, help=f"máximo de arquivos (padrão {MAX_LER} para arquivos avulsos, ou todos se usar --projeto)")
     p.set_defaults(func=_cmd_ler)
 
     p = sub.add_parser("buscar", parents=[comum], help="estado + títulos + cabeçalhos; sugere o que abrir")
