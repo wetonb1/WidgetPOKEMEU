@@ -5,7 +5,7 @@ const fs = require('fs');
 const http = require('http');
 const os = require('os');
 const path = require('path');
-const { criarCatalogo, cabecalhoSkill, FONTES } = require('../app/catalogo-skills');
+const { criarCatalogo, cabecalhoSkill, FONTES, ACERVO, prepararTermos, pontuar, juntarAvaliacao } = require('../app/catalogo-skills');
 
 let falhas = 0;
 const teste = async (nome, fn) => {
@@ -166,6 +166,130 @@ const servidor = http.createServer((req, res) => {
     await assert.rejects(() => cat.baixar('dono/muitos', 's', d), (e) => e.tipo === 'grande' && /311 arquivos/.test(e.message));
     await assert.rejects(() => cat.baixar('x/../y', 'a', d), /inválido/);
   });
+
+  // ---------- busca por projeto ----------
+  const fontesFalsas = ACERVO.map((f) => f.repo);
+  REPOS['anthropics/skills'] = {
+    tree: [
+      { path: 'skills/pdf/SKILL.md', type: 'blob', sha: 'a1', size: 10 },
+      { path: 'skills/pdf/ler.py', type: 'blob', sha: 'a2', size: 10 },
+      { path: 'skills/receita/SKILL.md', type: 'blob', sha: 'a3', size: 10 },
+    ],
+    arquivos: {
+      'skills/pdf/SKILL.md': '---\nname: pdf\ndescription: Create and merge PDF files with python\n---\n',
+      'skills/receita/SKILL.md': '---\nname: receita\ndescription: Cooking helper\n---\n',
+    },
+  };
+  REPOS['obra/superpowers'] = {
+    tree: [
+      { path: 'skills/react-tests/SKILL.md', type: 'blob', sha: 'b1', size: 10 },
+      { path: 'plugins/x/skills/react-tests/SKILL.md', type: 'blob', sha: 'b2', size: 10 }, // cópia dentro do mesmo repositório
+      { path: 'skills/pdf/SKILL.md', type: 'blob', sha: 'b3', size: 10 }, // a mesma skill de um repositório oficial
+    ],
+    arquivos: {
+      'skills/react-tests/SKILL.md': '---\nname: react-tests\ndescription: Testing components\n---\n',
+      'plugins/x/skills/react-tests/SKILL.md': '---\nname: react-tests\ndescription: cópia\n---\n',
+      'skills/pdf/SKILL.md': '---\nname: pdf\ndescription: outra versão\n---\n',
+    },
+  };
+  REPOS['sickn33/agentic-awesome-skills'] = {
+    tree: [],
+    arquivos: { 'skills_index.json': JSON.stringify([
+      { id: 'blender-tool', path: 'skills/blender-tool', name: 'blender-tool', description: 'Modeling inside Blender' },
+      { id: 'fora', path: '../fora', name: 'fora', description: 'python' },
+    ]) },
+  };
+  const perfil = { stack: ['python'], termos: ['react', 'pdf', 'blender', 'web testing'], evitar: ['cooking'] };
+  const comIndice = (extra = {}) => criarCatalogo({ api: base, raw: base, arquivoCache: cache, arquivoIndice: path.join(pasta, 'indice.json'), ...extra });
+
+  await teste('nota: nome vale mais que descrição, "evitar" tira e sem relação fica de fora', () => {
+    const t = prepararTermos(perfil);
+    const noNome = pontuar({ nome: 'pdf', descricao: '', caminho: 'skills/pdf' }, t);
+    const naDescricao = pontuar({ nome: 'x', descricao: 'works with pdf files', caminho: 'skills/x' }, t);
+    assert.ok(noNome.pontos > naDescricao.pontos && naDescricao.pontos > 0);
+    assert.strictEqual(pontuar({ nome: 'nada', descricao: 'sem relação', caminho: 's/nada' }, t).pontos, 0);
+    assert.strictEqual(pontuar({ nome: 'pdf-cooking', descricao: '', caminho: 's/x' }, prepararTermos({ termos: ['pdf'], evitar: ['cooking'] })).pontos, 0);
+  });
+  await teste('nota: termo curto não casa no meio do texto nem em palavra comum da descrição', () => {
+    const t = prepararTermos({ termos: ['go', 'test'] });
+    assert.strictEqual(pontuar({ nome: 'latest', descricao: 'let us go now', caminho: 's/x' }, t).pontos, 0);
+    assert.ok(pontuar({ nome: 'go-tools', descricao: '', caminho: 's/x' }, t).pontos > 0);
+  });
+  await teste('nota: termo de duas palavras casa com hífen e fora de ordem', () => {
+    const t = prepararTermos({ termos: ['code review'] });
+    const certo = pontuar({ nome: 'code-review', descricao: '', caminho: 's/a' }, t);
+    const fora = pontuar({ nome: 'x', descricao: 'review your code', caminho: 's/b' }, t);
+    assert.ok(certo.pontos > fora.pontos && fora.pontos > 0);
+  });
+
+  await teste('busca: lê todo o acervo, tira cópias, fica com a oficial e recusa caminho de fora', async () => {
+    const cat2 = comIndice();
+    const etapas = new Set();
+    const r = await cat2.buscarParaProjeto(perfil, (p) => etapas.add(p.etapa));
+    const nomes = r.skills.map((s) => s.nome);
+    assert.deepStrictEqual([...nomes].sort(), ['blender-tool', 'pdf', 'react-tests']);
+    const pdf = r.skills.find((s) => s.nome === 'pdf');
+    assert.deepStrictEqual([pdf.repo, pdf.verificada, pdf.copias], ['anthropics/skills', true, 3]); // oficial, superpowers e o repositório achado pela busca
+    assert.strictEqual(r.skills.find((s) => s.nome === 'react-tests').caminho, 'skills/react-tests');
+    assert.strictEqual(r.skills.find((s) => s.nome === 'blender-tool').verificada, false);
+    assert.ok(/python/.test(pdf.razao) && /pdf/.test(pdf.razao), pdf.razao);
+    assert.ok(etapas.has('repositorios') && etapas.has('nota'));
+    assert.strictEqual(r.faltaram, 0);
+  });
+  await teste('busca: a segunda vez não pede nada (nem a outro projeto, que só muda a nota)', async () => {
+    const antes = pedidos.length;
+    const r = await comIndice().buscarParaProjeto({ ...perfil, termos: perfil.termos });
+    assert.strictEqual(pedidos.length, antes, pedidos.slice(antes).join(' '));
+    assert.strictEqual(r.skills.length, 3);
+  });
+  await teste('busca: passadas 24 h só relê o SKILL.md que mudou (sha diferente)', async () => {
+    const depois = comIndice({ agora: () => Date.now() + 25 * 60 * 60 * 1000 });
+    REPOS['anthropics/skills'].tree[0].sha = 'a1-novo';
+    REPOS['anthropics/skills'].arquivos['skills/pdf/SKILL.md'] = '---\nname: pdf\ndescription: Nova descrição de pdf\n---\n';
+    const antes = pedidos.length;
+    const r = await depois.buscarParaProjeto(perfil);
+    const lidos = pedidos.slice(antes).filter((u) => u.endsWith('SKILL.md'));
+    assert.deepStrictEqual(lidos, ['/anthropics/skills/HEAD/skills/pdf/SKILL.md']);
+    assert.strictEqual(r.skills.find((s) => s.nome === 'pdf').descricao, 'Nova descrição de pdf');
+  });
+  await teste('busca: limite do GitHub não derruba, responde com o que tem e avisa', async () => {
+    const limpo = criarCatalogo({ api: base, raw: base, arquivoCache: cache, arquivoIndice: path.join(pasta, 'indice2.json') });
+    modo = 'limite';
+    try {
+      const r = await limpo.buscarParaProjeto(perfil);
+      assert.deepStrictEqual(r.skills, []);
+      assert.ok(r.avisos.some((a) => /limitou/.test(a)), r.avisos.join(' | '));
+    } finally { modo = 'ok'; }
+    const comIdx = comIndice();
+    const antes = pedidos.length;
+    modo = 'limite';
+    try {
+      const r = await comIdx.buscarParaProjeto(perfil);
+      assert.ok(r.skills.length >= 3, 'o índice guardado continua servindo');
+    } finally { modo = 'ok'; }
+    assert.ok(pedidos.length >= antes);
+  });
+  await teste('busca: sem nenhum termo explica o que fazer', async () => {
+    await assert.rejects(() => comIndice().buscarParaProjeto({ termos: [], stack: [] }), /\[ler projeto\]/);
+  });
+  await teste('juntar: a skill que já está na biblioteca fica como local e o resumo recalcula', () => {
+    const local = { projeto: { id: 'x', online: false }, resumo: { instaladas_projeto: 1 }, skills: [{ nome: 'pdf', origem: 'local', nivel: 'util', pontos: 50 }] };
+    const busca = { repositorios: [], lidas: 9, faltaram: 0, avisos: [], skills: [
+      { nome: 'pdf', origem: 'online', nivel: 'essencial', pontos: 90 }, { nome: 'react', origem: 'online', nivel: 'essencial', pontos: 80 },
+    ] };
+    const j = juntarAvaliacao(local, busca);
+    assert.deepStrictEqual(j.skills.map((s) => `${s.nome}:${s.origem}`), ['react:online', 'pdf:local']);
+    assert.deepStrictEqual([j.resumo.total, j.resumo.online, j.resumo.locais, j.resumo.essenciais, j.resumo.uteis, j.resumo.instaladas_projeto], [2, 1, 1, 1, 1, 1]);
+    assert.strictEqual(j.projeto.online, true);
+    assert.strictEqual(j.busca.lidas, 9);
+  });
+  await teste('baixar reaproveita a árvore de um lote: nenhum pedido novo de árvore', async () => {
+    const a = await cat.arvore('dono/skills');
+    const antes = pedidos.filter((u) => u.includes('/git/trees/')).length;
+    await cat.baixar('dono/skills', 'skills/pdf', path.join(pasta, 'lote'), a);
+    assert.strictEqual(pedidos.filter((u) => u.includes('/git/trees/')).length, antes);
+  });
+  assert.ok(fontesFalsas.includes('anthropics/skills'));
 
   servidor.close();
   fs.rmSync(pasta, { recursive: true, force: true });
