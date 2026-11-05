@@ -93,8 +93,8 @@ try {
     assert.ok(blender, 'blender-modeler deve estar presente');
     assert.strictEqual(blender.nivel, 'opcional', 'blender-modeler deve ser opcional para web');
 
-    const buscar = r.skills.find((s) => s.nome === 'cerebro-buscar');
-    assert.strictEqual(buscar.nivel, 'essencial', 'cerebro-buscar deve ser sempre essencial');
+    const ler = r.skills.find((s) => s.nome === 'cerebro-ler');
+    assert.strictEqual(ler.nivel, 'essencial', 'cerebro-ler deve ser sempre essencial');
 
     const compactar = r.skills.find((s) => s.nome === 'cerebro-compactar');
     assert.strictEqual(compactar.nivel, 'essencial', 'cerebro-compactar deve ser sempre essencial');

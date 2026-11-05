@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 """avaliar_skills.py - avaliador de skills para projetos do widget e cérebro.
 
-Analisa o estado do projeto (cerebro/estado/{id}.md), seu stack, histórico e arquivos da pasta,
-classificando todas as skills disponíveis no catálogo por nível de utilidade:
+Analisa o estado do projeto (cerebro/estado/{id}.md), o perfil gravado pelo [ler projeto] (perfil_projeto.py),
+os arquivos e as dependências da pasta inteira, classificando todas as skills disponíveis no catálogo por nível de utilidade:
   - Essencial (Alta utilidade): impacto direto no stack, tarefas ou economia crítica de tokens
   - Útil (Média utilidade): ferramentas que otimizam o fluxo e leitura cirúrgica
   - Opcional (Baixa utilidade): skills de nicho não alinhadas ao stack atual
@@ -45,13 +45,18 @@ try:
 except ImportError:
     skills = None
 
+try:
+    import perfil_projeto
+except ImportError:
+    perfil_projeto = None
+
 
 # Regras e afinidades específicas para catálogo oficial
 REGRAS_ESPECIFICAS = {
-    "cerebro-buscar": {
+    "cerebro-ler": {
         "pontos_base": 96,
         "nivel_padrao": "essencial",
-        "razao_padrao": "Indispensável: reduz até 85% dos tokens buscando decisões e notas na memória antes de varrer o código.",
+        "razao_padrao": "Indispensável: carrega a memória completa do projeto (estado + conversas) para consulta antes de pesquisar.",
         "economia": "Alta (~2k a 8k tokens por sessão)",
     },
     "cerebro-compactar": {
@@ -447,6 +452,16 @@ def avaliar_skills_projeto(id_projeto: str, base_cerebro: Path | None = None, on
     pasta_proj = Path(proj["pasta"])
     stack_pasta = _detectar_stack_da_pasta(pasta_proj)
 
+    # A pasta inteira (só nomes e dependências) e o que a IA entendeu no [ler projeto]; sem eles a avaliação fica no estado e na raiz da pasta
+    perfil = perfil_projeto.ler_perfil(id_projeto) if perfil_projeto else None
+    varredura = perfil_projeto.varrer(pasta_proj) if perfil_projeto else {}
+    linguagens = [l["nome"] for l in varredura.get("linguagens", []) if l["nome"] not in ("Markdown", "JSON", "PDF")]
+    for nome in linguagens[:6]:
+        if not any(nome.lower() in t.lower() for t in stack_pasta):
+            stack_pasta.append(nome)
+    if perfil:
+        stack_pasta = list(perfil.get("stack", [])) or stack_pasta
+
     contexto = " ".join([
         proj.get("nome", ""),
         proj.get("descricao", ""),
@@ -457,6 +472,10 @@ def avaliar_skills_projeto(id_projeto: str, base_cerebro: Path | None = None, on
         estado_atual_texto,
         " ".join(stack_pasta),
         pasta_proj.name,
+        " ".join(varredura.get("termos", [])),
+        (perfil or {}).get("assunto", ""),
+        " ".join((perfil or {}).get("tarefas", [])),
+        " ".join((perfil or {}).get("termos", [])),
     ]).lower()
 
     # Obtém catálogo completo e status de instalação
@@ -550,7 +569,7 @@ def avaliar_skills_projeto(id_projeto: str, base_cerebro: Path | None = None, on
                 economia = "Baixa"
 
         # Bônus para skills essenciais do cérebro
-        if categoria == "cerebro" and nome in ["cerebro-buscar", "cerebro-compactar", "cerebro-avaliar"]:
+        if categoria == "cerebro" and nome in ["cerebro-ler", "cerebro-compactar", "cerebro-avaliar"]:
             nivel = "essencial"
             if not razao:
                 razao = regra.get("razao_padrao", "Economiza tokens consultando a memória persistente.")
@@ -600,7 +619,9 @@ def avaliar_skills_projeto(id_projeto: str, base_cerebro: Path | None = None, on
     avaliadas.sort(key=lambda item: (ordem_nivel.get(item["nivel"], 9), 1 if item.get("origem") == "online" else 0, -item["pontos"], item["nome"]))
 
     # Resumo descritivo do stack para exibição na UI
-    stack_exibicao = stack_texto.strip().split("\n")[0] if stack_texto else ""
+    stack_exibicao = ", ".join(perfil.get("stack", [])) if perfil else ""
+    if not stack_exibicao:
+        stack_exibicao = stack_texto.strip().split("\n")[0] if stack_texto else ""
     if not stack_exibicao and stack_pasta:
         stack_exibicao = ", ".join(stack_pasta)
     if not stack_exibicao:
@@ -616,6 +637,8 @@ def avaliar_skills_projeto(id_projeto: str, base_cerebro: Path | None = None, on
             "modelo_padrao": proj.get("modelo_padrao", ""),
             "stack": stack_exibicao[:100],
             "objetivo": objetivo_texto.strip().split("\n")[0][:120] if objetivo_texto else "",
+            "assunto": (perfil or {}).get("assunto", ""),
+            "perfil_em": (perfil or {}).get("lido_em", ""),
             "tem_estado": bool(texto_estado.strip()),
             "online": bool(online),
         },
