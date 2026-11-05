@@ -204,6 +204,54 @@ const teste = async (nome, fn) => {
     assert.strictEqual(at.lerRegistro(path.join(tmp, 'r-config'), CONFIG), null);
   });
 
+  // instalada = o que veio do GitHub (SHA1); nova = o que está lá agora (SHA2)
+  const montarConflito = (nome) => {
+    const tar = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe') : 'tar';
+    const pasta = path.join(tmp, nome);
+    const pacotes = { [SHA1]: path.join(pasta, 'instalada.tar.gz'), [SHA2]: path.join(pasta, 'nova.tar.gz') };
+    montarInstalacaoDoUsuario(path.join(pasta, 'instalada', 'topo'));
+    gravar(path.join(pasta, 'instalada', 'topo'), 'app/fim-de-linha.js', 'um\ntres\n');
+    montarVersaoNova(path.join(pasta, 'nova', 'topo'));
+    gravar(path.join(pasta, 'nova', 'topo'), 'app/fim-de-linha.js', 'um\ndois\n');
+    for (const v of ['instalada', 'nova']) execFileSync(tar, ['-czf', path.join(pasta, v + '.tar.gz'), '-C', path.join(pasta, v), 'topo']);
+    const raiz = path.join(pasta, 'raiz');
+    const config = path.join(pasta, 'config');
+    montarInstalacaoDoUsuario(raiz);
+    gravar(raiz, 'app/main.js', 'MEU TRABALHO');
+    gravar(raiz, 'app/fim-de-linha.js', 'um\r\ntres\r\n'); // só o fim de linha mudou: não é trabalho
+    at.registrar(config, SHA1, CONFIG);
+    const baixar = async (c, sha, destino) => fs.copyFileSync(pacotes[sha], destino);
+    return { raiz, config, baixar, comum: { raiz, pastaConfig: config, config: CONFIG, buscarSha: async () => SHA2 } };
+  };
+
+  await teste('atualizar: trabalho local não enviado não é trocado sem perguntar', async () => {
+    const { raiz, config, baixar, comum } = montarConflito('c1');
+    const r = await at.atualizar({ ...comum, baixar });
+    assert.deepStrictEqual(r.alterados, ['app/main.js']);
+    assert.strictEqual(ler(raiz, 'app/main.js'), 'MEU TRABALHO');
+    assert.strictEqual(at.lerRegistro(config, CONFIG), SHA1); // continua avisando que há versão nova
+  });
+
+  await teste('atualizar: substituir guarda o trabalho local num backup que o próximo update não apaga', async () => {
+    const { raiz, config, baixar, comum } = montarConflito('c2');
+    const r = await at.atualizar({ ...comum, baixar, substituir: true });
+    assert.strictEqual(r.alterados, undefined);
+    assert.strictEqual(ler(raiz, 'app/main.js'), 'NOVO main');
+    assert.strictEqual(at.lerRegistro(config, CONFIG), SHA2);
+    const proprio = fs.readdirSync(config).find((d) => /^atualizacao-backup-\d{8}T\d{6}$/.test(d));
+    assert.ok(proprio, 'faltou o backup próprio');
+    assert.strictEqual(ler(path.join(config, proprio), 'app/main.js'), 'MEU TRABALHO');
+  });
+
+  await teste('atualizar: sem conseguir baixar a versão instalada, não troca nada', async () => {
+    const { raiz, config, baixar, comum } = montarConflito('c3');
+    await assert.rejects(at.atualizar({
+      ...comum, baixar: async (c, sha, destino) => { if (sha === SHA1) throw new Error('o GitHub respondeu 404'); return baixar(c, sha, destino); },
+    }), /conferir/);
+    assert.strictEqual(ler(raiz, 'app/main.js'), 'MEU TRABALHO');
+    assert.strictEqual(at.lerRegistro(config, CONFIG), SHA1);
+  });
+
   await teste('a config que acompanha o widget (app/atualizacao.json) é válida', () => {
     const c = at.lerConfig(path.join(__dirname, '..', 'app'));
     assert.match(c.repo, /^[\w.-]+\/[\w.-]+$/);

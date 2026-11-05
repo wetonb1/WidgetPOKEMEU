@@ -2120,13 +2120,14 @@ async function verificarAtualizacao() {
 ipcMain.handle('atualizar:estado', (e) => (daJanela(e) ? atualizacao : RECUSADO));
 // o dono ligou "avisar de atualizações" nos ajustes: confere já (é um clique dele)
 ipcMain.handle('atualizar:verificar', (e) => (daJanela(e) ? verificarAtualizacao() : RECUSADO));
-ipcMain.handle('atualizar:aplicar', async (e) => {
+ipcMain.handle('atualizar:aplicar', async (e, substituir) => {
   if (!daJanela(e)) return RECUSADO;
   if (!configAtualizacao || !podeAtualizar()) return { ok: false, erro: 'esta versão isolada não atualiza por aqui: baixe a nova no GitHub' };
   if (atualizando) return { ok: false, erro: 'já estou atualizando' };
   atualizando = true;
   try {
-    const r = await atualizador.atualizar({ raiz: cerebro.pastaRaizWidget(), pastaConfig: PASTA_CONFIG, config: configAtualizacao });
+    const r = await atualizador.atualizar({ raiz: cerebro.pastaRaizWidget(), pastaConfig: PASTA_CONFIG, config: configAtualizacao, substituir: substituir === true });
+    if (r.alterados) return { ok: false, alterados: r.alterados }; // há trabalho não enviado: nada foi trocado, a tela pergunta
     atualizacao = { disponivel: false, remoto: r.sha.slice(0, 7) };
     return { ok: true, atualizados: r.atualizados, novos: r.novos, depsMudaram: r.depsMudaram };
   } catch (erro) {

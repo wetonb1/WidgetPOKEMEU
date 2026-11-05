@@ -10,6 +10,8 @@
 // cerebro/conversas, cerebro/estado, cerebro/indices, cerebro/.log, cerebro/INDICE.md, cerebro/sinonimos.json, projetos.json,
 // importacoes/, node_modules/, .git/, .claude/, .agents/, dist/ e executáveis. Nada é apagado: arquivos que sumirem da
 // versão nova ficam onde estão. O skills-biblioteca/catalogo.json é MESCLADO (as skills que o usuário importou ficam).
+// Código alterado na pasta e ainda não enviado ao GitHub (quem desenvolve aqui) não é trocado sem perguntar: atualizar() compara
+// a pasta com a versão instalada e a nova, e só substitui com "substituir: true", guardando esses arquivos num backup próprio.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -197,8 +199,8 @@ function validarOrigem(origem) {
   if (p.main !== 'app/main.js') throw new Error('a versão baixada não parece ser o widget');
 }
 
-// Copia só código. Devolve { atualizados, novos, iguais, depsMudaram }. Se algo falhar, desfaz tudo e lança o erro.
-function aplicar({ origem, raiz, backup }) {
+// o que a versão nova traria para a pasta: só código, nada de dados do usuário
+function planejar(origem, raiz) {
   const plano = [];
   for (const rel of listar(origem)) {
     const partes = rel.split('/');
@@ -207,6 +209,31 @@ function aplicar({ origem, raiz, backup }) {
     if (!dentro(raiz, para)) continue;
     plano.push({ rel, de: path.join(origem, ...partes), para });
   }
+  return plano;
+}
+
+// CRLF e LF contam como iguais: o git no Windows troca um pelo outro sem ninguém ter mexido no arquivo
+const semCR = (b) => Buffer.from(b.toString('latin1').replace(/\r\n/g, '\n'), 'latin1');
+const mesmoConteudo = (a, b) => a.equals(b) || semCR(a).equals(semCR(b));
+
+// Arquivos que a versão nova trocaria e que também não são a versão instalada: trabalho local que ainda não foi enviado ao GitHub.
+function alteracoesLocais({ origem, base, raiz }) {
+  const lista = [];
+  for (const { rel, de, para } of planejar(origem, raiz)) {
+    if (rel === 'skills-biblioteca/catalogo.json') continue; // é mesclado, não trocado
+    let atual;
+    try { atual = fs.readFileSync(para); } catch { continue; } // arquivo novo: não há o que perder
+    if (mesmoConteudo(atual, fs.readFileSync(de))) continue;
+    let instalado = null;
+    try { instalado = fs.readFileSync(path.join(base, ...rel.split('/'))); } catch { /* só existe nesta pasta */ }
+    if (!instalado || !mesmoConteudo(atual, instalado)) lista.push(rel);
+  }
+  return lista;
+}
+
+// Copia só código. Devolve { atualizados, novos, iguais, depsMudaram }. Se algo falhar, desfaz tudo e lança o erro.
+function aplicar({ origem, raiz, backup }) {
+  const plano = planejar(origem, raiz);
   const depsAntes = dependencias(path.join(raiz, 'package.json'));
   fs.rmSync(backup, { recursive: true, force: true });
   fs.mkdirSync(backup, { recursive: true });
@@ -251,21 +278,42 @@ function aplicar({ origem, raiz, backup }) {
   return resumo;
 }
 
-// baixa, confere e aplica. Devolve { sha, atualizados, novos, iguais, depsMudaram }
-async function atualizar({ raiz, pastaConfig, config, buscarSha = shaRemoto, baixar = baixarTarball, extrair = extrairTarball }) {
+// baixa e descompacta um commit; devolve a pasta com o código dele
+async function baixarVersao({ config, sha, tmp, nome, baixar, extrair }) {
+  const arquivo = path.join(tmp, nome + '.tar.gz');
+  await baixar(config, sha, arquivo);
+  const pasta = path.join(tmp, nome);
+  fs.mkdirSync(pasta);
+  await extrair(arquivo, pasta);
+  const topos = fs.readdirSync(pasta, { withFileTypes: true }).filter((d) => d.isDirectory());
+  if (topos.length !== 1) throw new Error('pacote baixado com formato inesperado');
+  return path.join(pasta, topos[0].name);
+}
+
+// Baixa, confere e aplica. Devolve { sha, atualizados, novos, iguais, depsMudaram }. Com trabalho local não enviado devolve { sha, alterados }
+// sem trocar nada; com "substituir", troca e guarda esses arquivos numa pasta só deles, que o próximo update não apaga.
+async function atualizar({ raiz, pastaConfig, config, buscarSha = shaRemoto, baixar = baixarTarball, extrair = extrairTarball, substituir = false }) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'meu-widget-update-'));
   try {
     const sha = await buscarSha(config);
-    const arquivo = path.join(tmp, 'codigo.tar.gz');
-    await baixar(config, sha, arquivo);
-    const pasta = path.join(tmp, 'extraido');
-    fs.mkdirSync(pasta);
-    await extrair(arquivo, pasta);
-    const topos = fs.readdirSync(pasta, { withFileTypes: true }).filter((d) => d.isDirectory());
-    if (topos.length !== 1) throw new Error('pacote baixado com formato inesperado');
-    const origem = path.join(pasta, topos[0].name);
+    const origem = await baixarVersao({ config, sha, tmp, nome: 'nova', baixar, extrair });
     validarOrigem(origem);
-    const resumo = aplicar({ origem, raiz, backup: path.join(pastaConfig, 'atualizacao-backup') });
+    let alterados = [];
+    const instalado = lerRegistro(pastaConfig, config) || shaDoGit(raiz, config.branch);
+    if (instalado) {
+      let base = origem;
+      if (instalado !== sha) {
+        try {
+          base = await baixarVersao({ config, sha: instalado, tmp, nome: 'instalada', baixar, extrair });
+        } catch (erro) {
+          throw new Error('não consegui conferir se há alterações locais (' + erro.message + ')'); // sem conferir, não troca nada
+        }
+      }
+      alterados = alteracoesLocais({ origem, base, raiz });
+    }
+    if (alterados.length && !substituir) return { sha, alterados };
+    const backup = 'atualizacao-backup' + (alterados.length ? '-' + new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) : '');
+    const resumo = aplicar({ origem, raiz, backup: path.join(pastaConfig, backup) });
     registrar(pastaConfig, sha, config);
     return { sha, ...resumo };
   } finally {
@@ -273,4 +321,4 @@ async function atualizar({ raiz, pastaConfig, config, buscarSha = shaRemoto, bai
   }
 }
 
-module.exports = { lerConfig, shaRemoto, verificar, atualizar, aplicar, ehProtegido, shaDoGit, mesclarCatalogo, extrairTarball, registrar, lerRegistro };
+module.exports = { lerConfig, shaRemoto, verificar, atualizar, aplicar, alteracoesLocais, ehProtegido, shaDoGit, mesclarCatalogo, extrairTarball, registrar, lerRegistro };

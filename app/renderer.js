@@ -8494,15 +8494,23 @@ const atualizacao = (() => {
     dlg.botoes.lastChild.focus();
   }
 
-  async function instalar() {
+  async function instalar(substituir) {
     ocupado = true;
     dlg.erro.textContent = '';
     dlg.titulo.textContent = 'Atualizando...';
     dlg.texto.textContent = 'Baixando a versão nova e trocando os arquivos. Pode levar alguns segundos; não feche o widget.';
     dlg.botoes.replaceChildren();
     let r;
-    try { r = await window.widget.atualizacaoAplicar(); } catch (erro) { r = { ok: false, erro: erro.message }; }
+    try { r = await window.widget.atualizacaoAplicar(substituir === true); } catch (erro) { r = { ok: false, erro: erro.message }; }
     ocupado = false;
+    if (r && r.alterados) {
+      const lista = r.alterados.slice(0, 6).join(', ') + (r.alterados.length > 6 ? ` e mais ${r.alterados.length - 6}` : '');
+      dlg.titulo.textContent = 'Há alterações que não estão no GitHub';
+      dlg.texto.textContent = `Nada foi trocado. A versão nova substituiria ${r.alterados.length} arquivo(s) alterado(s) nesta pasta: ${lista}. Envie essas alterações ao GitHub antes de atualizar. Se substituir mesmo assim, uma cópia deles fica em %APPDATA%\\meu-widget\\atualizacao-backup-<data>.`;
+      dlg.botoes.replaceChildren(botao('substituir mesmo assim', () => instalar(true)), botao('cancelar', fechar, true));
+      dlg.botoes.lastChild.focus();
+      return;
+    }
     if (!r || !r.ok) {
       dlg.titulo.textContent = 'Não consegui atualizar';
       dlg.texto.textContent = 'Nada foi mudado: se algo tinha sido trocado, já foi desfeito. Seus dados estão intactos.';

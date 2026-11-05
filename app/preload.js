@@ -142,7 +142,7 @@ contextBridge.exposeInMainWorld('widget', {
   // atualização pelo GitHub (o botão "update"): o main só aplica o que veio da própria branch do widget
   atualizacaoEstado: () => ipcRenderer.invoke('atualizar:estado'),
   atualizacaoVerificar: () => ipcRenderer.invoke('atualizar:verificar'),
-  atualizacaoAplicar: () => ipcRenderer.invoke('atualizar:aplicar'),
+  atualizacaoAplicar: (substituir) => ipcRenderer.invoke('atualizar:aplicar', substituir === true),
   atualizacaoReiniciar: () => ipcRenderer.invoke('atualizar:reiniciar'),
   onAtualizacao: (cb) => {
     ipcRenderer.removeAllListeners('atualizar:aviso');
