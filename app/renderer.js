@@ -5521,7 +5521,7 @@ const projetos = (() => {
   };
   const f = {
     titulo: $('pj-titulo'), pasta: $('pj-pasta'), nome: $('pj-nome'), id: $('pj-id'), grupo: $('pj-grupo'), descricao: $('pj-descricao'),
-    modelo: $('pj-modelo'), cor: $('pj-cor'), tags: $('pj-tags'), erro: $('pj-erro'), salvar: $('pj-salvar'),
+    modelo: $('pj-modelo'), forca: $('pj-forca'), cor: $('pj-cor'), tags: $('pj-tags'), erro: $('pj-erro'), salvar: $('pj-salvar'),
     ia: $('pj-ia'), reserva: $('pj-ia-reserva'),
   };
   const fPasta = {
@@ -5838,48 +5838,61 @@ const projetos = (() => {
         const container = el('div', 'proj-agy-seletor');
         const s = el('select', 'cer-select proj-select proj-agy-select');
         s.title = 'Modelo Antigravity (com opções de esforço de raciocínio)';
-        const modelos = Object.keys(ia.modelos);
-        for (const m of modelos) {
-          const desc = ia.modelos[m];
-          s.append(new Option(desc ? `${m} · ${desc}` : m, m));
+        // a lista mostra só o tipo do modelo (família); a força (low/medium/high) é escolhida nas pílulas ao lado
+        const partir = (id) => {
+          const m = String(id).match(/^(.*)-(low|medium|high)$/);
+          return m ? { base: m[1], forca: m[2] } : { base: String(id), forca: '' };
+        };
+        const bases = [];
+        for (const id of Object.keys(ia.modelos)) {
+          const { base } = partir(id);
+          if (!bases.includes(base)) bases.push(base);
         }
-        s.value = estado.modelo;
-        if (!s.value && s.options.length) s.value = s.options[0].value;
+        const rotuloBase = (base) => {
+          const id = Object.keys(ia.modelos).find((x) => partir(x).base === base);
+          const desc = id ? String(ia.modelos[id] || '') : '';
+          return desc.split(' · ')[0] || base;
+        };
+        for (const b of bases) s.append(new Option(rotuloBase(b), b));
+        const inicial = partir(estado.modelo);
+        let forcaSel = inicial.forca || 'medium';
+        s.value = bases.includes(inicial.base) ? inicial.base : bases[0];
+        // id final = base + força; se aquela força não existir para o modelo, usa a mais próxima que existir
+        const idFinal = () => {
+          const base = s.value;
+          for (const f of [forcaSel, 'medium', 'low', 'high']) {
+            if (ia.modelos[base + '-' + f]) { forcaSel = f; return base + '-' + f; }
+          }
+          return ia.modelos[base] !== undefined ? base : Object.keys(ia.modelos)[0];
+        };
         s.addEventListener('change', () => {
-          escolherModelo(s.value);
+          escolherModelo(idFinal());
           atualizarPilulasForca();
         });
 
         const pilulasForca = el('div', 'proj-forca-pills');
         function atualizarPilulasForca() {
-          const val = s.value || estado.modelo;
-          const forcaAtual = val.endsWith('-low') ? 'low' : (val.endsWith('-high') ? 'high' : 'medium');
           pilulasForca.replaceChildren();
           ['low', 'medium', 'high'].forEach((f) => {
-            const pBtn = el('button', 'forca-pill' + (forcaAtual === f ? ' ativa ' + f : ''), f.toUpperCase());
+            const existe = !!ia.modelos[s.value + '-' + f];
+            const pBtn = el('button', 'forca-pill' + (forcaSel === f ? ' ativa ' + f : ''), f.toUpperCase());
             pBtn.type = 'button';
-            pBtn.title = `Trocar para força ${f.toUpperCase()}`;
+            pBtn.disabled = !existe;
+            pBtn.title = existe ? `Trocar para força ${f.toUpperCase()}` : `${rotuloBase(s.value)} não tem a força ${f.toUpperCase()}`;
             pBtn.addEventListener('click', (ev) => {
               ev.stopPropagation();
-              const atualVal = s.value;
-              const match = atualVal.match(/^(.*)-(low|medium|high)$/);
-              if (match) {
-                const novo = match[1] + '-' + f;
-                if (ia.modelos[novo]) {
-                  s.value = novo;
-                  escolherModelo(novo);
-                  atualizarPilulasForca();
-                }
-              }
+              forcaSel = f;
+              escolherModelo(idFinal());
+              atualizarPilulasForca();
             });
             pilulasForca.append(pBtn);
           });
         }
+        escolherModelo(idFinal());
         atualizarPilulasForca();
 
         container.append(s, pilulasForca);
         zonaModelo.replaceChildren(container);
-        escolherModelo(s.value);
       } else {
         const modelos = Object.keys(ia.modelos);
         const s = el('select', 'cer-select proj-select');
@@ -6493,48 +6506,37 @@ const projetos = (() => {
   function atualizarCamposIA(modelo, reserva) {
     const ia = iaInfo(f.ia.value);
     if (!ia) return;
-    if (f.ia.value === 'antigravity') {
-      const FAMILIAS = [
-        { prefix: 'gemini-3.8-flash', rotulo: 'Gemini 3.8 Flash' },
-        { prefix: 'gemini-4-argon', rotulo: 'Gemini 4 Argon' },
-        { prefix: 'claude-sonnet-5-5', rotulo: 'Claude Sonnet 5.5' },
-        { prefix: 'claude-opus-5-5', rotulo: 'Claude Opus 5.5' },
-        { prefix: 'gpt-oss-120b', rotulo: 'GPT-OSS 120B' },
-      ];
-      const ROTULO_FORCA = { low: 'Low (rápido / leve)', medium: 'Medium (dia a dia)', high: 'High (esforço alto)' };
-      f.modelo.replaceChildren();
-      const modelos = Object.keys(ia.modelos);
-      const usados = new Set();
-      for (const fam of FAMILIAS) {
-        const itens = modelos.filter((m) => m.startsWith(fam.prefix));
-        if (itens.length) {
-          const grupo = document.createElement('optgroup');
-          grupo.label = fam.rotulo;
-          for (const forca of ['low', 'medium', 'high']) {
-            const m = itens.find((x) => x.endsWith('-' + forca));
-            if (m) {
-              usados.add(m);
-              grupo.append(new Option(`${fam.rotulo} · ${ROTULO_FORCA[forca] || forca}`, m));
-            }
-          }
-          itens.filter((x) => !usados.has(x)).forEach((m) => {
-            usados.add(m);
-            grupo.append(new Option(ia.modelos[m] || m, m));
-          });
-          f.modelo.append(grupo);
-        }
-      }
-      const outros = modelos.filter((m) => !usados.has(m));
-      if (outros.length) {
-        const grupo = document.createElement('optgroup');
-        grupo.label = 'Outros modelos';
-        outros.forEach((m) => grupo.append(new Option(ia.modelos[m] || m, m)));
-        f.modelo.append(grupo);
-      }
+    const agy = f.ia.value === 'antigravity';
+    $('pj-forca-rotulo').classList.toggle('oculto', !agy);
+    f.forca.classList.toggle('oculto', !agy);
+    if (agy) {
+      // a lista mostra só o tipo do modelo; a força (low/medium/high) fica no campo ao lado
+      const partir = (id) => {
+        const m = String(id).match(/^(.*)-(low|medium|high)$/);
+        return m ? { base: m[1], forca: m[2] } : { base: String(id), forca: '' };
+      };
+      const ids = Object.keys(ia.modelos);
+      const bases = [];
+      for (const id of ids) { const { base } = partir(id); if (!bases.includes(base)) bases.push(base); }
+      f.modelo.replaceChildren(...bases.map((b) => {
+        const id = ids.find((x) => partir(x).base === b);
+        return new Option(String(ia.modelos[id] || '').split(' · ')[0] || b, b);
+      }));
+      const ini = partir(Object.prototype.hasOwnProperty.call(ia.modelos, modelo) ? modelo : ia.modeloPadrao);
+      f.modelo.value = bases.includes(ini.base) ? ini.base : bases[0];
+      const nomesForca = { low: 'LOW (rápido / leve)', medium: 'MEDIUM (dia a dia)', high: 'HIGH (esforço alto)' };
+      const desenharForca = (preferida) => {
+        const dispo = ['low', 'medium', 'high'].filter((x) => ia.modelos[f.modelo.value + '-' + x]);
+        f.forca.replaceChildren(...dispo.map((x) => new Option(nomesForca[x], x)));
+        f.forca.value = dispo.includes(preferida) ? preferida : (dispo.includes('medium') ? 'medium' : (dispo[0] || ''));
+      };
+      desenharForca(ini.forca || 'medium');
+      f.modelo.onchange = () => desenharForca(f.forca.value);
     } else {
+      f.modelo.onchange = null;
       f.modelo.replaceChildren(...Object.keys(ia.modelos).map((m) => new Option(m + (m === ia.modeloPadrao ? ' (recomendado)' : ''), m)));
+      f.modelo.value = Object.prototype.hasOwnProperty.call(ia.modelos, modelo) ? modelo : ia.modeloPadrao;
     }
-    f.modelo.value = Object.prototype.hasOwnProperty.call(ia.modelos, modelo) ? modelo : ia.modeloPadrao;
     const outras = idsIA().filter((id) => id !== f.ia.value);
     f.reserva.replaceChildren(new Option('nenhuma', ''), ...outras.map((id) => new Option(nomeIA(id), id)));
     f.reserva.value = outras.includes(reserva) ? reserva : (reserva === undefined ? f.reserva.value : '');
@@ -6585,7 +6587,7 @@ const projetos = (() => {
     f.erro.textContent = '';
     const dados = {
       pasta: f.pasta.value.trim(), nome: f.nome.value.trim(), descricao: f.descricao.value.trim(),
-      ia: f.ia.value, modelo_padrao: f.modelo.value, ia_reserva: f.reserva.value || null, cor: f.cor.value, tags: f.tags.value,
+      ia: f.ia.value, modelo_padrao: (f.ia.value === 'antigravity' && f.forca.value ? f.modelo.value + '-' + f.forca.value : f.modelo.value), ia_reserva: f.reserva.value || null, cor: f.cor.value, tags: f.tags.value,
       grupo: f.grupo.value.trim(),
       pular_permissoes: $('pj-pular').checked, // desligado por padrão; o aviso aparece ao ligar
       usar_api_key: $('pj-chave').checked, // desligado por padrão: a sessão usa o login da assinatura
