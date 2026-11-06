@@ -4,33 +4,122 @@
 // instalado: este módulo só LÊ da internet e GRAVA arquivos de texto numa pasta temporária.
 // Só roda por clique seu (nada em segundo plano). Sem conta no GitHub o limite é de 60 consultas por hora: a lista fica guardada no disco
 // (funciona sem internet) e o erro de limite é explicado. Não depende do Electron (testável com node); os endereços entram por parâmetro.
+const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const API = 'https://api.github.com';
 const RAW = 'https://raw.githubusercontent.com';
+const CODELOAD = 'https://codeload.github.com';
 
-// de onde vêm as skills (o "ia" é para quem a skill serve; o formato SKILL.md é o mesmo nas duas)
+// de onde vêm as skills (o "ia" é para quem a skill serve; o formato SKILL.md é o mesmo em todas)
 const FONTES = [
   { id: 'anthropics/skills', rotulo: 'Anthropic (Claude)', ia: 'claude', descricao: 'as skills oficiais do Claude' },
-  { id: 'openai/skills', rotulo: 'OpenAI (Codex)', ia: 'codex', descricao: 'skills do Codex, no mesmo formato SKILL.md' },
+  { id: 'openai/skills', rotulo: 'OpenAI (Codex)', ia: 'codex', descricao: 'skills oficiais do Codex, no formato SKILL.md' },
+  { id: 'microsoft/skills', rotulo: 'Microsoft (Oficial)', ia: 'claude', descricao: '210+ skills oficiais da Microsoft (Azure, .NET, Python, TS, Playwright)' },
+  { id: 'google/skills', rotulo: 'Google Cloud & AI (Oficial)', ia: 'claude', descricao: '190+ skills oficiais do Google (Cloud, BigQuery, Vertex AI, Android, Web)' },
+  { id: 'googleworkspace/cli', rotulo: 'Google Workspace (Oficial)', ia: 'claude', descricao: '95+ skills oficiais para Drive, Docs, Sheets, Gmail e Calendar' },
+  { id: 'github/awesome-copilot', rotulo: 'GitHub Copilot (Oficial)', ia: 'claude', descricao: '475+ skills da coleção oficial do GitHub para várias linguagens e DevOps' },
+  { id: 'NVIDIA/skills', rotulo: 'NVIDIA AI & 3D (Oficial)', ia: 'claude', descricao: '430+ skills oficiais da NVIDIA (CUDA, GPU, PyTorch, Omniverse, Simulação 3D)' },
+  { id: 'vercel-labs/agent-skills', rotulo: 'Vercel & Next.js (Oficial)', ia: 'claude', descricao: 'skills oficiais da Vercel para React, Next.js e UI' },
+  { id: 'cloudflare/skills', rotulo: 'Cloudflare (Oficial)', ia: 'claude', descricao: 'skills oficiais da Cloudflare (Workers, Pages, D1, R2, Segurança)' },
+  { id: 'huggingface/skills', rotulo: 'Hugging Face (Oficial)', ia: 'claude', descricao: 'skills oficiais do Hugging Face (Transformers, Datasets, Treino de LLMs, Spaces)' },
+  { id: 'stripe/ai', rotulo: 'Stripe (Oficial)', ia: 'claude', descricao: '60+ skills oficiais da Stripe para pagamentos, checkout e SaaS' },
+  { id: 'trailofbits/skills', rotulo: 'Trail of Bits (Segurança)', ia: 'claude', descricao: '98+ skills de auditoria de segurança, análise de código e vulnerabilidades' },
+  { id: 'getsentry/skills', rotulo: 'Sentry (Oficial)', ia: 'claude', descricao: 'skills oficiais do Sentry para monitoramento, erros e performance' },
+  { id: 'datadog-labs/agent-skills', rotulo: 'Datadog (Oficial)', ia: 'claude', descricao: '69+ skills oficiais da Datadog para observabilidade, logs e APM' },
+  { id: 'flutter/skills', rotulo: 'Flutter (Oficial)', ia: 'claude', descricao: '31+ skills oficiais do Flutter para apps mobile, desktop e Dart' },
+  { id: 'expo/skills', rotulo: 'Expo / React Native (Oficial)', ia: 'claude', descricao: '25+ skills oficiais do Expo para aplicativos React Native' },
+  { id: 'supabase/agent-skills', rotulo: 'Supabase (Oficial)', ia: 'claude', descricao: 'skills oficiais do Supabase para Postgres, RLS e Auth' },
+  { id: 'prisma/skills', rotulo: 'Prisma ORM (Oficial)', ia: 'claude', descricao: 'skills oficiais do Prisma para banco de dados, ORM e migrações SQL' },
+  { id: 'remotion-dev/skills', rotulo: 'Remotion Vídeo (Oficial)', ia: 'claude', descricao: 'skills oficiais do Remotion para criação programática de vídeos e reels em React' },
+  { id: 'affaan-m/ECC', rotulo: 'Everything Claude Code (1000+)', ia: 'claude', descricao: '1.060+ skills de engenharia, arquitetura, segurança, testes e linguagens' },
+  { id: 'davila7/claude-code-templates', rotulo: 'Claude Code Templates (900+)', ia: 'claude', descricao: '920+ skills para desenvolvimento full-stack, IA, dados e DevOps' },
+  { id: 'sickn33/agentic-awesome-skills', rotulo: 'Awesome Skills (2900+)', ia: 'claude', descricao: '2.900+ skills reunidas da comunidade para todas as stacks' },
+  { id: 'alirezarezvani/claude-skills', rotulo: 'Alireza Rezvani (410+)', ia: 'claude', descricao: '410+ skills prontas de engenharia, produto, marketing e infraestrutura' },
+  { id: 'NeoLabHQ/context-engineering-kit', rotulo: 'Context Engineering Kit (200+)', ia: 'claude', descricao: '200+ skills focadas em engenharia de contexto, arquitetura e economia de tokens' },
+  { id: 'wondelai/skills', rotulo: 'Wondelai (Produto, UX & Livros)', ia: 'claude', descricao: '196+ skills de arquitetura, UX/UI, design de produto e frameworks de livros' },
+  { id: 'arjun988/blender-skills', rotulo: 'Blender 3D (188 skills)', ia: 'claude', descricao: '188 skills de modelagem 3D no Blender, malhas, modificadores, render e impressão 3D' },
+  { id: 'GarethManning/education-agent-skills', rotulo: 'Educação & Pesquisa (165+)', ia: 'claude', descricao: '165+ skills para pesquisa acadêmica, artigos, escrita científica e estudo' },
+  { id: 'K-Dense-AI/scientific-agent-skills', rotulo: 'K-Dense (Ciência & Python)', ia: 'claude', descricao: '140+ skills científicas para Python, dados, GPU, bioinformática e física' },
+  { id: 'wshobson/agents', rotulo: 'wshobson (Agentes & Fluxos)', ia: 'claude', descricao: '150+ skills de engenharia de software, revisão e automação' },
+  { id: 'LambdaTest/agent-skills', rotulo: 'LambdaTest (QA & Testes)', ia: 'claude', descricao: '87 skills de testes automatizados (Playwright, Cypress, Selenium, Pytest, Jest)' },
+  { id: 'garrytan/gstack', rotulo: 'Garry Tan (gstack)', ia: 'claude', descricao: '75 skills de engenharia de produto, revisão de arquitetura, design e QA' },
+  { id: 'deanpeters/Product-Manager-Skills', rotulo: 'Product Manager (77 skills)', ia: 'claude', descricao: '77 skills de gestão de produto, descoberta, PRD e roadmaps' },
+  { id: 'mattpocock/skills', rotulo: 'Matt Pocock (TypeScript & TDD)', ia: 'claude', descricao: '39 skills práticas de engenharia, TypeScript, TDD e Git' },
+  { id: 'coreyhaines31/marketingskills', rotulo: 'Marketing Skills', ia: 'claude', descricao: '31 skills de SEO, copywriting, conversão, crescimento e analytics' },
+  { id: 'obra/superpowers', rotulo: 'Superpowers', ia: 'claude', descricao: 'metodologia e skills de desenvolvimento ágil e testes para agentes' },
+  { id: 'addyosmani/agent-skills', rotulo: 'Addy Osmani', ia: 'claude', descricao: 'skills de engenharia web de produção por Addy Osmani' },
   { id: 'comunidade', rotulo: 'Comunidade (GitHub)', busca: true, descricao: 'repositórios de skills de qualquer pessoa, pelos mais estrelados' },
   { id: 'outro', rotulo: 'Outro repositório', outro: true, descricao: 'digite dono/repositório' },
 ];
 
 // o acervo da busca por projeto ([buscar online] no card): todas as skills destes repositórios são lidas, e as de cada repositório vêm só uma vez.
-// oficial = a skill vem de quem faz a IA; o resto aparece como "comunidade, não verificada". indice = arquivo do próprio repositório com todas as
-// descrições (1 pedido em vez de milhares; o repositório de 9 mil pastas são ~2.900 skills copiadas em plugins/).
+// oficial = a skill vem de quem faz a IA ou a plataforma; o resto aparece como "comunidade, não verificada". indice = arquivo do próprio repositório
+// com todas as descrições (1 pedido em vez de milhares; o repositório de 9 mil pastas são ~2.900 skills copiadas em plugins/).
 const ACERVO = [
+  // Oficiais de plataformas, IAs, nuvem, bancos de dados e ferramentas (33 repositórios)
   { repo: 'anthropics/skills', rotulo: 'Anthropic', oficial: true },
   { repo: 'openai/skills', rotulo: 'OpenAI', oficial: true },
+  { repo: 'microsoft/skills', rotulo: 'Microsoft', oficial: true },
+  { repo: 'google/skills', rotulo: 'Google', oficial: true },
+  { repo: 'google-gemini/gemini-skills', rotulo: 'Google Gemini', oficial: true },
+  { repo: 'googleworkspace/cli', rotulo: 'Google Workspace', oficial: true },
+  { repo: 'github/awesome-copilot', rotulo: 'GitHub Copilot', oficial: true },
+  { repo: 'NVIDIA/skills', rotulo: 'NVIDIA', oficial: true },
+  { repo: 'vercel-labs/agent-skills', rotulo: 'Vercel', oficial: true },
+  { repo: 'vercel-labs/skills', rotulo: 'Vercel CLI', oficial: true },
+  { repo: 'cloudflare/skills', rotulo: 'Cloudflare', oficial: true },
+  { repo: 'supabase/agent-skills', rotulo: 'Supabase', oficial: true },
+  { repo: 'huggingface/skills', rotulo: 'Hugging Face', oficial: true },
+  { repo: 'stripe/ai', rotulo: 'Stripe', oficial: true },
+  { repo: 'trailofbits/skills', rotulo: 'Trail of Bits', oficial: true },
+  { repo: 'getsentry/skills', rotulo: 'Sentry', oficial: true },
+  { repo: 'datadog-labs/agent-skills', rotulo: 'Datadog', oficial: true },
+  { repo: 'flutter/skills', rotulo: 'Flutter', oficial: true },
+  { repo: 'expo/skills', rotulo: 'Expo', oficial: true },
+  { repo: 'firebase/agent-skills', rotulo: 'Firebase', oficial: true },
+  { repo: 'hashicorp/agent-skills', rotulo: 'HashiCorp', oficial: true },
+  { repo: 'redis/agent-skills', rotulo: 'Redis', oficial: true },
+  { repo: 'mongodb/agent-skills', rotulo: 'MongoDB', oficial: true },
+  { repo: 'prisma/skills', rotulo: 'Prisma', oficial: true },
+  { repo: 'neondatabase/agent-skills', rotulo: 'Neon Postgres', oficial: true },
+  { repo: 'qdrant/skills', rotulo: 'Qdrant', oficial: true },
+  { repo: 'clickhouse/agent-skills', rotulo: 'ClickHouse', oficial: true },
+  { repo: 'duckdb/duckdb-skills', rotulo: 'DuckDB', oficial: true },
+  { repo: 'apollographql/skills', rotulo: 'Apollo GraphQL', oficial: true },
+  { repo: 'remotion-dev/skills', rotulo: 'Remotion', oficial: true },
+  { repo: 'WordPress/agent-skills', rotulo: 'WordPress', oficial: true },
+  { repo: 'browserbase/skills', rotulo: 'Browserbase', oficial: true },
+  { repo: 'firecrawl/cli', rotulo: 'Firecrawl', oficial: true },
+  { repo: 'makenotion/claude-code-notion-plugin', rotulo: 'Notion', oficial: true },
+  // Grandes bibliotecas e coleções especializadas da comunidade (26 repositórios)
   { repo: 'obra/superpowers', rotulo: 'Superpowers' },
   { repo: 'addyosmani/agent-skills', rotulo: 'Addy Osmani' },
+  { repo: 'mattpocock/skills', rotulo: 'Matt Pocock' },
   { repo: 'wshobson/agents', rotulo: 'wshobson' },
   { repo: 'alirezarezvani/claude-skills', rotulo: 'alirezarezvani' },
+  { repo: 'affaan-m/ECC', rotulo: 'Everything Claude Code' },
+  { repo: 'davila7/claude-code-templates', rotulo: 'Claude Templates' },
   { repo: 'K-Dense-AI/scientific-agent-skills', rotulo: 'K-Dense (ciência)' },
+  { repo: 'arjun988/blender-skills', rotulo: 'Blender Skills (3D)' },
+  { repo: 'jangtrinh/design-os-3d-blender', rotulo: 'Design:OS Blender' },
+  { repo: 'NeoLabHQ/context-engineering-kit', rotulo: 'Context Kit' },
+  { repo: 'muratcankoylan/Agent-Skills-for-Context-Engineering', rotulo: 'Context Engineering' },
+  { repo: 'wondelai/skills', rotulo: 'Wondelai (UX & Produto)' },
+  { repo: 'GarethManning/education-agent-skills', rotulo: 'Education & Research' },
+  { repo: 'deanpeters/Product-Manager-Skills', rotulo: 'Product Manager' },
+  { repo: 'garrytan/gstack', rotulo: 'Garry Tan (gstack)' },
+  { repo: 'phuryn/pm-skills', rotulo: 'PM Skills' },
   { repo: 'coreyhaines31/marketingskills', rotulo: 'Marketing Skills' },
   { repo: 'ComposioHQ/awesome-claude-skills', rotulo: 'Composio' },
+  { repo: 'pbakaus/impeccable', rotulo: 'Impeccable (UI)' },
+  { repo: 'nextlevelbuilder/ui-ux-pro-max-skill', rotulo: 'UI/UX Pro Max' },
+  { repo: 'czlonkowski/n8n-skills', rotulo: 'n8n Skills' },
+  { repo: 'callstackincubator/agent-skills', rotulo: 'Callstack (RN)' },
+  { repo: 'sanjay3290/ai-skills', rotulo: 'Sanjay AI Skills' },
+  { repo: 'LambdaTest/agent-skills', rotulo: 'LambdaTest (QA)', indice: 'skills_index.json' },
   { repo: 'sickn33/agentic-awesome-skills', rotulo: 'Awesome Skills', indice: 'skills_index.json' },
 ];
 
@@ -199,11 +288,46 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
 
   const validarRepo = (repo) => { if (typeof repo !== 'string' || !REPO.test(repo)) throw new ErroCatalogo('erro', 'repositório inválido (use dono/repositório)'); return repo; };
 
-  // a árvore de arquivos do repositório inteira (1 pedido)
+  // Lê a árvore direto do tarball (codeload.github.com) quando a API de 60 pedidos/hora do GitHub estourar em produção
+  async function arvoreTarball(repo) {
+    const gz = await pedir(`${CODELOAD}/${repo}/tar.gz/HEAD`, { max: LIMITES.total });
+    let tar;
+    try { tar = zlib.gunzipSync(gz); } catch { throw new ErroCatalogo('erro', 'pacote inesperado do GitHub'); }
+    const tree = [];
+    let pos = 0;
+    while (pos + 512 <= tar.length) {
+      const cab = tar.subarray(pos, pos + 512);
+      if (cab[0] === 0) { pos += 512; continue; }
+      let nome = cab.subarray(0, 100).toString('utf8').replace(/\0.*$/, '');
+      const pref = cab.subarray(345, 500).toString('utf8').replace(/\0.*$/, '');
+      if (pref) nome = pref + '/' + nome;
+      const tam = parseInt(cab.subarray(124, 136).toString('utf8').replace(/\0.*$/, '').trim(), 8) || 0;
+      const tipo = String.fromCharCode(cab[156]);
+      const ini = pos + 512;
+      pos = ini + Math.ceil(tam / 512) * 512;
+      if ((tipo === '0' || tipo === '\0') && nome) {
+        const rel = nome.split('/').slice(1).join('/');
+        if (!rel) continue;
+        let sha = '';
+        if ((rel === 'SKILL.md' || rel.endsWith('/SKILL.md')) && ini + tam <= tar.length) {
+          sha = crypto.createHash('sha1').update(`blob ${tam}\0`).update(tar.subarray(ini, ini + tam)).digest('hex');
+        }
+        tree.push({ path: rel, type: 'blob', size: tam, sha });
+      }
+    }
+    return { sha: 'head', truncated: false, tree };
+  }
+
+  // a árvore de arquivos do repositório inteira (1 pedido; se a API de 60/h limitar no GitHub real, cai no codeload)
   async function arvore(repo) {
-    const d = await json(`${api}/repos/${repo}/git/trees/HEAD?recursive=1`, { max: LIMITES.arvore });
-    if (!Array.isArray(d.tree)) throw new ErroCatalogo('erro', 'resposta inesperada do GitHub');
-    return d;
+    try {
+      const d = await json(`${api}/repos/${repo}/git/trees/HEAD?recursive=1`, { max: LIMITES.arvore });
+      if (!Array.isArray(d.tree)) throw new ErroCatalogo('erro', 'resposta inesperada do GitHub');
+      return d;
+    } catch (e) {
+      if (api === API && e instanceof ErroCatalogo && e.tipo === 'limite') return arvoreTarball(repo);
+      throw e;
+    }
   }
   // as pastas que têm um SKILL.md: [{ caminho, arquivos, sha }]. sha = a versão do SKILL.md (só relê a descrição quando ele muda)
   function pastasDeSkill(d) {
@@ -280,12 +404,12 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
   // repositórios da comunidade que têm skills (pelos tópicos do GitHub), os mais estrelados primeiro
   async function repositorios(termo = '') {
     const t = String(termo || '').trim().replace(/[^\p{L}\p{N} ._-]/gu, '').slice(0, 250);
-    const consultas = ['agent-skills', 'claude-skills'].map((topico) => `${t ? t + '+' : ''}topic:${topico}`);
+    const consultas = ['agent-skills', 'claude-skills', 'claude-code-skills'].map((topico) => `${t ? t + '+' : ''}topic:${topico}`);
     const vistos = new Map();
     let erro = null;
     for (const q of consultas) {
       try {
-        const d = await json(`${api}/search/repositories?q=${encodeURIComponent(q).replace(/%2B/g, '+')}&sort=stars&order=desc&per_page=15`);
+        const d = await json(`${api}/search/repositories?q=${encodeURIComponent(q).replace(/%2B/g, '+')}&sort=stars&order=desc&per_page=20`);
         for (const r of d.items || []) {
           if (!r || !REPO.test(r.full_name || '') || vistos.has(r.full_name)) continue;
           vistos.set(r.full_name, { repo: r.full_name, descricao: String(r.description || '').slice(0, 300), estrelas: Number(r.stargazers_count) || 0, atualizado: String(r.pushed_at || '').slice(0, 10) });
@@ -293,7 +417,7 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
       } catch (e) { erro = e; }
     }
     if (!vistos.size && erro) throw erro;
-    return { repos: [...vistos.values()].sort((a, b) => b.estrelas - a.estrelas).slice(0, 25) };
+    return { repos: [...vistos.values()].sort((a, b) => b.estrelas - a.estrelas).slice(0, 30) };
   }
 
   // baixa a pasta de UMA skill para destino/<nome-da-pasta>/ e devolve o caminho. Só arquivos da pasta, com limites de quantidade e tamanho.
@@ -359,7 +483,8 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
     const atual = indice.repos[fonte.repo];
     if (atual && agora() - atual.quando < LIMITES.indiceValidade) return;
     if (fonte.indice) {
-      const lista = JSON.parse((await pedir(`${raw}/${fonte.repo}/HEAD/${fonte.indice}`, { max: LIMITES.arvore })).toString('utf8'));
+      const bruto = JSON.parse((await pedir(`${raw}/${fonte.repo}/HEAD/${fonte.indice}`, { max: LIMITES.arvore })).toString('utf8'));
+      const lista = Array.isArray(bruto) ? bruto : (bruto && Array.isArray(bruto.skills) ? bruto.skills : null);
       if (!Array.isArray(lista)) throw new ErroCatalogo('erro', 'índice inesperado em ' + fonte.repo);
       const itens = lista.filter((x) => x && typeof x.path === 'string' && !/\.\.|^\//.test(x.path)).slice(0, 6000)
         .map((x) => ({ caminho: x.path, arquivos: 0, sha: '', nome: String(x.name || x.id || x.path.split('/').pop()).slice(0, 250), descricao: String(x.description || '').slice(0, 400), lida: true }));
@@ -393,13 +518,21 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
       .map((x) => ({ repo: x.repo, rotulo: x.repo.split('/')[0] }));
   }
 
-  async function lerDescricoes(indice, fontes, avisar) {
+  async function lerDescricoes(indice, fontes, avisar, preparados = null) {
     const faltam = [];
-    for (const f of fontes) for (const i of (indice.repos[f.repo] ? indice.repos[f.repo].itens : [])) if (!i.lida) faltam.push({ repo: f.repo, i });
+    for (const f of fontes) {
+      for (const i of (indice.repos[f.repo] ? indice.repos[f.repo].itens : [])) {
+        if (!i.lida) {
+          const prio = (preparados ? pontuar(i, preparados, !!f.oficial).pontos : 0) + (f.oficial ? 1 : 0);
+          faltam.push({ repo: f.repo, i, prio });
+        }
+      }
+    }
+    if (preparados) faltam.sort((a, b) => b.prio - a.prio);
     const fim = agora() + LIMITES.tempoDescricoes;
     let feitas = 0;
     let limite = false;
-    await emLotes(faltam, 12, async ({ repo, i }) => {
+    await emLotes(faltam, 16, async ({ repo, i }) => {
       if (limite || agora() > fim) return;
       try {
         const md = (await pedir(`${raw}/${repo}/HEAD/${i.caminho ? i.caminho.split('/').map(encodeURIComponent).join('/') + '/' : ''}SKILL.md`, { max: LIMITES.cabecalho * 8, faixa: LIMITES.faixaDescricao })).toString('utf8');
@@ -440,10 +573,11 @@ function criarCatalogo({ api = API, raw = RAW, buscar = globalThis.fetch, arquiv
           else if (!indice.repos[f.repo]) avisos.push(`${f.repo}: ${e.message}`);
         }
       }
-      avisar({ etapa: 'repositorios', feitas: ++feitos, total: fontes.length });
+      if (++feitos % 12 === 0) guardarIndice(indice);
+      avisar({ etapa: 'repositorios', feitas: feitos, total: fontes.length });
     }
     guardarIndice(indice);
-    const faltaram = await lerDescricoes(indice, fontes, avisar);
+    const faltaram = await lerDescricoes(indice, fontes, avisar, preparados);
     guardarIndice(indice);
     avisar({ etapa: 'nota', feitas: 0, total: 0 });
 

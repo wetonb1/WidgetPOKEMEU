@@ -79,8 +79,13 @@ const servidor = http.createServer((req, res) => {
     assert.deepStrictEqual([cabecalhoSkill(XLS_MD).name, cabecalhoSkill(XLS_MD).description], ['planilha', 'Cria e edita planilhas do Excel (xlsx)']);
     assert.deepStrictEqual(cabecalhoSkill('sem cabeçalho'), {});
   });
-  await teste('as fontes: Anthropic e OpenAI vêm prontas, mais a comunidade e "outro repositório"', () => {
-    assert.deepStrictEqual(FONTES.map((f) => f.id), ['anthropics/skills', 'openai/skills', 'comunidade', 'outro']);
+  await teste('as fontes: Anthropic, OpenAI e bibliotecas oficiais/comunidade vêm prontas, mais busca e "outro repositório"', () => {
+    const ids = FONTES.map((f) => f.id);
+    assert.strictEqual(ids[0], 'anthropics/skills');
+    assert.strictEqual(ids[1], 'openai/skills');
+    assert.ok(ids.includes('microsoft/skills') && ids.includes('google/skills') && ids.includes('arjun988/blender-skills'));
+    assert.deepStrictEqual(ids.slice(-2), ['comunidade', 'outro']);
+    assert.ok(ACERVO.length >= 50, 'acervo amplo de bibliotecas de skills');
   });
   await teste('nomes de repositório inválidos são recusados', () => {
     for (const ruim of ['', 'a', 'a/b/c', '../x', 'a/..', 'a b/c', 'dono/repo?x=1', null, 42]) assert.throws(() => cat.validarRepo(ruim), /inválido/);
